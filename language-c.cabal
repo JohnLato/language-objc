@@ -1,0 +1,58 @@
+Name:           language-c
+Version:        0.1
+Cabal-Version:  >= 1.2
+Build-Type:     Simple
+License:        GPL
+License-File:   COPYING
+Copyright:      Copyright (c) [1999..2007] Manuel M T Chakravarty
+Author:         Manuel M T Chakravarty
+                Duncat Coutts
+                Bertram Felgenhauer
+                Benedikt Huber
+Maintainer:     -
+Stability:      Alpha
+Homepage:       -
+Synopsis:       C99 Parser Library
+Category:       Development
+
+Extra-Source-Files: src/Language/C/Parser/Lexer.x
+                    src/Language/C/Parser/Parser.y
+
+Flag splitBase
+    Description: Choose the new smaller, split-up base package.
+Flag generics
+    Description: Derive Typeable and Data instances for the AST, and
+                 add support for generic traversal.
+    Default: False
+
+Library
+
+    Build-Depends:  base, filepath
+
+    if flag(splitBase)
+        Build-Depends: base >= 3, process, directory, array, containers, pretty
+    else
+        Build-Depends: base < 3
+
+    if flag(generics)
+        Extensions: DeriveDataTypeable, StandaloneDeriving
+
+    Build-Tools:    happy, alex
+
+    Hs-Source-Dirs: src
+    Exposed-Modules:  
+											Language.C.Toolkit.UNames 
+                      Language.C.Toolkit.Position 
+                      Language.C.Toolkit.Errors 
+                      Language.C.Toolkit.Attributes 
+                      Language.C.Toolkit.Idents 
+                      Language.C.Parser.Tokens 
+                      Language.C.Toolkit.ParserMonad 
+                      Language.C.Parser.Lexer 
+                      Language.C.Toolkit.NameSpaces 
+                      Language.C.AST.AST 
+                      Language.C.AST.Pretty 
+                      Language.C.AST.Attrs 
+                      Language.C.AST.Builtin 
+                      Language.C.Parser.Parser 
+                      Language.C              

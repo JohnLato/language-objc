@@ -41,7 +41,7 @@ Library
 
     Hs-Source-Dirs: src
     Exposed-Modules:  
-											Language.C.Toolkit.UNames 
+                      Language.C.Toolkit.UNames 
                       Language.C.Toolkit.Position 
                       Language.C.Toolkit.Errors 
                       Language.C.Toolkit.Attributes 

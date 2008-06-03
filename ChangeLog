@@ -1,17 +1,16 @@
 
 * 2008-06-01
 	Removed the PreCST monad for now, as the initial code base should be as small as possible.
-	It is easy to inject the parse results back into PreCST.
-	As a consequence, the NameSupply (implemented using unsafePerformIO and IORefs) has been
-	removed as well.
+	It is easy to inject the parse results back into PreCST later.
+	As a consequence, the NameSupply isn't used anymore.
 	As long as you stay within the ParserMonad, each AST element still has an unique id.
 	
 * 2008-05-29 
   Add a top-level module acting as facade (Language.C)
 
-* 2008-05-29
-	Added a CCWrapper module (primarily for convenience).
-
 * 2008-05-26 
-  Renaming / Hierarchical Modules
-  see src/refactor.receipt
+  Renaming / Hierarchical Modules.
+	Language.C         
+	Language.C.Parser
+	Language.C.AST
+	Language.C.Toolkit

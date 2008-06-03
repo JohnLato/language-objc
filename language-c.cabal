@@ -4,13 +4,11 @@ Cabal-Version:  >= 1.2
 Build-Type:     Simple
 License:        GPL
 License-File:   COPYING
-Copyright:      Copyright (c) [1999..2007] Manuel M T Chakravarty
-Author:         Manuel M T Chakravarty
-                Duncat Coutts
-                Bertram Felgenhauer
-                Benedikt Huber
+Copyright:      Copyright (c) [1999..2007] Manuel M T Chakravarty, Duncan Coutts (c2hs)
+                              2008         Benedikt Huber
+Author:         AUTHORS
 Maintainer:     -
-Stability:      Alpha
+Stability:      -
 Homepage:       -
 Synopsis:       C99 Parser Library
 Category:       Development
@@ -21,6 +19,7 @@ Extra-Source-Files: src/Language/C/Parser/Lexer.x
                     test/CTest.hs
 Flag splitBase
     Description: Choose the new smaller, split-up base package.
+
 Flag generics
     Description: Derive Typeable and Data instances for the AST, and
                  add support for generic traversal.

@@ -18,7 +18,6 @@ import System.IO
 import System.Exit
 import System.Cmd
 import Language.C.Toolkit.Position
-import Language.C.Toolkit.State
 import Language.C.Parser.Parser (parseC)
 import Language.C.AST.AST
 

@@ -1,3 +1,5 @@
+* 2008-06-03
+  tagged src 0.1
 
 * 2008-06-01
 	Removed the PreCST monad for now, as the initial code base should be as small as possible.

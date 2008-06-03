@@ -1,0 +1,21 @@
+= Language.C =
+
+Parser and Pretty Printer for C99.
+See http://www.sivity.net/projects/language.c/
+
+== Build ==
+
+runhaskell Setup configure
+runhaskell Setup build
+-- or --
+cabal configure
+cabal build
+
+== Testing ==
+
+=== parse-and-print ===
+
+cd test
+ghc -O --make -i../src CTest.hs
+# Usage
+./CTest -I/usr/src/yarv /usr/src/yarv/vm.c

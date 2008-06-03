@@ -17,7 +17,8 @@ Category:       Development
 
 Extra-Source-Files: src/Language/C/Parser/Lexer.x
                     src/Language/C/Parser/Parser.y
-
+                    test/CPP.hs
+                    test/CTest.hs
 Flag splitBase
     Description: Choose the new smaller, split-up base package.
 Flag generics

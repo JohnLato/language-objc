@@ -15,7 +15,10 @@ cabal build
 
 === parse-and-print ===
 
-cd test
-ghc -O --make -i../src CTest.hs
-# Usage
-./CTest -I/usr/src/yarv /usr/src/yarv/vm.c
+> cd test
+> make c_test
+> ./bin/CTest -I/usr/src/yarv /usr/src/yarv/vm.c
+
+== Automatic Testing ==
+
+See test/README

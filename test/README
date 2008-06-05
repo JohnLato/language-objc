@@ -1,0 +1,47 @@
+= Test Framework =
+
+== Build ==
+
+> make
+
+== Running roundtrip tests ==
+
+> cd suite
+> cp compile-lib.template run-my-lib.sh
+
+Now edit run-my-lib.sh and change TESTNAME and the test directory.
+Then either change the make target, or customize the build script.
+
+== Rendering test results ==
+
+In the default configuration:
+
+> cd results
+> ../bin/RenderTests parser-version list-of-test-names
+
+for example
+
+> ../bin/RenderTests parser-0.2 smoke glib gtk2
+
+The result overview can be found in index.html.
+
+== Running custom tests ==
+
+Look at suite/run-smoke.sh
+
+ * First the general setup:
+
+> #!/bin/sh
+> source ./configuration
+> 
+> export TESTNAME=my-test-name
+> export CTEST_DEBUG=1                 # Set if you want debug messages
+> 
+> source $CTEST_BINDIR/setup_test_suite || { echo "Setup failed" 1>&2 ; exit 1 ; }
+
+ * Run custom tests
+
+> export CTEST_DRIVER=test-driver
+> sh run-test test-args
+
+Currently, only one test driver (CRoundTrip) is implemented.

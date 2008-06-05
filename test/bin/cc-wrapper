@@ -1,0 +1,14 @@
+#!/bin/sh
+# Parse the given files, acting as if it was a C-compiler
+
+# Run the roundtrip test
+export CTEST_DRIVER=CRoundTrip
+
+# Run test
+$CTEST_BINDIR/CheckGccArgs $@
+if [ $? -eq 0 ]; then
+	$CTEST_BINDIR/run-test $@
+fi
+
+# Invoke gcc
+gcc $@

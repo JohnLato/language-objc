@@ -7,7 +7,7 @@
 -- This module provides a wrapper for parsing C-files which haven't been preprocessed yet.
 -- It is used as if gcc is called, and internally calls gcc to preprocess the file.
 -----------------------------------------------------------------------------
-module CPP (
+module Language.C.Test.CPP (
   withTempFile,
   parseCC,
   MungeResult(..), mungeCcArgs,
@@ -57,14 +57,14 @@ mungeCcArgs :: [String] -> MungeResult
 mungeCcArgs = mungeArgs [] ""
 
 mungeArgs :: [String] -> String -> [String] -> MungeResult
-mungeArgs accum []    [] = Unknown "No .c / .hc / .i source file given"
+mungeArgs _accum []    [] = Unknown "No .c / .hc / .i source file given"
 mungeArgs accum cfile [] = Groked cfile (reverse accum)
 -- ignore preprocessing - only calls
-mungeArgs accum cfile ("-E":args) = Ignore
+mungeArgs _accum _cfile ("-E":_) = Ignore
 -- ignore make-rule creation
-mungeArgs accum cfile ("-M":args) = Ignore
+mungeArgs _accum _cfile ("-M":_) = Ignore
 -- strip outfile
-mungeArgs accum cfile ("-o":outfile:args) = mungeArgs accum cfile args
+mungeArgs accum cfile ("-o":_outfile:args) = mungeArgs accum cfile args
 mungeArgs accum cfile (cfile':args)
           | ".c" `isSuffixOf` cfile'
          || ".hc" `isSuffixOf` cfile'
@@ -72,6 +72,6 @@ mungeArgs accum cfile (cfile':args)
               if null cfile
                 then mungeArgs (cfile':accum) cfile' args
                 else Unknown $ "Two source files given: " ++ cfile ++ " and " ++ cfile'
-mungeArgs accum cfile (cfile':args)
+mungeArgs _accum _cfile (cfile':_)
           | ".S" `isSuffixOf` cfile' = Ignore
 mungeArgs accum cfile (arg:args) = mungeArgs (arg:accum) cfile args

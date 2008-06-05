@@ -1,4 +1,5 @@
 # QnD makefile. Not sure if we can use cabal here, too.
+$(shell mkdir -p build)
 ifndef HC
 HC=ghc
 endif
@@ -6,7 +7,6 @@ ifndef OPT
 OPT=-O
 endif
 OPT += -hidir build -odir build
-
 all: c_test round_trip render_tests report_fatal check_args
 c_test:
 	$(HC) $(OPT) -o bin/CTest -i../src -isrc --make src/CTest.hs

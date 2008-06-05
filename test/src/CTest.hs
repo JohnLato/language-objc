@@ -15,7 +15,7 @@ main
 import System.Environment (getEnv, getArgs)
 import Language.C.AST.AST
 import Language.C.AST.Pretty
-import CPP
+import Language.C.Test.CPP
 
 main :: IO ()
 main = do

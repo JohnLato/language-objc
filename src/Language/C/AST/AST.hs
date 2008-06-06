@@ -655,14 +655,11 @@ data CUnaryOp = CPreIncOp		-- prefix increment operator
 --
 -- * we do not list enumeration constants here, as they are identifiers
 --
-data CConst = CIntConst   Integer
-		          Attrs
-	    | CCharConst  Char
-		          Attrs
-	    | CFloatConst String
-			  Attrs
-	    | CStrConst   String
-			  Attrs
+-- TODO: in general we loose the type information here (the suffixes l, u, LL)
+data CConst = CIntConst Integer Attrs
+	          | CCharConst Char Attrs
+	          | CFloatConst String Attrs
+	          | CStrConst   String Attrs
 
 instance Pos CConst where
   posOf (CIntConst   _ at) = posOf at

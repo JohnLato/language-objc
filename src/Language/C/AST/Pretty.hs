@@ -23,6 +23,7 @@ module Language.C.AST.Pretty (
 import Data.List (partition,nub,isSuffixOf)
 import qualified Data.Set as Set
 import Language.C.AST.AST
+import Language.C.AST.Constants
 import Language.C.Toolkit.Idents
 import Language.C.Toolkit.Position
 import Text.PrettyPrint.HughesPJ
@@ -78,7 +79,7 @@ prettyUsingInclude cast@(CHeader edecls _) =
 instance Pretty CExtDecl where
     pretty (CDeclExt decl) = pretty decl <> semi
     pretty (CFDefExt fund) = pretty fund
-    pretty (CAsmExt  _   ) = text "[[[asm]]];"
+    pretty (CAsmExt  _   ) = text "int __asm__ext__todo;"
 
 instance Pretty CFunDef where
     pretty (CFunDef declspecs declr decls stat _) =
@@ -118,7 +119,7 @@ instance Pretty CStat where
     pretty (CBreak _) = ii $ text "break" <> semi
     pretty (CReturn Nothing _) = ii $ text "return" <> semi
     pretty (CReturn (Just e) _) = ii $ text "return" <+> pretty e <> semi
-    pretty (CAsm _) = ii $ text "[[[asm]]]" <> semi
+    pretty (CAsm _) = ii $ text "__asm_todo()" <> semi -- TODO
 
     prettyPrec p (CCompound bis _) =
         let inner = text "{" $+$ vcat (map pretty bis) $$ text "}"
@@ -266,7 +267,7 @@ instance Pretty CExpr where
     prettyPrec p (CStatExpr stat _) =
         text "({" <> pretty stat <> text "})" -- FIXME
     prettyPrec p (CLabAddrExpr ident _) = text "&" <> identP ident -- FIXME
-    prettyPrec p (CBuiltinExpr _) = text "[[[builtin]]]"
+    prettyPrec p (CBuiltinExpr _) = text "__builtin__todo()" -- TODO
 
 instance Pretty CAssignOp where
     pretty CAssignOp = text "="
@@ -314,10 +315,10 @@ instance Pretty CUnaryOp where
     pretty CNegOp     = text "!"
 
 instance Pretty CConst where
-    pretty (CIntConst   int _) = text (show int)
-    pretty (CCharConst  chr _) = text (show chr) -- FIXME: control characters
+    pretty (CIntConst   int _) = text (show int) -- FIXME: long constants
+    pretty (CCharConst  chr _) = text (exportCharConstant chr)
     pretty (CFloatConst flt _) = text flt
-    pretty (CStrConst   str _) = text str
+    pretty (CStrConst   str _) = text (exportStringLiteral . tail . init $ str)
 
 -- precedence of C operators
 binPrec :: CBinaryOp -> Int

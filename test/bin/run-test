@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# TODO: This depends on bash's PIPESTATUS
+# See http://wooledge.org:8000/BashFAQ for advanced bash tricks.
+# TODO: This depends on bash's PIPESTATUS and perl
+
+doalarm() { perl -e 'alarm shift; exec @ARGV' "$@"; }
 
 # Runs the test $CTEST_DRIVER
 if [ -z $CTEST_BINDIR ]; then die "Missing environment variable \$CTEST_BINDIR"; fi
@@ -10,8 +13,8 @@ if [ -z $CTEST_REPORT_FILE ]; then die "Missing environment variable \$CTEST_REP
 # Temporary file to collect stderr output
 TMPFILE=`mktemp $CTEST_TMPDIR/cc-wrapper.XXXXXX` || exit 1
 
-# Run the test, teeing output to TMPFILE
-$CTEST_BINDIR/$CTEST_DRIVER +RTS -M64M -RTS $@ 2>&1 | tee $TMPFILE
+# Run the test (max 30 seconds), teeing output to TMPFILE
+doalarm 30 $CTEST_BINDIR/$CTEST_DRIVER +RTS -M64M -RTS $@ 2>&1 | tee $TMPFILE
 
 # If return status of test driver isn't 0, we have a fatal error and report it.
 if [ $PIPESTATUS -ne 0 ]; then

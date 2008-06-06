@@ -13,7 +13,7 @@
 --
 -- see 'TestEnvironment'.
 -----------------------------------------------------------------------------
-module Main  where
+module Main (main)  where
 import Control.Monad.Cont 
 import Control.Monad.State
 import System.Environment (getArgs)

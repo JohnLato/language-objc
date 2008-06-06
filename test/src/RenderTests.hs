@@ -8,10 +8,14 @@
 -- Portability :  
 --
 -- This module renders test results into HTML files, much like pugs smoke tests.
-
--- TODO: Use stylesheets, not bgcolor attribute
+-- We use stylesheets to color cells in the result table. 
+-- If JQuery and its tablesorter plugin is available, it is used.
+--
+-- Resources used:
+--   res/style.css
+--   res/jquery-latest.js res/jquery.tablesorter.js [optional]
+--
 -- TODO: Performance is sub-optimal
--- TODO: It would be nice to have Javascript filter and sort for detailled view.
 -- TOOD: Display performance in detailled view too (maybe only if differs significantly from the average performance)
 -----------------------------------------------------------------------------
 module Main (main) where
@@ -30,41 +34,6 @@ import Text.Printf
 import Text.XHtml
 
 import Language.C.Test.Framework
-
--- extended Filepath.normalise
--- we want to have @normalise' "/Foo/./bar/.././../baz"@ ==> @"/baz"@
--- Do not know how to accomplish this with System.FilePath ...
-normalise' :: FilePath -> FilePath
-normalise' = joinPath . reverse . foldl removeDotDot [] . splitPath . normalise
-  where 
-    removeDotDot (dir:dirs) dotDot | dropTrailingPathSeparator dotDot == "..", not (isAbsolute dir) = dirs
-    removeDotDot (dir:dirs) dot | dropTrailingPathSeparator dot == "." = (dir:dirs)
-    removeDotDot dirs c = c:dirs
-    
--- html helpers
-floatToHtml :: (RealFloat a) => Int -> a -> Html
-floatToHtml prec f = toHtml $ showFFloat (Just prec) f ""
-
-stringCell :: String -> HtmlTable
-stringCell = cell . td . toHtml
-
-sortableTable :: String -> HtmlTable -> Html
-sortableTable tid tbl = defaultTable tbl ! [ theclass "sortable", identifier tid ]
-defaultTable :: HtmlTable -> Html
-defaultTable tbl = table (toHtml tbl) ! [border 1, cellpadding 10]
-
-mkTable :: [Html] -> [[Html]] -> Html
-mkTable tableHeader tableRows = 
-  simpleTable [border 1, cellpadding 10] [] (tableHeader : tableRows)
-
-htmlFile :: String -> Html -> String
-htmlFile title body = prettyHtml $ 
-  header << 
-    (
-      (thetitle << title)
---    +++ (script << "") ! [ thetype "text/javascript", src "sortable.js"] -- doesn't work yet
-    )
-  +++ body
 
 -- | read the dat file containing the test-results
 readTestRuns :: FilePath -> IO [TestRun]
@@ -137,9 +106,9 @@ addToSummary (TestResult testinfo _ teststatus) sums
     alterSummary Nothing = alterSummary (Just (initSummary testinfo))
     alterSummary (Just s) = Just$
       case teststatus of
-        (TestError msg) -> s
-        (TestFailure msg report) -> s { numFailed = succ (numFailed s) }        
-        (TestOk processed elapsed_t report) -> 
+        (TestError _msg) -> s
+        (TestFailure _msg _report) -> s { numFailed = succ (numFailed s) }        
+        (TestOk processed elapsed_t _report) -> 
           s { numOk = succ (numOk s), totalEntities = totalEntities s + processed, totalTime = (totalTime s) + elapsed_t }
 
 -- =========
@@ -162,9 +131,10 @@ main :: IO ()
 main = do
   args <- getArgs
   when (length args < 2) $ do
-    hPutStrLn stderr "Usage: ./SummarizeTest parser-version test-names"
+    hPutStrLn stderr "Usage: ./RenderTests parser-version test-names"
     exitWith (ExitFailure 1)
-  (parserVersion : tests) <- getArgs
+  (parserVersion : _tests) <- getArgs
+  let tests = map takeBaseName _tests
   testRuns <- liftM (zip tests) $ mapM (readTestRuns.datFile) tests
   -- make file references relative to the current directory (for publishing)
   pwd <- getCurrentDirectory
@@ -182,24 +152,21 @@ main = do
       htmlFile ("Test results for "++ testSetName testResult) $ 
         detailedContents normalizeFilePath testResult        
 
--- ==================
--- = HTML rendering =
--- ==================
-  
 -- | create index.html
 indexContents :: String -> [TestSetResult] -> Html
 indexContents parserVersion tsresults = 
        h1 << "Test results"
   +++  p  << ("Test with Language.C, "++parserVersion)
   +++  h2 << "Overview"
-  +++  overviewTable tsresults
+  +++  overviewTable tsresults ! [ identifier "overviewTable", theclass "tablesorter" ]
   +++  h2 << "Test Summaries"
   +++  concatHtml (map testSummary tsresults)
   where
     overviewTable results = 
-      mkTable 
-        (map toHtml ["test set name","total tests", "init error", "fatal error", "tests run", "all tests ok", "some tests failed" ])
-        (map overviewRow results ++ [overviewSummaryRow results])
+      mkTableWithSummaryRow
+        ["test set name","total tests", "init error", "fatal error", "tests run", "all tests ok", "some tests failed" ]
+        (map overviewRow results)
+        (overviewSummaryRow results)
     overviewRow tsr = (testSetLink tsr) : 
                       map (toHtml.show) [totalTestRuns tsr, initErrors tsr, fatalErrors tsr, 
                                          executedTests tsr, allOk tsr, someFailed tsr ]
@@ -222,6 +189,47 @@ detailedContents normRef tsr =
   +++ h2 << "Detailed View"
   +++ detailedView normRef tsr
 
+-- ==================
+-- = HTML rendering =
+-- ==================
+
+mkTable :: (HTML hd) => [hd] -> [[Html]] -> Html
+mkTable tableHeader tableRows = 
+  table $
+        thead << (tr << (map (th <<) tableHeader))
+    +++ tbody << (concatHtml $ map (tr . concatHtml . map td) tableRows)
+
+mkTableWithSummaryRow :: (HTML hd, HTML lst) => [hd] -> [[Html]] -> [lst] -> Html
+mkTableWithSummaryRow tableHeader tableRows tableLast =
+  table $
+        thead << (tr << (map (th <<) tableHeader))
+    +++ tbody << (concatHtml $ map (tr . concatHtml . map td) tableRows)
+    +++ tr (concatHtml $ map (\c -> (td << c) ! [ theclass "last_row" ]) tableLast)
+
+tablesorterImport :: [String] -> Html
+tablesorterImport tids =
+    (script << "") ! [ thetype "text/javascript", src "res/jquery-latest.js"]
+    +++ (script << "") ! [ thetype "text/javascript", src "res/jquery.tablesorter.js"]
+    +++ concatHtml (map (addSort . ('#':)) tids)
+    where
+       -- hard to ride in a beautiful way 
+       addSort tid = (script <<  primHtml ("$(function() { $(" ++ quoteString tid ++  ").tablesorter({ widgets: ['zebra'] } ); });"))
+                     ! [ thetype "text/javascript" ]	
+       quoteString s = ('"' : s) ++ "\""
+       
+htmlFile :: String -> Html -> String
+htmlFile title thebody = prettyHtml $ 
+  header << 
+    (
+          (thetitle << title)
+      +++ (thelink << "") ! [ rel "stylesheet", href "res/style.css", thetype "text/css" ]
+      +++ tablesorterImport ["reportTable", "overviewTable"] -- hardcoded
+    )
+  +++ body thebody
+
+-- =====================
+-- = Rendering Summary =
+-- =====================
 
 -- * Summary of XXX.dat
 -- Executed %d out of %d tests
@@ -229,16 +237,16 @@ detailedContents normRef tsr =
 summaryView :: TestSetResult -> Html
 summaryView tsr = 
       p << (printf "Executed %d out of %d tests"  (length $ filter hasTestResults runs) (length runs) :: String)
-  +++  (defaultTable $ summaryTable (Map.elems $ testSummaries tsr))
+  +++  summaryTable (Map.elems $ testSummaries tsr) ! [ identifier ("table_" ++ testSetName tsr) ]
   where
     runs = testRuns tsr
 
     
-summaryTable :: [TestSummary] -> HtmlTable
-summaryTable summaries = aboves $ header : map mkRow summaries
+summaryTable :: [TestSummary] -> Html
+summaryTable summaries = mkTable header (map mkRow summaries)
   where
-    header = besides $ map (td . toHtml) $ words "Test Ok Failed InputSize Time Throughput"
-    mkRow = besides . map td . summaryEntries
+    header = words "Test Ok Failed InputSize Time Throughput"
+    mkRow  = summaryEntries
     summaryEntries ts =
       let testinfo = sTestInfo ts in
       map stringToHtml
@@ -253,30 +261,30 @@ summaryTable summaries = aboves $ header : map mkRow summaries
 
 -- 
 -- create HTML for detailled view
--- Table
--- | test_1 | ... | test_n |
--- |  2 KLoC / 4 s (green) | Failed (link-to-report) (red) | NotAvailable (gray)
--- | columnspan (InitError: ) :gray  
 detailedView :: (FilePath -> FilePath) -> TestSetResult -> Html
 detailedView normRef tsr =
        h1 (toHtml$ "Detailed Report")
-  +++  sortableTable "detailed_view_table" (detailedTable (Set.toList allKeys) (testRuns tsr))
+  +++  detailedTable (Set.toList allKeys) (testRuns tsr) ! [ identifier "reportTable", theclass "tablesorter" ]
   where
     allKeys = Set.fromList . map (testName . sTestInfo) . Map.elems . testSummaries $ tsr
 
-    detailedTable testkeys runs =
-      aboves $ (detailedHeader ("Test Objective" : "Input Files" : testkeys)
-               : map (detailedRow testkeys) runs)
+    detailedTable testkeys runs = table $
+            (thead << (detailedHeader ("Test Objective" : "Input Files" : testkeys)))
+        +++ (tbody << (aboves $ map (detailedRow testkeys) runs))
     detailedHeader testkeys = besides $ map (th <<) testkeys
 
-    detailedRow _testkeys (FatalError msg args) = cell $
-      (td << linesToHtml (("Fatal Error " ++ show args) : lines msg)) ! [ bgcolor "#F08080" {- LightCoral -} ]
+    detailedRow _testkeys (FatalError msg args) = cell$ (td fatalErr) ! [ theclass "fatal_error" ]
+      where
+      fatalErr =      (toHtml $ "Fatal Error: "++show args )
+                  +++ thediv (linesToHtml $ lines msg)  ! [ theclass "errmsg_box" ]
 
-    detailedRow _testkeys (InitFailure msg args) = cell $
-      (td << linesToHtml (("Test Initialization Failure on " ++ show args) : lines msg)) ! [ bgcolor "lightblue" ]
+    detailedRow _testkeys (InitFailure msg args) = cell$ (td initError) ! [ theclass "init_error" ]
+      where
+      initError =     (toHtml $ "Fatal Initialization Error on " ++ show args)
+                  +++ thediv (linesToHtml $ lines msg) ! [ theclass "errmsg_box" ]
 
     detailedRow testkeys (TestResults testobject filesUnderTest results) = 
-      (stringCell testobject)
+      (cell $ td << testobject)
       `beside` (filesCell filesUnderTest)
       `beside` (besides $ map (detailedCell results) testkeys)  
 
@@ -287,18 +295,29 @@ detailedView normRef tsr =
     detailedCell :: (Map.Map String TestResult) -> String -> HtmlTable
     detailedCell results key =
       cell$ case Map.lookup key results of
-        Nothing                                        -> td (toHtml "n/a") ! [bgcolor "lightgrey"]
-        Just (TestResult testinfo testargs teststatus) -> statusCell teststatus
+        Nothing                                        -> td (toHtml "n/a") ! [ theclass "not_avail"]
+        Just (TestResult _testinfo _testargs teststatus) -> statusCell teststatus
 
     statusCell  :: TestStatus -> Html
-    statusCell (TestError errMsg)              = (td << errMsg) ! [bgcolor "blue"]
-    statusCell (TestFailure errMsg reportfile) = (td << failureCell errMsg reportfile) ! [bgcolor "red"]
-    statusCell (TestOk sz elapsed mResultFile) = (td << okCell mResultFile) ! [bgcolor "green"]
+    statusCell (TestError errMsg)              = (td << errMsg) ! [ theclass "test_error"]
+    statusCell (TestFailure errMsg reportfile) = (td << failureCell errMsg reportfile) ! [ theclass "test_fail"]
+    statusCell (TestOk sz elapsed mResultFile) = (td << okCell sz elapsed mResultFile) ! [ theclass "test_ok"]
 
     failureCell :: String -> Maybe FilePath -> Html
     failureCell errMsg (Just report) = anchor (toHtml "Failure")  ! [href $ normRef report, title errMsg]
     failureCell errMsg Nothing = toHtml $ "Failure: "++errMsg
 
-    okCell :: Maybe FilePath -> Html
-    okCell Nothing = toHtml $ "Ok"
-    okCell (Just f) = anchor (toHtml "Ok") ! [href $ normRef f]
+    okCell :: Double -> Time -> Maybe FilePath -> Html
+    okCell sz elapsed mReport = addRef mReport "Ok " +++ (thespan << formatTimeAuto elapsed) ! [ theclass "time_info" ]
+      where addRef Nothing info  = toHtml info
+            addRef (Just f) info = (anchor << info) ! [href $ normRef f]
+
+-- extended Filepath.normalise
+-- we want to have @normalise' "/Foo/./bar/.././../baz"@ ==> @"/baz"@
+-- Do not know how to accomplish this with System.FilePath ...
+normalise' :: FilePath -> FilePath
+normalise' = joinPath . reverse . foldl removeDotDot [] . splitPath . normalise
+  where 
+    removeDotDot (dir:dirs) dotDot | dropTrailingPathSeparator dotDot == "..", not (isAbsolute dir) = dirs
+    removeDotDot (dir:dirs) dot | dropTrailingPathSeparator dot == "." = (dir:dirs)
+    removeDotDot dirs c = c:dirs

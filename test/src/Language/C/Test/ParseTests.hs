@@ -115,11 +115,11 @@ reportParseError config (errMsgs,pos) input = do
   withTempFile' config ".report" $ \hnd -> do
     pwd <- getCurrentDirectory
     contextMsg <- getContextInfo pos
-    hPutStr hnd $ "failed to parse " ++ (posFile pos)
+    hPutStr hnd $ "Failed to parse " ++ (posFile pos)
                ++ "\nwith message:\n" ++ concat errMsgs ++ " " ++ show pos
                ++ "\n" ++ contextMsg
-               ++ "\nworking dir: " ++ pwd
-               ++ "\npreprocessed input follows:\n\n" ++ input
+               ++ "\nWorking dir: " ++ pwd
+               ++ "\nPreprocessed input follows:\n\n" ++ input
 
 -- ======================
 -- = Pretty print tests =
@@ -188,8 +188,10 @@ runEquivTest config (CHeader decls1 _) (CHeader decls2 _) = do
             declf1 <- withTempFile' config ".1.ast" $ \hnd -> hPutStrLn hnd (show $ pretty decl1)
             declf2 <- withTempFile' config ".2.ast" $ \hnd -> hPutStrLn hnd (show $ pretty decl2)
             diff   <- withTempFile' config ".ast_diff" $ \_hnd -> return ()
-            appendFile diff ("Original declaration: " ++ show (pretty $ decls1 !! ix) ++ "\n")
-            appendFile diff ("Pretty printed declaration: " ++ show (pretty $ decls2 !! ix) ++ "\n")
+            decl1Src <- getDeclSrc decls1 ix
+            decl2Src <- getDeclSrc decls2 ix
+            appendFile diff ("Original declaration: \n" ++ decl1Src ++ "\n")
+            appendFile diff ("Pretty printed declaration: \n" ++ decl2Src ++ "\n")
             system $ "diff -u '" ++ declf1 ++ "' '" ++ declf2 ++ "' >> '" ++ diff ++ "'" -- TODO: escape ' in filenames
             removeFile declf1
             removeFile declf2
@@ -197,6 +199,22 @@ runEquivTest config (CHeader decls1 _) (CHeader decls2 _) = do
           Nothing -> return $ Right (length ast1)
   return $ either Left (\decls -> Right $ PerfMeasure (fromIntegral decls, t)) result
 
+getDeclSrc :: [CExtDecl] -> Int -> IO String
+getDeclSrc decls ix = case drop ix decls of
+  [] -> error "getDeclSrc : Bad ix"
+  [decl] -> readFilePos (posOf decl) Nothing
+  (decl:(declNext:_)) | fileOf decl /= fileOf declNext -> readFilePos (posOf decl) Nothing
+                       | otherwise -> readFilePos (posOf decl) (Just (posRow $ posOf declNext))
+  where
+    fileOf = posFile . posOf
+    readFilePos pos mLineNext = do
+      let lnStart = posRow pos - 1
+      lns <- liftM (drop lnStart . lines) $ readFile (posFile pos)
+      (return.unlines) $
+        case mLineNext of
+          Nothing -> lns
+          (Just lineNext) -> take (lineNext - lnStart - 1) lns
+          
 -- ===========
 -- = Helpers =
 -- ===========
@@ -213,11 +231,15 @@ eitherStatus = either (const "ERROR") (const "ok")
 
 getContextInfo :: Position -> IO String
 getContextInfo pos = do
-  cnts <- readFile (posFile pos)
-  return $ case drop (posRow pos - 1) (lines cnts) of
-    [] -> "/* End of File */"
-    (line:_) ->    line ++ "\n"
-                ++ (replicate (posColumn pos - 1) ' ') ++ "^^^"
+  cnt <- readFile (posFile pos)
+  return $ 
+    case splitAt (posRow pos - 1) (lines cnt) of
+      ([],[]) -> "/* No Input */"
+      ([],ctxLine : post) -> showContext [] ctxLine (take 1 post)
+      (pre,[]) -> showContext [last pre] "/* End Of File */" []
+      (pre,ctxLine : post) -> showContext [last pre] ctxLine (take 1 post)
+  where
+    showContext preCtx ctx postCtx = unlines $ preCtx ++ [ctx, replicate (posColumn pos - 1) ' ' ++ "^^^"] ++ postCtx
 locsOf :: String -> Integer
 locsOf = fromIntegral . length . lines
                 

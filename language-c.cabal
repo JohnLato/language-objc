@@ -52,6 +52,7 @@ Library
                       Language.C.Parser.Lexer 
                       Language.C.Toolkit.NameSpaces 
                       Language.C.AST.AST 
+                      Language.C.AST.Constants
                       Language.C.AST.Pretty 
                       Language.C.AST.Attrs 
                       Language.C.AST.Builtin 

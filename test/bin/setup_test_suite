@@ -1,40 +1,11 @@
-#!/bin/bash
-# Setup environment variables for running a test suite
-
-function die() {
-	echo $1 1>&2
-	exit 1	
-}
-
-if [ ! -d $CTEST_BINDIR ];    then die "Missing environment variable \$CTEST_BINDIR"; fi
-if [ ! -d $CTEST_RESULTDIR ]; then die "Missing environment variable \$CTEST_RESULTDIR"; fi
-if [ -z $TESTNAME ];          then die "Missing environment variable \$TESTNAME"; fi
-
-# Add the testing bindir to the $PATH variable
-export PATH=$CTEST_BINDIR:$PATH
-
-export CTEST_TMPDIR=$CTEST_RESULTDIR/$TESTNAME/
-export CTEST_REPORT_FILE=$CTEST_RESULTDIR/$TESTNAME.dat
-export CTEST_LOGFILE=$CTEST_TMPDIR/parse.log
-
-# rm is somewhat dangerous, therefore we are careful here
-
-# Create temporary directory for tests
-mkdir -p "$CTEST_TMPDIR" || die "Failed to create directory $CTEST_TMPDIR"
-
-# Remove the old report file (with interactive query)
-if [ -e "$CTEST_REPORT_FILE" ]; then
-	rm -i "$CTEST_REPORT_FILE";
-fi
-
-# Ensure the tmp directory is present
-if [ ! -d $CTEST_TMPDIR ]; then
-	die "No a valid directory : $CTEST_TMPDIR";
-	
-# If there is a parse.log file in the temporary directory, remove its contents
-elif [ -e "$CTEST_TMPDIR"/parse.log ]; then
-	# Avoid error because of long parameter list
-	for tmp_file in "$CTEST_TMPDIR"/*; do
-		rm  $tmp_file
-	done
-fi
+#!/bin/sh
+# Setup test suite (clear and set)
+# Arguments:
+#   $1 .. the name of the test suite
+# Environment:
+#   CTEST_BINDIR ... the directory containing the test executables (including this file)
+#   CTEST_RESULTDIR ... the directory to write report files and logs
+if [ ! -e $CTEST_BINDIR/setup ]; then echo "Missing environment variable \$CTEST_BINDIR or missing file $CTEST_BINDIR/setup"; exit 1; fi
+if [ -z $TEST_SETUP ]; then source $CTEST_BINDIR/setup; fi
+source $CTEST_BINDIR/clear_test_suite $1
+source $CTEST_BINDIR/set_test_suite   $1

@@ -1,11 +1,16 @@
+* 2008-06-08
+  Fixed pretty printing of char constants and String literals.
+  Added Language.C.AST.Constants
+  Fixed pretty printer bug test/suite/elseif11k.c
+  
 * 2008-06-03
   tagged src 0.1
 
 * 2008-06-01
-	Removed the PreCST monad for now, as the initial code base should be as small as possible.
+	Removed the PreCST monad for now, as the initial code base should be as small 
+	as possible.
 	It is easy to inject the parse results back into PreCST later.
 	As a consequence, the NameSupply isn't used anymore.
-	As long as you stay within the ParserMonad, each AST element still has an unique id.
 	
 * 2008-05-29 
   Add a top-level module acting as facade (Language.C)

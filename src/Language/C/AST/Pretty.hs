@@ -95,10 +95,18 @@ instance Pretty CStat where
     pretty (CDefault stat _) = text "default:" $$ pretty stat
     pretty (CExpr expr _) = ii $ maybeP pretty expr <> semi
     pretty c@(CCompound _ _) = prettyPrec 0 c
-    pretty (CIf expr stat estat _) =
-        ii $ text "if" <+> text "(" <> pretty expr <> text ")"
-               $+$ prettyPrec (-1) stat
-               $$ maybeP ((text "else" $+$) . prettyPrec (-1)) estat
+    pretty ifStmt@(CIf expr stat estat _) = 
+        ii $  text "if" <+> text "(" <> pretty expr <> text ")"
+                $+$ prettyPrec (-1) stat
+              $$ maybeP prettyElse estat
+      where
+        prettyElse (CIf expr stat estat _) =
+          text "else if" <+> text "(" <> pretty expr <> text ")"
+            $+$ prettyPrec (-1) stat
+          $$ maybeP prettyElse estat
+        prettyElse estmt =
+          text "else" <+> prettyPrec (-1) estmt
+
     pretty (CSwitch expr stat _) =
         ii $ text "switch" <+> text "(" <> pretty expr <> text ")"
                $+$ prettyPrec (-1) stat
@@ -315,10 +323,10 @@ instance Pretty CUnaryOp where
     pretty CNegOp     = text "!"
 
 instance Pretty CConst where
-    pretty (CIntConst   int _) = text (show int) -- FIXME: long constants
-    pretty (CCharConst  chr _) = text (exportCharConstant chr)
+    pretty (CIntConst   int _) = text (showIntConstant int "")
+    pretty (CCharConst  chr _) = text (showCharConstant chr "")
     pretty (CFloatConst flt _) = text flt
-    pretty (CStrConst   str _) = text (exportStringLiteral . tail . init $ str)
+    pretty (CStrConst   str _) = text (showStringLiteral (tail . init $ str) "")
 
 -- precedence of C operators
 binPrec :: CBinaryOp -> Int

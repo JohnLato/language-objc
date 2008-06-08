@@ -25,7 +25,7 @@ module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where
 
 import Language.C.Toolkit.Position  (Position(..), Pos(posOf))
 import Language.C.Toolkit.Idents    (Ident, identToLexeme)
-
+import Language.C.AST.Constants     (showCharConstant, showStringLiteral)
 
 -- token definition
 -- ----------------
@@ -333,10 +333,10 @@ instance Show CToken where
   showsPrec _ (CTokVoid     _  ) = showString "void"
   showsPrec _ (CTokVolatile _  ) = showString "volatile"
   showsPrec _ (CTokWhile    _  ) = showString "while"
-  showsPrec _ (CTokCLit     _ c) = showChar c
+  showsPrec _ (CTokCLit     _ c) = showCharConstant c
   showsPrec _ (CTokILit     _ i) = (showString . show) i
   showsPrec _ (CTokFLit     _ s) = showString s
-  showsPrec _ (CTokSLit     _ s) = showString s
+  showsPrec _ (CTokSLit     _ s) = showStringLiteral s
   showsPrec _ (CTokIdent    _ i) = (showString . identToLexeme) i
   showsPrec _ (CTokTyIdent  _ i) = (showString . identToLexeme) i
   showsPrec _ (CTokGnuC GnuCAttrTok _) = showString "__attribute__"

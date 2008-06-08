@@ -1,4 +1,9 @@
 * 2008-06-08
+  The lexer now supports hexadecimal floating point constants (C99), and produces   
+  better error messages when faced with unsupported features or some common, 
+  hard to track errors. 
+
+* 2008-06-08
   Fixed pretty printing of char constants and String literals.
   Added Language.C.AST.Constants
   Fixed pretty printer bug test/suite/elseif11k.c

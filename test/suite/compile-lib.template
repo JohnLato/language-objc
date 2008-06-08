@@ -1,12 +1,10 @@
 #!/bin/sh
 # Template for executing test suites
-
 source ./configuration
 
-export TESTNAME=my-lib
-source $CTEST_BINDIR/setup_test_suite || { echo "Setup failed" 1>&2 ; exit 1 ; }
-export CC=$CTEST_BINDIR/cc-wrapper
+source $CTEST_BINDIR/setup_test_suite my-lib
 
+export CC=$CTEST_BINDIR/cc-wrapper
 cd my-lib-dir
 
 # Waste of time if run each time

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # See http://wooledge.org:8000/BashFAQ for advanced bash tricks.
 # TODO: This depends on bash's PIPESTATUS and perl
+if [ ! -e $CTEST_BINDIR/setup ]; then echo "Missing environment variable \$CTEST_BINDIR or missing file $CTEST_BINDIR/setup"; exit 1; fi
+if [ -z $TEST_SETUP ]; then source $CTEST_BINDIR/setup; fi
 
 doalarm() { perl -e 'alarm shift; exec @ARGV' "$@"; }
 

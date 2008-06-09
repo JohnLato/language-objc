@@ -1,23 +1,13 @@
---  Compiler Toolkit: general purpose attribute management
+{-# OPTIONS  #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.Toolkit.Attributes
+-- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
+-- License     :  BSD-style
+-- Maintainer  :  -
+-- Portability :  portable
 --
---  Author : Manuel M. T. Chakravarty
---  Created: 14 February 95
---
---  Copyright (c) [1995..1999] Manuel M. T. Chakravarty
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
---
---  This module provides an abstract notion of attributes (in the sense of
+-- This module provides an abstract notion of attributes (in the sense of
 --  compiler construction). The collection of attributes that is attached to a
 --  single node of the structure tree is referenced via an attributes
 --  identifier. This is basically a reference into so-called attribute tables,
@@ -27,11 +17,7 @@
 --  the structure tree).
 --
 --  The `Attributed' class is based on a suggestion from Roman Lechtchinsky.
---
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
---
+----
 --  * Attribute identifiers are generated during parsing and whenever new
 --    structure tree elements, possibly due to transformations, are generated.
 --
@@ -70,7 +56,6 @@
 --    an attribute just means to update it in the FM; i.e., the FM entries take
 --    precedence over the array entries)
 --
-
 module Language.C.Toolkit.Attributes (-- attribute management
 		   --
 		   Attrs, newAttrsOnlyPos, newAttrs,

@@ -1,27 +1,14 @@
---  Compiler Toolkit: identifiers
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.Toolkit.Idents
+-- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable
 --
---  Author : Manuel M. T. Chakravarty
---  Created: 14 February 95
---
---  Copyright (c) [1995..1999] Manuel M. T. Chakravarty
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
+-- Compiler Toolkit: identifiers
 --
 --  This module provides an abstract notion of identifiers.
---
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
 --
 --  * We speed up the equality test between identifiers by keeping a hash
 --
@@ -39,7 +26,6 @@
 --
 --  * Hashing is not 8bit clean.
 --
-
 module Language.C.Toolkit.Idents (Ident(..), lexemeToIdent, internalIdent,
 	       onlyPosIdent, identToLexeme, getIdentAttrs)
 where

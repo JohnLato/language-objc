@@ -1,27 +1,12 @@
---  Compiler Toolkit: name space management
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.Toolkit.NameSpaces
+-- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable0
 --
---  Author : Manuel M. T. Chakravarty
---  Created: 12 November 95
---
---  Copyright (c) [1995..1999] Manuel M. T. Chakravarty
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
---
---  This module manages name spaces.
---
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
+-- This module manages name spaces.
 --
 --  * A name space associates identifiers with their definition.
 --
@@ -33,8 +18,6 @@
 --- TODO ----------------------------------------------------------------------
 --
 --  * evaluate the performance gain that a hashtable would bring
---
-
 module Language.C.Toolkit.NameSpaces (NameSpace, nameSpace, defGlobal, enterNewRange, leaveRange,
 		   defLocal, find, nameSpaceToList)
 where

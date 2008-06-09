@@ -1,21 +1,15 @@
---  C->Haskell Compiler: pretty printing of C abstract syntax
+{-# OPTIONS  #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.AST.Pretty
+-- Copyright   :  Copyright (c) 2007 Bertram Felgenhauer
+--                          (c) 2008 Benedikt Huber
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable
 --
---  Author: Bertram Felgenhauer <int-e@gmx.de>
---  Created: 2007-11-10
---
---  Copyright (c) 2007 Bertram Felgenhauer
---  the interface is based on code by Manuel M T Chakravarty
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
+-- This module provides a pretty printer for the AST ('Language.C.AST.AST').
+-----------------------------------------------------------------------------
 module Language.C.AST.Pretty (
     Pretty (..),
     prettyUsingInclude
@@ -28,11 +22,9 @@ import Language.C.Toolkit.Idents
 import Language.C.Toolkit.Position
 import Text.PrettyPrint.HughesPJ
 
--- provide a Show instance for CDecl for backward compatibility
---instance Show CDecl where
---    showsPrec _ = showString . render . pretty
 
 -- Pretty class
+-- TODO: move
 class Pretty p where
     pretty     :: p -> Doc
     prettyPrec :: Int -> p -> Doc

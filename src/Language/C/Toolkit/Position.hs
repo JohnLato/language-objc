@@ -1,35 +1,16 @@
-{-# OPTIONS  -XDeriveDataTypeable #-}
---  Compiler Toolkit: some basic definitions used all over the place
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.Toolkit.Position
+-- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable
 --
---  Author : Manuel M. T. Chakravarty
---  Created: 16 February 95
---
---  Copyright (c) [1995..2000] Manuel M. T. Chakravarty
---
---  This library is free software; you can redistribute it and/or
---  modify it under the terms of the GNU Library General Public
---  License as published by the Free Software Foundation; either
---  version 2 of the License, or (at your option) any later version.
---
---  This library is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
---  Library General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
---
---  This module provides some definitions used throughout all modules of a
+-- This module provides some definitions used throughout all modules of a
 --  compiler. 
 --
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
---
 --  * May not import anything apart from `Config'.
---
---- TODO ----------------------------------------------------------------------
---
- 
+-----------------------------------------------------------------------------
 module Language.C.Toolkit.Position (
   --
   -- source text positions

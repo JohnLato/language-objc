@@ -1,26 +1,16 @@
---  C -> Haskell Compiler: Lexer for C Header Files
---
---  Author : Manuel M T Chakravarty, Duncan Coutts
---  Created: 24 May 2005
---
---  Copyright (c) [1999..2004] Manuel M T Chakravarty
---  Copyright (c) 2005 Duncan Coutts
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
+{-# OPTIONS  #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.Parser.Tokens
+-- Copyright   :  [1999..2004] Manuel M T Chakravarty
+--                2005 Duncan Coutts 
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable
 --
 --  C Tokens for the C lexer.
 --
-
+-----------------------------------------------------------------------------
 module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where 
 
 import Language.C.Toolkit.Position  (Position(..), Pos(posOf))

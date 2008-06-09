@@ -1,5 +1,4 @@
 -----------------------------------------------------------------------------
--- 
 -- Module      :  Lexer.x
 -- Copyright (c) [1999..2004] Manuel M T Chakravarty
 -- Copyright (c) 2005 Duncan Coutts
@@ -8,18 +7,10 @@
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
--- 
---  C -> Haskell Compiler: Lexer for C Header Files
---
---- DESCRIPTION ---------------------------------------------------------------
---
---  Lexer for C header files after being processed by the C preprocessor
---
---- DOCU ----------------------------------------------------------------------
+--  Lexer for C files, after being processed by the C preprocessor
 --
 --  We assume that the input already went through cpp.  Thus, we do not handle 
---  comments and preprocessor directives here.  The lexer recognizes all tokens
---  of ANCI C except those occuring only in function bodies.  It supports the
+--  comments and preprocessor directives here.  It supports the
 --  C99 `restrict' extension: <http://www.lysator.liu.se/c/restrict.html> as
 --  well as inline functions.
 --

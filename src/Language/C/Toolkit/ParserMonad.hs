@@ -1,28 +1,13 @@
---  C -> Haskell Compiler: Lexer for C Header Files
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.Toolkit.ParserMonad
+-- Copyright   :  (c) [1999..2004] Manuel M T Chakravarty
+--                (c) 2005-2007 Duncan Coutts
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable 
 --
---  Author : Manuel M T Chakravarty, Duncan Coutts
---  Created: 12 Febuary 2007
---
---  Copyright (c) [1999..2004] Manuel M T Chakravarty
---  Copyright (c) 2005-2007 Duncan Coutts
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
---
---  Monad for the C lexer and parser
---
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
+-- Monad for the C lexer and parser
 --
 --  This monad has to be usable with Alex and Happy. Some things in it are
 --  dictated by that, eg having to be able to remember the last token.
@@ -33,11 +18,6 @@
 --  typedef'ed type identifiers. We also must deal correctly with scope so we
 --  keep a list of sets of identifiers so we can save the outer scope when we
 --  enter an inner scope.
---
---- TODO ----------------------------------------------------------------------
---
---
-
 module Language.C.Toolkit.ParserMonad ( 
   P, 
   execParser,

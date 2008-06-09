@@ -2,8 +2,12 @@
 {-# OPTIONS -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.AST.Generic
--- Copyright   :  (c) Benedikt Huber Tue May 27 19:52:11 CEST 2008
+-- Module      :  
+-- Copyright   :  (c) 2008 Benedikt Huber
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  needs (StandaloneDeriving, DeriveDataTypeable)
+-- Stability   :  alpha
 --
 -- SYB for the AST
 --

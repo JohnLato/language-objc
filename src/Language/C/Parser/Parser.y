@@ -1,33 +1,19 @@
---  C -> Haskell Compiler: Parser for C Header Files
---
---  Author : Duncan Coutts, Manuel M T Chakravarty
---  Created: 29 May 2005
---
---  Copyright (c) 2005-2007 Duncan Coutts
---  Copyright (c) [1999..2004] Manuel M T Chakravarty
---  Portions Copyright (c) 1989, 1990 James A. Roskind
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
+-----------------------------------------------------------------------------
+-- Module      :  Lexer.x
+-- Copyright   :  (c) 2005-2007 Duncan Coutts
+--                (c) [1999..2004] Manuel M T Chakravarty
+--                Portions copyright 1989, 1990 James A. Roskind
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable
 --
 --  Parser for C translation units, which have already been run through the C
 --  preprocessor.  
 --
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
---
 --  The parser recognizes all of ISO C 99 and most common GNU C extensions.
---
+{
+module Language.C.Parser.Parser (parseC) where
+
 --  With C99 we refer to the ISO C99 standard, specifically the section numbers
 --  used below refer to this report:
 --
@@ -136,10 +122,6 @@
 --  * Some other extensions are currently recognised by the parser but not
 --    entered into the parse tree.
 --
-
-{
-module Language.C.Parser.Parser (parseC) where
-
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 

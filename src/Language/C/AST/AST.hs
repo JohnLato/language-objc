@@ -1,27 +1,12 @@
---  C -> Haskell Compiler: Abstract Syntax for Header Files
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  AST
+-- Copyright   :  (c) [1999..2008] Manuel M T Chakravarty
+-- License     :  BSD-style
+-- Maintainer  :  -
+-- Portability :  portable
 --
---  Author : Manuel M T Chakravarty
---  Created: 7 March 99
---
---  Copyright (c) [1999..2004] Manuel M T Chakravarty
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
---
---  Abstract syntax of C header files.
---
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
+-- Abstract syntax of C source and header files.
 --
 --  The tree structure corresponds to the grammar in Appendix A of K&R.  This
 --  abstract syntax simplifies the concrete syntax by merging similar concrete
@@ -34,15 +19,12 @@
 --  supports the C99 `restrict' extension
 --  <http://www.lysator.liu.se/c/restrict.html>, `inline' functions, and also
 --  the GNU C `alignof' extension.
---
---- TODO ----------------------------------------------------------------------
---
-
+-----------------------------------------------------------------------------
 module Language.C.AST.AST (
   CHeader(..), 
   CExtDecl(..), CFunDef(..), CStat(..), CBlockItem(..),
-	CDecl(..), CDeclSpec(..), CStorageSpec(..), CTypeSpec(..),
-	CTypeQual(..), CStructUnion(..),  CStructTag(..), CEnum(..),
+  CDecl(..), CDeclSpec(..), CStorageSpec(..), CTypeSpec(..),
+  CTypeQual(..), CStructUnion(..),  CStructTag(..), CEnum(..),
   CDeclr(..), CInit(..), CInitList, CDesignator(..), CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..), CConst (..))
 where

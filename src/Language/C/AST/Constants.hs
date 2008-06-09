@@ -1,11 +1,10 @@
-{-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Exporting and checking C constants
+-- Module      :  Language.C.AST.Constants
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  haskell98
+-- Portability :  portable
 --
 -- This module provides support for representing, checking and exporting c
 -- constants, i.e. integral, float, character and string constants.

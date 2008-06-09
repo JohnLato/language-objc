@@ -1,22 +1,12 @@
-{-# OPTIONS -XDeriveDataTypeable  #-}
---  The HiPar Toolkit: generates unique names
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.C.Toolkit.UNames
+-- Copyright   :  (c) [1998..2003] Manuel M. T. Chakravarty
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable
 --
---  Author : Manuel M T Chakravarty
---  Created: 3 April 98
---
---  Copyright (C) [1998..2003] Manuel M T Chakravarty
---
---  This file is free software; you can redistribute it and/or modify
---  it under the terms of the GNU General Public License as published by
---  the Free Software Foundation; either version 2 of the License, or
---  (at your option) any later version.
---
---  This file is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU General Public License for more details.
---
---- DESCRIPTION ---------------------------------------------------------------
+-- Unique Names
 --
 --  Generates unqiue names according to a method of L. Augustsson, M. Rittri
 --  & D. Synek ``Functional pearl: On generating unique names'', Journal of
@@ -25,9 +15,6 @@
 --  WARNING: DON'T tinker with the implementation!  It uses UNSAFE low-level 
 --	     operations!
 --
---- DOCU ----------------------------------------------------------------------
---
---  language: Haskell 98
 --
 --  * This module provides an ordering relation on names (e.g., for using
 --    `FiniteMaps'), but no assumption maybe made on the order in which names
@@ -46,13 +33,9 @@
 --  * ATTENTION: No clever CSE or unnecessary argument elimination may be
 --    applied to the function `names'!
 --
---- TODO
---
-
 module Language.C.Toolkit.UNames (NameSupply, Name(..),
 	       rootSupply, splitSupply, names, namesStartingFrom)
 where
-import Data.Generics
 import Data.Ix
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef       (IORef, newIORef, readIORef, writeIORef)
@@ -67,7 +50,7 @@ newtype NameSupply = NameSupply (IORef Int)
 newtype Name = Name Int
 --             deriving (Show, Eq, Ord, Ix)
 -- FIXME: nhc98, v1.08 can't derive Ix
-             deriving (Eq, Ord, Data, Typeable)
+             deriving (Eq, Ord)
 instance Ix Name where
   range   (Name from, Name to)            = map Name (range (from, to))
   index   (Name from, Name to) (Name idx) = index   (from, to) idx

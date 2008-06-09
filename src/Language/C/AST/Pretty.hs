@@ -62,11 +62,11 @@ instance Pretty CHeader where
 
 prettyUsingInclude :: CHeader -> Doc
 prettyUsingInclude cast@(CHeader edecls _) =
-  text "/* Warning: The #include directives in this file aren't neccessarily correct. */"
+  includeWarning headerFiles
     $$
   (vcat $ map (either includeHeader pretty) mappedDecls)
   where
-    mappedDecls = snd $ foldr addDecl (Set.empty,[]) $ map tagIncludedDecls edecls
+    (headerFiles,mappedDecls) = foldr addDecl (Set.empty,[]) $ map tagIncludedDecls edecls
     tagIncludedDecls edecl | isHeaderFile ((posFile . posOf) edecl) = Left ((posFile . posOf) edecl)
                            | otherwise = Right edecl          
     addDecl decl@(Left headerRef) (headerSet, ds) 
@@ -75,6 +75,8 @@ prettyUsingInclude cast@(CHeader edecls _) =
     addDecl decl (headerSet,ds) = (headerSet, decl : ds)                                        
     includeHeader hFile = text "#include" <+> doubleQuotes (text hFile)
     isHeaderFile = (".h" `isSuffixOf`)
+    includeWarning hs | Set.null hs = empty
+                      | otherwise = text "/* Warning: The #include directives in this file aren't neccessarily correct. */"
 
 instance Pretty CExtDecl where
     pretty (CDeclExt decl) = pretty decl <> semi
@@ -170,8 +172,8 @@ instance Pretty CTypeSpec where
     pretty (CDoubleType _)      = text "double"
     pretty (CSignedType _)      = text "signed"
     pretty (CUnsigType _)       = text "unsigned"
-    pretty (CBoolType _)        = text "bool"
-    pretty (CComplexType _)     = text "complex"
+    pretty (CBoolType _)        = text "_Bool"
+    pretty (CComplexType _)     = text "_Complex"
     pretty (CSUType union _)    = pretty union
     pretty (CEnumType enum _)   = pretty enum
     pretty (CTypeDef ident _)   = identP ident
@@ -198,6 +200,7 @@ instance Pretty CStructTag where
     pretty CUnionTag  = text "union"
 
 instance Pretty CEnum where
+    pretty (CEnum ident [] _) = text "enum" <+> maybeP identP ident
     pretty (CEnum ident vals _) = vcat [
         text "enum" <+> maybeP identP ident <+> text "{",
         ii $ sep (punctuate comma (map p vals)),
@@ -208,9 +211,9 @@ instance Pretty CDeclr where
     prettyPrec p (CVarDeclr ident _) = maybeP identP ident
     prettyPrec p (CPtrDeclr quals declr _) =
         parenPrec p 5 $ text "*" <> hsep (map pretty quals)
-                      <> prettyPrec 5 declr
+                      <+> prettyPrec 5 declr
     prettyPrec p (CArrDeclr declr quals expr _) =
-        parenPrec p 5 $ hsep (map pretty quals) <> prettyPrec 6 declr
+        parenPrec p 5 $ hsep (map pretty quals) <+> prettyPrec 6 declr
                       <> text "[" <> maybeP pretty expr <> text "]"
     prettyPrec p (CFunDeclr declr decls var _) =
         prettyPrec 6 declr <> text "("
@@ -231,11 +234,11 @@ instance Pretty CDesignator where
 
 instance Pretty CExpr where
     prettyPrec p (CComma exprs _) =
-        parenPrec p 1 $ hsep (punctuate comma (map (prettyPrec 2) exprs))
+        parenPrec p (-1) $ hsep (punctuate comma (map (prettyPrec 2) exprs))
     prettyPrec p (CAssign op expr1 expr2 _) =
         parenPrec p 2 $ prettyPrec 3 expr1 <+> pretty op <+> prettyPrec 2 expr2
     prettyPrec p (CCond expr1 expr2 expr3 _) =
-        parenPrec p 3 $ prettyPrec 4 expr1 <+> text "?"
+        parenPrec p 2 $ prettyPrec 4 expr1 <+> text "?" -- FIXME: this seems to be a parser bug (when setting prec = 3)
            <+> maybeP pretty expr2 <+> text ":" <+> prettyPrec 4 expr3
     prettyPrec p (CBinary op expr1 expr2 _) =
         let prec = binPrec op

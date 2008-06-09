@@ -50,7 +50,7 @@ isSChar c = isAsciiSourceChar c
 -- If neccessary uses octal or hexadecimal escape sequences.
 showCharConstant :: Char -> ShowS
 showCharConstant c | isCChar c = shows c
-                   | c == '\'' = sQuote $ "'"
+                   | c == '\'' = sQuote $ "\\'"
                    | otherwise = sQuote $ escapeChar c
                      
 -- | @showStringLiteral s@ prepends a String representing the C string literal corresponding to @s@.

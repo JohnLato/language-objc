@@ -1,26 +1,25 @@
 {-# OPTIONS -XPatternGuards #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  RenderTests
+-- Module      :  RenderTests.hs (executable)
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  
 --
 -- This module renders test results into HTML files, much like pugs smoke tests.
 -- We use stylesheets to color cells in the result table. 
+--
 -- If JQuery and its tablesorter plugin is available, it is used.
 --
 -- Resources used:
 --   res/style.css
 --   res/jquery-latest.js res/jquery.tablesorter.js [optional]
 --
--- TODO: Performance is sub-optimal
 -- TOOD: Display performance in detailled view too (maybe only if differs significantly from the average performance)
+-- TODO: Sort the tests. The tablesorter javascript doesn't play nice with the browser's back-button
 -----------------------------------------------------------------------------
 module Main (main) where
 import Control.Monad
-import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -29,7 +28,6 @@ import System
 import System.IO
 import System.Directory (getCurrentDirectory)
 import System.FilePath
-import Numeric (showFFloat)
 import Text.Printf
 import Text.XHtml
 
@@ -85,8 +83,8 @@ initSummary t = TestSummary { sTestInfo = t, numOk = 0, numFailed = 0, totalEnti
 -- =====================
   
 computeSummary :: String -> [TestRun] -> TestSetResult
-computeSummary tsname testRuns = 
-  foldr updateSetSummary (initTestSetResult tsname testRuns) testRuns
+computeSummary tsname testruns = 
+  foldr updateSetSummary (initTestSetResult tsname testruns) testruns
 
 updateSetSummary :: TestRun -> TestSetResult -> TestSetResult
 updateSetSummary (FatalError _ _) s = s { fatalErrors = fatalErrors s + 1}
@@ -95,8 +93,8 @@ updateSetSummary (TestResults _obj _files results) s =
   updateTestCount (Map.elems results) $
   s { testSummaries = foldr addToSummary (testSummaries s) (Map.elems results) }
   where
-    updateTestCount rs  s | all (isTestOk . testStatus) rs = s { allOk = allOk s + 1 }
-                          | otherwise                      = s { someFailed = someFailed s + 1 }
+    updateTestCount rs  s' | all (isTestOk . testStatus) rs = s' { allOk = allOk s' + 1 }
+                           | otherwise                      = s' { someFailed = someFailed s' + 1 }
 
 addToSummary :: TestResult -> Map String TestSummary -> Map String TestSummary
 addToSummary (TestResult testinfo _ teststatus) sums 
@@ -108,8 +106,12 @@ addToSummary (TestResult testinfo _ teststatus) sums
       case teststatus of
         (TestError _msg) -> s
         (TestFailure _msg _report) -> s { numFailed = succ (numFailed s) }        
-        (TestOk processed elapsed_t _report) -> 
-          s { numOk = succ (numOk s), totalEntities = totalEntities s + processed, totalTime = (totalTime s) + elapsed_t }
+        (TestOk Nothing _report) -> 
+          s { numOk = succ (numOk s) }
+        (TestOk (Just measure) _report) -> 
+          s { numOk = succ (numOk s), 
+              totalEntities = totalEntities s + realToFrac (processedEntities measure), 
+              totalTime = totalTime s + elapsedTime measure }
 
 -- =========
 -- = Files =
@@ -135,19 +137,19 @@ main = do
     exitWith (ExitFailure 1)
   (parserVersion : _tests) <- getArgs
   let tests = map takeBaseName _tests
-  testRuns <- liftM (zip tests) $ mapM (readTestRuns.datFile) tests
+  testruns <- liftM (zip tests) $ mapM (readTestRuns.datFile) tests
   -- make file references relative to the current directory (for publishing)
   pwd <- getCurrentDirectory
   let normalizeFilePath = makeRelative pwd . normalise'
   
   -- compute summary
-  let testResults = map (uncurry computeSummary) testRuns
+  let testresults = map (uncurry computeSummary) testruns
   -- export index file
   writeFile indexFile $
     htmlFile ("Test result overviews") $ 
-      indexContents parserVersion testResults
+      indexContents parserVersion testresults
   -- export detailed file
-  forM_ testResults $ \testResult ->
+  forM_ testresults $ \testResult ->
     writeFile (testSetFile testResult) $ 
       htmlFile ("Test results for "++ testSetName testResult) $ 
         detailedContents normalizeFilePath testResult        
@@ -218,10 +220,10 @@ tablesorterImport tids =
        quoteString s = ('"' : s) ++ "\""
        
 htmlFile :: String -> Html -> String
-htmlFile title thebody = prettyHtml $ 
+htmlFile reportTitle thebody = prettyHtml $ 
   header << 
     (
-          (thetitle << title)
+          (thetitle << reportTitle)
       +++ (thelink << "") ! [ rel "stylesheet", href "res/style.css", thetype "text/css" ]
       +++ tablesorterImport ["reportTable", "overviewTable"] -- hardcoded
     )
@@ -243,17 +245,19 @@ summaryView tsr =
 
     
 summaryTable :: [TestSummary] -> Html
-summaryTable summaries = mkTable header (map mkRow summaries)
+summaryTable summaries = mkTable tblHeader (map mkRow summaries)
   where
-    header = words "Test Ok Failed InputSize Time Throughput"
+    tblHeader = words "Test Ok Failed InputSize Time Throughput"
     mkRow  = summaryEntries
     summaryEntries ts =
       let testinfo = sTestInfo ts in
-      map stringToHtml
-      [
-        testName testinfo, 
-        show$ numOk ts, 
-        show$ numFailed ts, 
+      map stringToHtml $
+        [
+          testName testinfo, 
+          show$ numOk ts, 
+          show$ numFailed ts
+        ] ++ (if totalTime ts /= 0 then timeSummary testinfo ts else replicate 3 "n/a")
+    timeSummary testinfo ts = [ 
         formatUnitsSafe (totalEntities ts) (preferredScale testinfo) (inputUnit testinfo),
         formatTimeSafe (totalTime ts) (scaleSecs Unit),
         formatUnitsPerSecond (throughput ts) (preferredScale testinfo) (inputUnit testinfo) 
@@ -301,23 +305,25 @@ detailedView normRef tsr =
     statusCell  :: TestStatus -> Html
     statusCell (TestError errMsg)              = (td << errMsg) ! [ theclass "test_error"]
     statusCell (TestFailure errMsg reportfile) = (td << failureCell errMsg reportfile) ! [ theclass "test_fail"]
-    statusCell (TestOk sz elapsed mResultFile) = (td << okCell sz elapsed mResultFile) ! [ theclass "test_ok"]
+    statusCell (TestOk measure mResultFile) = (td << okCell measure mResultFile) ! [ theclass "test_ok"]
 
     failureCell :: String -> Maybe FilePath -> Html
     failureCell errMsg (Just report) = anchor (toHtml "Failure")  ! [href $ normRef report, title errMsg]
     failureCell errMsg Nothing = toHtml $ "Failure: "++errMsg
 
-    okCell :: Double -> Time -> Maybe FilePath -> Html
-    okCell sz elapsed mReport = addRef mReport "Ok " +++ (thespan << formatTimeAuto elapsed) ! [ theclass "time_info" ]
+    okCell :: Maybe PerfMeasure -> Maybe FilePath -> Html
+    okCell measure mReport = addRef mReport "Ok " +++ (measureInfo measure) ! [ theclass "time_info" ]
       where addRef Nothing info  = toHtml info
             addRef (Just f) info = (anchor << info) ! [href $ normRef f]
-
+            measureInfo Nothing = noHtml
+            measureInfo (Just m) = thespan << formatTimeAuto (elapsedTime m)
+            
 -- extended Filepath.normalise
 -- we want to have @normalise' "/Foo/./bar/.././../baz"@ ==> @"/baz"@
 -- Do not know how to accomplish this with System.FilePath ...
 normalise' :: FilePath -> FilePath
 normalise' = joinPath . reverse . foldl removeDotDot [] . splitPath . normalise
   where 
-    removeDotDot (dir:dirs) dotDot | dropTrailingPathSeparator dotDot == "..", not (isAbsolute dir) = dirs
-    removeDotDot (dir:dirs) dot | dropTrailingPathSeparator dot == "." = (dir:dirs)
-    removeDotDot dirs c = c:dirs
+    removeDotDot (dircomp:ds) dotDot | dropTrailingPathSeparator dotDot == "..", not (isAbsolute dircomp) = ds
+    removeDotDot (dircomp:ds) dot    | dropTrailingPathSeparator dot == "." = (dircomp:ds)
+    removeDotDot ds c = c:ds

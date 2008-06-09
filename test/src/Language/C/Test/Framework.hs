@@ -1,10 +1,12 @@
-{-# LANGUAGE ScopedTypeVariables, Rank2Types #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  TestFramework
 -- Copyright   :  (c) 2008 Benedikt Huber
--- License     :  BSD
--- This module provides a small framework for testing the C parser.
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  portable
+--
+-- This module provides a small framework for testing IO - based stuff.
 -------------------------------------------------------------------------------------------------------
 module Language.C.Test.Framework (
 -- * Test descriptions
@@ -12,35 +14,25 @@ Test(..),testTemplate,
 -- * Test results
 TestResult(..),initializeTestResult,setTestStatus,
 -- * Status of a test
-TestStatus(..),testError,isTestError,testFailure,testOk,isTestOk,
+TestStatus(..),testError,isTestError,
+testFailure,testFailNoReport,testFailWithReport,
+testOk,testOkNoReport,testOkWithReport,testOkUntimed,isTestOk,
 -- * Test runs, i.e. a sequence of consecutive (usually dependent) tests of a single test object
 TestRun(..),hasTestResults,initFailure,emptyTestResults,insertTest,
--- * Test Configurations
-TestConfig(..),withTempFile',
--- * Temporary test data
-TestData(..),emptyTestData,cleanTmpFiles,initTestData,setTestRunResults,addTest,addTmpFile,
 -- ReExport pretty from the Language.C library
 Pretty(..),
 -- ReExport the formatting stuff
 module Language.C.Test.Measures,
 ) 
 where
-import Control.Monad (liftM)
 import Control.Monad.Error
 import Data.Maybe
 import Data.Map (Map)
 import qualified Data.Map as Map
-import System.Directory
-import System.Environment (getArgs)
-import System.IO (openTempFile,hPutStr,hClose,hPutStrLn,Handle)
-import Numeric (showFFloat)
 import Text.PrettyPrint
-import Language.C.AST.AST (CHeader)
-import Numeric (showFFloat)
--- TODO: Refactor the Pretty Class
-import Language.C.AST.Pretty (Pretty(..))
 
-import Language.C.Test.CPP (withTempFile)
+-- TODO: Refactor the Pretty Class (move out of AST (Maybe to Text.PrettyPrint.Class))
+import Language.C.AST.Pretty (Pretty(..))
 import Language.C.Test.Measures
 
 -- =====================
@@ -54,6 +46,7 @@ data Test = Test
     inputUnit :: UnitDescr
   }
   deriving (Show,Read)
+  
 testTemplate :: String -> String -> MetricScale -> UnitDescr -> Test
 testTemplate testname testdescr preferredscale inputdim =
   Test testname testdescr preferredscale inputdim 
@@ -70,8 +63,10 @@ data TestResult =
     testStatus :: TestStatus
   }
   deriving (Show,Read)
+
 initializeTestResult :: Test -> [String] -> TestResult
 initializeTestResult t args = TestResult t args (testError "not exectued")
+
 setTestStatus :: TestResult -> TestStatus -> TestResult
 setTestStatus testresult status = testresult { testStatus = status }
 
@@ -79,7 +74,7 @@ setTestStatus testresult status = testresult { testStatus = status }
 data TestStatus =
     TestError String
   | TestFailure String (Maybe FilePath)
-  | TestOk Double Time (Maybe FilePath)
+  | TestOk (Maybe PerfMeasure) (Maybe FilePath)
   deriving (Show,Read)
   
 testError :: String -> TestStatus
@@ -87,14 +82,28 @@ testError = TestError
 isTestError :: TestStatus -> Bool
 isTestError (TestError _) = True
 isTestError _ = False
+
 testFailure :: String -> (Maybe FilePath) -> TestStatus
-testFailure errMsg report = TestFailure (errMsg) report
-testOk :: (Real a) => a -> Time -> Maybe FilePath -> TestStatus
-testOk quantity t report = TestOk (realToFrac quantity) t report
+testFailure errMsg mReport = TestFailure errMsg mReport
+testFailNoReport :: String -> TestStatus
+testFailNoReport errMsg = testFailure errMsg Nothing
+testFailWithReport :: String -> FilePath -> TestStatus
+testFailWithReport errMsg report = testFailure errMsg (Just report)
+
+testOk :: PerfMeasure -> Maybe FilePath -> TestStatus
+testOk measure report = TestOk (Just measure) report
+testOkUntimed :: Maybe FilePath -> TestStatus
+testOkUntimed report = TestOk Nothing report
+testOkNoReport :: PerfMeasure -> TestStatus
+testOkNoReport m = testOk m Nothing
+testOkWithReport :: PerfMeasure -> FilePath -> TestStatus
+testOkWithReport m r = testOk m (Just r)
+
 isTestOk :: TestStatus -> Bool
-isTestOk (TestOk _ _ _) = True
+isTestOk (TestOk _ _) = True
 isTestOk _ = False
-formatInputSize :: Test -> Double -> String
+
+formatInputSize :: (Real a) => Test -> a -> String
 formatInputSize testinfo q = formatUnits q (preferredScale testinfo) (inputUnit testinfo)
 
 instance Pretty TestResult where
@@ -108,18 +117,24 @@ instance Pretty TestResult where
       $+$ (nest 4 . vcat . catMaybes)
           [ Just (ppErrorMessage errMsg),
             fmap (ppFileRef "report") report ]            
-    pretty' ctx (TestOk inpsize ttime report) =
+    pretty' ctx (TestOk measure report) =
       ctx <+> text "succeeded" <+> stats
       $+$ (nest 4 . vcat . catMaybes)
           [ fmap (ppFileRef "result") report ]
       where
-        stats = parens $
-              text (formatInputSize testinfo inpsize ++ " in " ++ formatSeconds ttime ++ ", ")
-          <+> text (formatUnitsPerTime (inpsize `per` ttime) (preferredScale testinfo) (inputUnit testinfo) (scaleSecs Unit))
+        stats =
+          case measure of
+            Nothing    -> empty
+            Just (PerfMeasure (inpsize,ttime)) | ttime == 0 -> empty
+                                               | otherwise  -> 
+              parens$
+                    text (formatInputSize testinfo inpsize ++ " in " ++ formatSeconds ttime ++ ", ")
+                <+> text (formatUnitsPerTime (inpsize `per` ttime) (preferredScale testinfo) (inputUnit testinfo) (scaleSecs Unit))
           
 
 ppErrorMessage :: String -> Doc
 ppErrorMessage =  vcat . map text . filter (not . null) . lines
+
 ppFileRef :: String -> String -> Doc
 ppFileRef info file = text $ "See "++info++" file: `"++file++"'"
 
@@ -168,34 +183,3 @@ insertTest _ (InitFailure _ _) = error "insertTest: initialization failed"
 insertTest result trun = trun { testResults = Map.insert (testName $ testInfo result) result (testResults trun) }
 
 
--- =======================
--- = Temporary Test data =
--- =======================
-data TestConfig = TestConfig 
-  {
-    debug :: String -> IO (),
-    logger :: String -> IO (),
-    tmpDir :: FilePath,
-    tmpTemplate :: String
-  }
-withTempFile' :: TestConfig -> String -> (Handle -> IO ()) -> IO FilePath
-withTempFile' config ext = withTempFile (tmpDir config) (tmpTemplate config ++ ext)
-
--- | Test intermediate data
-data TestData = TestData
-  {
-    tempFiles :: [FilePath],
-    runResults :: TestRun
-  }
-emptyTestData :: TestData
-emptyTestData = TestData [] undefined
-cleanTmpFiles :: TestData -> IO ()
-cleanTmpFiles td = mapM_ removeFile (tempFiles td)
-initTestData :: TestRun -> TestData
-initTestData runsInit = emptyTestData { runResults = runsInit }
-setTestRunResults :: TestRun -> TestData -> TestData
-setTestRunResults tr testData = testData { runResults = tr }
-addTest :: TestResult -> (TestData -> TestData)
-addTest result testData = testData { runResults = insertTest result (runResults testData) }
-addTmpFile :: FilePath -> (TestData -> TestData)
-addTmpFile tmpFile testData = testData { tempFiles = (tmpFile : tempFiles testData) } 

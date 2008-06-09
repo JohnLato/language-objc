@@ -1,14 +1,19 @@
-{-# OPTIONS_GHC -XGeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Measures
 -- Copyright   :  (c) Benedikt Huber 2008
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  non-portable (GeneralizedNewtypeDeriving)
 --
 -- Simple unit names and scaling for rendering performance measurements.
 -- The main objective is to have easily serializable and renderable quantities,
 -- with some type safety (e.g. 'Time').
 -----------------------------------------------------------------------------
 module Language.C.Test.Measures (
+-- * simple performance measurements
+PerfMeasure(..), elapsedTime, processedEntities,
 -- * metric scaling
 Scale(..),scaleFromUnit,scaleToUnit,
 kilo,
@@ -23,17 +28,35 @@ TimeScale,formatTime, formatTimeSafe, formatTimeAuto, formatSeconds, scaleSecs,
 per,formatUnitsPerTime, formatUnitsPerSecond,
 ) where
 import Numeric (showFFloat)
--- ==================================================
--- = Test quantities (very simple dynamic dimensions, allowing easy serialization)
--- ==================================================
+
+-- ============================
+-- = Performance Measurements =
+-- ============================
+  
+-- | Simple newtype for recording performance measurements @(entityCount,elapsedTime)@
+newtype PerfMeasure = PerfMeasure (Integer , Time) deriving (Show, Read)
+
+elapsedTime :: PerfMeasure -> Time
+elapsedTime (PerfMeasure (_,t)) = t
+
+processedEntities :: PerfMeasure -> Integer
+processedEntities (PerfMeasure (sz,_)) = sz
+
+-- ============
+-- = Scaling  =
+-- ============
+
 class Scale s where
   scaleFactor :: s -> Double
+
 scaleFromUnit :: (Scale s) => s -> Double -> Double
 scaleFromUnit s n = n / (scaleFactor s)
+
 scaleToUnit   :: (Scale s) => s -> Double -> Double
 scaleToUnit s n = n * (scaleFactor s)
 
 data MetricScale = Pico | Nano | Micro | Unit | Milli | Kilo | Mega | Giga deriving (Eq,Ord,Show,Read)
+
 instance Scale MetricScale where
   scaleFactor Pico  = 1E-12
   scaleFactor Nano  = 1E-9
@@ -79,8 +102,13 @@ formatQuantity scalefactor q measureAbbr
   where
     formatNum num = showFFloat (Just 2) num ""
 
+-- ====================================
+-- = Description of measurement units =
+-- ====================================
+
 -- | Unit Descriptions
 data UnitDescr = UnitDescr { uAbbr :: String, uDescr :: String } deriving (Show,Read)
+
 unitDescription :: String -> String -> UnitDescr
 unitDescription abbr descr = UnitDescr abbr descr
 
@@ -101,13 +129,20 @@ formatUnitsSafe n scale unitDescr | isDisplayable scale 2 n = formatUnitsAuto nd
 formatUnitsAuto :: (Real a) => a -> UnitDescr -> String
 formatUnitsAuto n unitDescr = formatUnits nd (autoScale nd) unitDescr
   where nd = (realToFrac n :: Double)
-                                  
+
+-- =====================
+-- = Time measurements =
+-- =====================                                  
+
 -- | Time in seconds  
 newtype Time = Time { tSecs :: Double } deriving (Real,Fractional,Num,Ord,Eq,Show,Read,Floating) 
+
 picoSeconds :: (Real a) => a -> Time
 picoSeconds ms = Time (scaleToUnit Pico (realToFrac ms))
+
 milliSeconds :: (Real a) => a -> Time
 milliSeconds ms = Time (scaleToUnit Milli (realToFrac ms))
+
 seconds :: Double -> Time
 seconds s = Time s
 
@@ -115,8 +150,10 @@ seconds s = Time s
 --
 -- TODO: add time-units minute, hour, day et.c
 newtype TimeScale = MetricTime MetricScale deriving (Eq,Ord,Scale,Show,Read)
+
 timeScaleAbbr :: TimeScale -> String
 timeScaleAbbr (MetricTime ms) = metricUnitAbbr ms "s"
+
 scaleSecs :: MetricScale -> TimeScale
 scaleSecs = MetricTime
 
@@ -136,6 +173,10 @@ formatTimeAuto t = formatTime t  (scaleSecs $ autoScale t)
 formatSeconds :: Time -> String
 formatSeconds t | t <= 0.01 = formatTime t (MetricTime Milli)
                 | otherwise = formatTime t (MetricTime Unit)
+
+-- ==============
+-- = Throughput =
+-- ==============
 
 -- Example: (kilo 5) `per` (picoSeconds 3)
 per :: (Real a) => a -> Time -> Double

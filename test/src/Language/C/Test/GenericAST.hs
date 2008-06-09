@@ -1,11 +1,23 @@
-{-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  GenericAST.hs
 -- Copyright   :  (c) Benedikt Huber Wed May 28 09:18:07 CEST 2008
 --
 -- Generic ASTs
--- FIXME: Prototype
+-- FIXME: Prototype !!!
+-- Note that it seems to be clever to use generics here, as long as the AST
+-- isn't set in stone - no need to update when the AST changes.
+--
+-- With GHC as of 6.8.2, you sometimes get error messages like this one when compiling:
+-- 
+-- > The interface for `main:Language.C.AST.Generic'
+-- > Declaration for toConstr22
+-- > Unfolding of Language.C.AST.Generic.toConstr22:
+-- >   Can't find interface-file declaration for variable Language.C.AST.AST.$cCHeader
+-- >   Probable cause: bug in .hi-boot file, or inconsistent .hi file
+-- >   Use -ddump-if-trace to get an idea of which file caused the error
+--
+-- In this case, remove all object and interface files, and recompile.
 -----------------------------------------------------------------------------
 module Language.C.Test.GenericAST where
 import Data.Generics
@@ -15,7 +27,7 @@ import Language.C.Toolkit.Attributes
 import Language.C.Toolkit.Idents
 import Language.C.AST.AST
 import Language.C.AST.Pretty
-import Language.C.AST.Generic
+import Language.C.AST.Generic ()
 -- | Generic AST
 data GenAST =   GNode Constr [GenAST]
               | GNested [GenAST]

@@ -1,129 +1,79 @@
-{-# LANGUAGE ScopedTypeVariables, FlexibleContexts #-}
 {-# OPTIONS -Wall #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  CRoundtrip.hs
+-- Module      :  CRoundtrip.hs (executable)
 -- Copyright   :  (c) 2008 Benedikt Huber
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
 --
--- This module is invoked just like gcc. It preprocesses the .c argument,
+-- This module is invoked just like gcc. It preprocesses the C source file in the given argument list,
 -- parses it, pretty prints it again, and compares the two ASTs.
 --
 -- Tests are logged, and serialized into a result file.
--- If the CRoundtrip finishes without runtime error, it always returns ExitSuccess.
+-- If `CRoundtrip' finishes without runtime error, it always returns ExitSuccess.
 --
 -- see 'TestEnvironment'.
 -----------------------------------------------------------------------------
 module Main (main)  where
-import Control.Monad.Cont 
 import Control.Monad.State
-import System.Environment (getArgs)
-import System.Exit
-import System.Cmd (rawSystem)
-import System.IO (appendFile)
-import System.Directory (copyFile)
 import System.FilePath (takeBaseName)
+import Text.PrettyPrint
 
 import Language.C.Toolkit.Position
-import Language.C.Test.CPP
+import Language.C.Test.Environment
 import Language.C.Test.Framework
 import Language.C.Test.ParseTests
-import Language.C.Test.TestEnvironment (getEnvConfig)
+import Language.C.Test.TestMonad
 
 main :: IO ()
-main = do
-  (config,resultFile) <- getEnvConfig
-  
-  -- get arguments and run tests
-  args <- getArgs
-  testDat <- runTests config args (mungeCcArgs args)
+main = defaultMain usage roundtripTest
 
-  -- write results
-  debug config $ "Finished test\n"
+usage :: Doc
+usage = text "./CRoundTrip <gcc-args> file.(c|hc|i)"
+        $$ (nest 4 $ text "Test Driver: preprocess, parse, pretty print, parse again, and compare ASTs")
+        $+$ envHelpDoc []
 
-  appendFile resultFile (show (runResults testDat) ++ "\n")
-  debug config $ "Wrote test results. Cleaning up.\n"
+roundtripTest :: [String] -> TestMonad ()
+roundtripTest args =
+  case mungeCcArgs args of
+    Ignore         -> errorOnInit args $ "No C source file found in argument list: `cc "  ++ unwords args ++ "'"
+    Unknown err    -> errorOnInit args $ "Could not munge CC args: " ++ err ++ " in  `cc "++ unwords args ++ "'"
+    Groked [origFile] gccArgs -> roundtripTest' origFile gccArgs
+    Groked cFiles _ -> errorOnInit args $ "More than one c source file given: "++ unwords cFiles
 
-  cleanTmpFiles testDat
+roundtripTest' :: FilePath -> [String] -> TestMonad ()
+roundtripTest' origFile gccArgs = do
+    modify $ setTmpTemplate (takeBaseName origFile)
+    (cFile, preFile) <- runCPP origFile gccArgs
+    modify $ setTestRunResults (emptyTestResults (takeBaseName origFile) [cFile])
 
-addTestM :: (MonadState TestData m, MonadIO m) => TestConfig -> TestResult -> m ()
-addTestM config result = do
-  modify $ addTest result  
-  liftIO $ logger config $ show (pretty result) ++ "\n"
+    -- parse
+    let parseTest1 = initializeTestResult (parseTestTemplate { testName = "01-parse" }) [origFile]
+    parseResult <- runParseTest preFile (Position cFile 1 1)
+    addTestM $
+      setTestStatus parseTest1 $ 
+        either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult
+    ast <- either (const exitTest) (return . fst) parseResult
 
-runTests :: TestConfig -> [String] -> MungeResult -> IO TestData
-runTests iConfig args mungeResult = 
-  execStateT (runContT runTests' return) emptyTestData
-  where
-  runTests' :: forall m. (MonadState TestData m, MonadCont m, MonadIO m) => m ()
-  runTests' =
+    -- pretty print
+    let prettyTest = initializeTestResult (ppTestTemplate { testName = "02-pretty-print" }) [origFile]
+    ((prettyFile,report),metric) <- runPrettyPrint ast
+    addTestM $
+      setTestStatus prettyTest $
+        testOkWithReport metric report 
 
-   callCC $ \cc ->
-   let exitTest = cc () >> error "Internal call/cc error" in
-   let errorOnInit :: String -> m a
-       errorOnInit msg = do
-         liftIO $ debug iConfig $ "Failed to initialize " ++ msg ++ "\n"
-         liftIO $ logger iConfig $ show (initFailure msg args)
-         modify (setTestRunResults (initFailure msg args))
-         exitTest in
-   case mungeResult of
-    Ignore         -> errorOnInit $ "No C source file found in argument list: `cc "  ++ unwords args ++ "'"
-    Unknown err    -> errorOnInit $ "Could not munge CC args: " ++ err ++ " in  `cc "++ unwords args ++ "'"
-    Groked origFile gccArgs -> do
-      
-      -- initialize config
-      let config = iConfig { tmpTemplate = takeBaseName origFile }
-      let dbgMsg = liftIO . debug config
-      
-      -- copy original file (for reporting)
-      cFile <- liftIO $ withTempFile' config ".c" $ \_ -> return ()
-      copySuccess <- liftIOCatched (copyFile origFile cFile)
-      case copySuccess of
-        Left err -> errorOnInit $ "Copy failed: " ++ show err
-        Right () -> dbgMsg      $ "Copy: " ++ origFile ++ " ==> " ++ cFile ++ "\n"
+    -- parse again (TODO: factor out code duplication with first parse test)
+    let parseTest2 = initializeTestResult (parseTestTemplate { testName = "03-parse-pretty-printed" }) [prettyFile]
+    parseResult2 <- runParseTest prettyFile (Position prettyFile 1 1)
+    addTestM $
+      setTestStatus parseTest2 $ 
+        either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult2
+    ast2 <- either (const exitTest) (return . fst) parseResult2
 
-      -- preprocess C file
-      dbgMsg $ "Preprocessing " ++ origFile ++ "\n"
-      preFile     <- liftIO $ withTempFile' config ".i" $ \_hnd -> return ()
-      gccExitcode <- liftIO $ rawSystem "gcc" (["-E", "-o", preFile] ++ gccArgs)
-      case gccExitcode of 
-        ExitSuccess       ->  
-          modify $ addTmpFile preFile
-        ExitFailure fCode ->
-          errorOnInit $ "C preprocessor failed: " ++ "`gcc -E -o " ++ preFile ++ " " ++ origFile ++ 
-                        "' returned exit code `" ++ show fCode ++ "'"
-
-      modify $ setTestRunResults (emptyTestResults (takeBaseName origFile) [cFile])
-
-      -- parse
-      let parseTest1 = initializeTestResult (parseTestTemplate { testName = "01-parse" }) [origFile]
-      parseResult <- liftIO$ runParseTest config preFile (Position cFile 1 1)
-      addTestM config $
-        setTestStatus parseTest1 $ 
-          either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult
-      ast <- either (const exitTest) (return . fst) parseResult
-
-      -- pretty print
-      let prettyTest = initializeTestResult (ppTestTemplate { testName = "02-pretty-print" }) [origFile]
-      ((prettyFile,report),metric) <- runPrettyPrint config ast
-      addTestM config $
-        setTestStatus prettyTest $
-          testOkWithReport metric report 
-
-      -- parse again (TODO: factor out code duplication with first parse test)
-      let parseTest2 = initializeTestResult (parseTestTemplate { testName = "03-parse-pretty-printed" }) [prettyFile]
-      parseResult2 <- liftIO$ runParseTest config prettyFile (Position prettyFile 1 1)
-      addTestM config $
-        setTestStatus parseTest2 $ 
-          either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult2
-      ast2 <- either (const exitTest) (return . fst) parseResult2
-
-      -- check equiv
-      let equivTest = initializeTestResult (equivTestTemplate { testName = "04-orig-equiv-pp" }) []
-      equivResult <- runEquivTest config ast ast2
-      addTestM config $
-        setTestStatus equivTest $
-          either (uncurry testFailure) testOkNoReport equivResult
-      return ()
-
-liftIOCatched :: (MonadIO m) => IO a -> m (Either IOError a)
-liftIOCatched a = liftIO $ liftM Right a `catch` (return . Left)
+    -- check equiv
+    let equivTest = initializeTestResult (equivTestTemplate { testName = "04-orig-equiv-pp" }) []
+    equivResult <- runEquivTest ast ast2
+    addTestM $
+      setTestStatus equivTest $
+        either (uncurry testFailure) testOkNoReport equivResult
+    return ()

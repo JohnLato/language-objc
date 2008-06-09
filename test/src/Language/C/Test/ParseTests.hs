@@ -4,16 +4,17 @@
 -- |
 -- Module      :  ParseTests
 -- Copyright   :  (c) 2008 Benedikt Huber
--- License     :  BSD
+-- License     :  BSD-style
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Portability :  non-portable
 --
 -- Provides a set of tests for the parser and pretty printer.
 -----------------------------------------------------------------------------
 module Language.C.Test.ParseTests (
 -- * Misc helpers
 time, lineCount, withFileExt,
--- * datatype for measuring performance
-PerfMeasure,elapsedTime,processedEntities,
-testFailNoReport,testFailWithReport,testOkNoReport,testOkWithReport,
+-- * preprocessing
+runCPP,
 -- * Tests
 parseTestTemplate, runParseTest,
 ppTestTemplate, runPrettyPrint,
@@ -22,31 +23,24 @@ equivTestTemplate,runEquivTest,
 import Control.Monad.State
 import Control.Monad.Instances
 import Data.List
-import System.Directory 
-import System.IO
+
 import System.Cmd
-import System.CPUTime 
+import System.Directory 
+import System.Exit
 import System.FilePath (takeBaseName)
+import System.IO
 
 import Language.C
 import Language.C.Toolkit.Position
 
-import Language.C.Test.CPP
-import Language.C.Test.GenericAST
+import Language.C.Test.Environment
 import Language.C.Test.Framework
+import Language.C.Test.GenericAST
+import Language.C.Test.TestMonad
 
 -- ===================
 -- = Misc            =
 -- ===================
-
-
-time :: IO a -> IO (a, Time)
-time action = do
-  start <- getCPUTime
-  r <- action
-  end   <- getCPUTime
-  let durSecs = picoSeconds (end - start)
-  return (r, durSecs)
 
 lineCount :: FilePath -> IO Int
 lineCount = liftM (length . lines) . readFile
@@ -60,21 +54,36 @@ withFileExt filename ext = (stripExt filename) ++ "." ++ ext where
       ('.' : s : ss) -> reverse (s : ss)
       _ -> basefn
 
-newtype PerfMeasure = PerfMeasure (Integer , Time)
-
-elapsedTime :: PerfMeasure -> Time
-elapsedTime (PerfMeasure (_,t)) = t
-processedEntities :: PerfMeasure -> Integer
-processedEntities (PerfMeasure (sz,_)) = sz
-
-testFailNoReport :: String -> TestStatus
-testFailNoReport errMsg = testFailure errMsg (Nothing)
-testFailWithReport :: String -> FilePath -> TestStatus
-testFailWithReport errMsg report = testFailure errMsg (Just report)
-testOkNoReport :: PerfMeasure -> TestStatus
-testOkNoReport m = testOk (processedEntities m) (elapsedTime m) Nothing
-testOkWithReport :: PerfMeasure -> FilePath -> TestStatus
-testOkWithReport m r = testOk (processedEntities m) (elapsedTime m) (Just r)
+-- =======
+-- = CPP =
+-- =======
+  
+-- | @(copiedFile,preprocessedFile) = runTestCPP origFile cppArgs@ copies the original 
+--   file to @copiedFile@ and then preprocesses this file using @gcc -E -o preprocessedFile cppArgs@. 
+runCPP :: FilePath -> [String] -> TestMonad (FilePath,FilePath)      
+runCPP origFile cppArgs = do
+  -- copy original file (for reporting)
+  cFile <- withTempFile ".c" $ \_ -> return ()
+  copySuccess <- liftIOCatched (copyFile origFile cFile)
+  case copySuccess of
+    Left err -> errorOnInit cppArgs $ "Copy failed: " ++ show err
+    Right () -> dbgMsg      $ "Copy: " ++ origFile ++ " ==> " ++ cFile ++ "\n"
+  
+  -- preprocess C file, if it isn't preprocessed already
+  preFile <- case isPreprocessedFile cFile of
+    False -> do
+      dbgMsg $ "Preprocessing " ++ origFile ++ "\n"
+      preFile     <- withTempFile ".i" $ \_hnd -> return ()
+      gccExitcode <- liftIO $ rawSystem "gcc" (["-E", "-o", preFile] ++ cppArgs ++ [cFile])
+      case gccExitcode of 
+        ExitSuccess       ->  do
+          modify $ addTmpFile preFile
+          return preFile
+        ExitFailure fCode ->
+          errorOnInit cppArgs $ "C preprocessor failed: " ++ "`gcc -E -o " ++ preFile ++ " " ++ origFile ++ 
+                                "' returned exit code `" ++ show fCode ++ "'"
+    True -> return cFile
+  return (cFile,preFile)
 
 -- ===============
 -- = Parse tests =
@@ -89,31 +98,30 @@ parseTestTemplate = Test
     inputUnit = linesOfCode
   }
 
-runParseTest :: TestConfig
-             -> FilePath           -- ^ preprocesed file
+runParseTest :: FilePath           -- ^ preprocesed file
              -> Position           -- ^ initial position
-             -> IO (Either (String,FilePath) (CHeader,PerfMeasure)) -- ^ either (errMsg,reportFile) (ast,(locs,elapsedTime))
-runParseTest conf preFile initialPos = do
-      let dbgMsg = debug conf
-      -- parse
-      dbgMsg $ "Starting Parse of " ++ preFile ++ "\n"
-      ((parse,input),elapsed) <-
-        time $ do input <- readFile preFile
-                  parse <- parseEval input initialPos
-                  return (parse,input)
-      -- check error and add test
-      dbgMsg $ "Parse result : " ++ eitherStatus parse ++ "\n"
-      case parse of
-        Left err@(errMsgs, pos) -> do
-          report <- reportParseError conf err input
-          return $ Left $ (unlines (("Parse error in " ++ show pos) : errMsgs), report)
-        Right header -> 
-          return $ Right $ (header,PerfMeasure (locsOf input,elapsed))
+             -> TestMonad (Either (String,FilePath) (CHeader,PerfMeasure)) -- ^ either (errMsg,reportFile) (ast,(locs,elapsedTime))
+runParseTest preFile initialPos = do
+  -- parse
+  dbgMsg $ "Starting Parse of " ++ preFile ++ "\n"
+  ((parse,input),elapsed) <-
+    time $ do input <- liftIO$ readFile preFile
+              parse <- parseEval input initialPos
+              return (parse,input)
 
-reportParseError :: TestConfig -> ([String],Position) -> String -> IO FilePath
-reportParseError config (errMsgs,pos) input = do
-  withTempFile' config ".report" $ \hnd -> do
-    pwd <- getCurrentDirectory
+  -- check error and add test
+  dbgMsg $ "Parse result : " ++ eitherStatus parse ++ "\n"
+  case parse of
+    Left err@(errMsgs, pos) -> do
+      report <- reportParseError err input
+      return $ Left $ (unlines (("Parse error in " ++ show pos) : errMsgs), report)
+    Right header -> 
+      return $ Right $ (header,PerfMeasure (locsOf input,elapsed))
+
+reportParseError :: ([String],Position) -> String -> TestMonad FilePath
+reportParseError (errMsgs,pos) input = do
+  withTempFile ".report" $ \hnd -> liftIO $ do
+    pwd        <- getCurrentDirectory
     contextMsg <- getContextInfo pos
     hPutStr hnd $ "Failed to parse " ++ (posFile pos)
                ++ "\nwith message:\n" ++ concat errMsgs ++ " " ++ show pos
@@ -133,16 +141,14 @@ ppTestTemplate = Test
     inputUnit = linesOfCode
   }
 
-runPrettyPrint :: (MonadIO m, MonadState TestData m) =>
-                  TestConfig -> CHeader -> m ((FilePath, FilePath), PerfMeasure)
-runPrettyPrint config ast = do
-    let dbgMsg = liftIO . debug config
+runPrettyPrint :: CHeader -> TestMonad ((FilePath, FilePath), PerfMeasure)
+runPrettyPrint ast = do
     -- pretty print
     dbgMsg "Pretty Print ..."
     (fullExport,t) <-
-      liftIO . time $
-        withTempFile' config "pp.c" $ \hnd -> 
-          hPutStrLn hnd $ show (pretty ast)
+      time $
+        withTempFile "pp.c" $ \hnd -> 
+          liftIO $ hPutStrLn hnd $ show (pretty ast)
     modify $ addTmpFile fullExport
     locs <- liftIO $ lineCount fullExport
 
@@ -150,8 +156,8 @@ runPrettyPrint config ast = do
     
     -- export the parsed file, with headers via include
     dbgMsg $ "Pretty Print [report] ... "
-    smallExport <- liftIO $ withTempFile' config "ppr.c" $ \hnd ->
-      hPutStrLn hnd $ show (prettyUsingInclude ast)
+    smallExport <- withTempFile "ppr.c" $ \hnd ->
+      liftIO $ hPutStrLn hnd $ show (prettyUsingInclude ast)
     dbgMsg $ "to " ++ smallExport ++ "\n"
 
     lc <- liftIO $ lineCount fullExport
@@ -169,14 +175,12 @@ equivTestTemplate = Test
     inputUnit = topLevelDeclarations
   }
 
-runEquivTest :: (MonadIO m, MonadState TestData m) =>
-                TestConfig -> CHeader -> CHeader -> m (Either (String, Maybe FilePath) PerfMeasure)
-runEquivTest config (CHeader decls1 _) (CHeader decls2 _) = do
-  let dbgMsg = liftIO . debug config
+runEquivTest :: CHeader -> CHeader -> TestMonad (Either (String, Maybe FilePath) PerfMeasure)
+runEquivTest (CHeader decls1 _) (CHeader decls2 _) = do
   dbgMsg $ "Check AST equivalence\n"
   
   -- get generic asts
-  (result,t) <- liftIO . time $ do
+  (result,t) <- time $ do
     let ast1 = map toGenericAST decls1
     let ast2 = map toGenericAST decls2
     if (length ast1 /= length ast2)
@@ -185,16 +189,16 @@ runEquivTest config (CHeader decls1 _) (CHeader decls2 _) = do
       else 
         case find (\(_, (d1,d2)) -> d1 /= d2) (zip [0..] (zip ast1 ast2)) of
           Just (ix, (decl1,decl2)) -> do
-            declf1 <- withTempFile' config ".1.ast" $ \hnd -> hPutStrLn hnd (show $ pretty decl1)
-            declf2 <- withTempFile' config ".2.ast" $ \hnd -> hPutStrLn hnd (show $ pretty decl2)
-            diff   <- withTempFile' config ".ast_diff" $ \_hnd -> return ()
-            decl1Src <- getDeclSrc decls1 ix
-            decl2Src <- getDeclSrc decls2 ix
-            appendFile diff ("Original declaration: \n" ++ decl1Src ++ "\n")
-            appendFile diff ("Pretty printed declaration: \n" ++ decl2Src ++ "\n")
-            system $ "diff -u '" ++ declf1 ++ "' '" ++ declf2 ++ "' >> '" ++ diff ++ "'" -- TODO: escape ' in filenames
-            removeFile declf1
-            removeFile declf2
+            declf1 <- withTempFile ".1.ast"    $ \hnd -> liftIO $ hPutStrLn hnd (show $ pretty decl1)
+            declf2 <- withTempFile ".2.ast"    $ \hnd -> liftIO $ hPutStrLn hnd (show $ pretty decl2)
+            modify $ (addTmpFile declf1 . addTmpFile declf2)
+            diff   <- withTempFile ".ast_diff" $ \_hnd -> return ()
+            decl1Src <- liftIO $ getDeclSrc decls1 ix
+            decl2Src <- liftIO $ getDeclSrc decls2 ix
+            liftIO $ do
+              appendFile diff ("Original declaration: \n" ++ decl1Src ++ "\n")
+              appendFile diff ("Pretty printed declaration: \n" ++ decl2Src ++ "\n")
+              system $ "diff -u '" ++ declf1 ++ "' '" ++ declf2 ++ "' >> '" ++ diff ++ "'" -- TODO: escape ' in filenames
             return $ Left ("Declarations do not match: ", Just diff)
           Nothing -> return $ Right (length ast1)
   return $ either Left (\decls -> Right $ PerfMeasure (fromIntegral decls, t)) result
@@ -220,7 +224,8 @@ getDeclSrc decls ix = case drop ix decls of
 -- ===========
 
 --  make sure parse is evaluated
-parseEval :: String -> Position -> IO (Either ([String],Position) CHeader)
+-- Rational: If we no wheter the parse result is an error or ok, we already have performed the parse
+parseEval :: String -> Position -> TestMonad (Either ([String],Position) CHeader)
 parseEval input initialPos = 
   case parseC input initialPos of 
     Left  err -> return $ Left err
@@ -240,6 +245,7 @@ getContextInfo pos = do
       (pre,ctxLine : post) -> showContext [last pre] ctxLine (take 1 post)
   where
     showContext preCtx ctx postCtx = unlines $ preCtx ++ [ctx, replicate (posColumn pos - 1) ' ' ++ "^^^"] ++ postCtx
+    
 locsOf :: String -> Integer
 locsOf = fromIntegral . length . lines
                 

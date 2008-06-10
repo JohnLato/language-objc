@@ -38,7 +38,7 @@ module Language.C.Toolkit.ParserMonad (
 
 import Language.C.Toolkit.Position  (Position(..))
 import Language.C.Toolkit.Errors    (interr)
-import Language.C.Toolkit.UNames	 (Name)
+import Language.C.Toolkit.UNames         (Name)
 import Language.C.Toolkit.Idents    (Ident)
 
 import Data.Set  (Set)
@@ -48,15 +48,15 @@ import Language.C.Parser.Tokens (CToken)
 
 data ParseResult a
   = POk !PState a
-  | PFailed [String] Position	-- The error message and position
+  | PFailed [String] Position   -- The error message and position
 
 data PState = PState { 
-        curPos     :: !Position,	-- position at current input location
-        curInput   :: !String,		-- the current input
-        prevToken  ::  CToken,		-- the previous token
-        namesupply :: ![Name],		-- the name unique supply
-        tyidents   :: !(Set Ident),	-- the set of typedef'ed identifiers
-        scopes     :: ![Set Ident]	-- the tyident sets for outer scopes
+        curPos     :: !Position,        -- position at current input location
+        curInput   :: !String,          -- the current input
+        prevToken  ::  CToken,          -- the previous token
+        namesupply :: ![Name],          -- the name unique supply
+        tyidents   :: !(Set Ident),     -- the set of typedef'ed identifiers
+        scopes     :: ![Set Ident]      -- the tyident sets for outer scopes
      }
 
 newtype P a = P { unP :: PState -> ParseResult a }
@@ -88,9 +88,9 @@ returnP a = P $ \s -> POk s a
 {-# INLINE thenP #-}
 thenP :: P a -> (a -> P b) -> P b
 (P m) `thenP` k = P $ \s ->
-	case m s of
-		POk s' a        -> (unP (k a)) s'
-		PFailed err pos -> PFailed err pos
+        case m s of
+                POk s' a        -> (unP (k a)) s'
+                PFailed err pos -> PFailed err pos
 
 failP :: Position -> [String] -> P a
 failP pos msg = P $ \_ -> PFailed msg pos

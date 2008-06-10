@@ -16,9 +16,7 @@
 --
 --  Comments:
 --
---  * There is no support for the optional feature of extended characters (see
---    K&R A2.5.2) or the corresponding strings (A2.6). In C99 terminology,
---    universal character names and multi-character character constants,
+--  * Universal character names and multi-character character constants,
 --    as well as trigraphs are unsupported. They are lexed, but yield an error.
 --
 --  * We add `typedef-name' (K&R 8.9) as a token, as proposed in K&R A13.

@@ -27,7 +27,7 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Toolkit.Idents (Ident(..), lexemeToIdent, internalIdent,
-	       onlyPosIdent, identToLexeme, getIdentAttrs)
+               onlyPosIdent, identToLexeme, getIdentAttrs)
 where
 
 import Data.Char
@@ -35,14 +35,14 @@ import Language.C.Toolkit.Position   (Position, Pos(posOf), nopos)
 import Language.C.Toolkit.UNames     (Name)
 import Language.C.Toolkit.Errors     (interr)
 import Language.C.Toolkit.Attributes (Attrs, newAttrsOnlyPos, newAttrs,
-		   Attributed(attrsOf), posOfAttrsOf)
+                   Attributed(attrsOf), posOfAttrsOf)
 
 
 -- simple identifier representation (EXPORTED)
 --
-data Ident = Ident String	-- lexeme
- {-# UNBOXED #-}   !Int		-- hash to speed up equality check
-		   Attrs    	-- attributes of this ident. incl. position
+data Ident = Ident String       -- lexeme
+ {-# UNBOXED #-}   !Int         -- hash to speed up equality check
+                   Attrs        -- attributes of this ident. incl. position
 
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the
@@ -81,11 +81,11 @@ instance Pos Ident where
 --
 quad                 :: String -> Int
 quad (c1:c2:c3:c4:s)  = ((ord c4 * bits21
-			  + ord c3 * bits14 
-			  + ord c2 * bits7
-			  + ord c1) 
-			 `mod` bits28)
-			+ (quad s `mod` bits28)
+                          + ord c3 * bits14 
+                          + ord c2 * bits7
+                          + ord c1) 
+                         `mod` bits28)
+                        + (quad s `mod` bits28)
 quad (c1:c2:c3:[]  )  = ord c3 * bits14 + ord c2 * bits7 + ord c1
 quad (c1:c2:[]     )  = ord c2 * bits7 + ord c1
 quad (c1:[]        )  = ord c1
@@ -124,7 +124,7 @@ onlyPosIdent pos s  = Ident s (quad s) (newAttrsOnlyPos pos)
 
 -- given an abstract identifier, yield its lexeme (EXPORTED)
 --
-identToLexeme	            :: Ident -> String
+identToLexeme               :: Ident -> String
 identToLexeme (Ident s _ _)  = s
 
 -- get the attribute identifier associated with the given identifier (EXPORTED)

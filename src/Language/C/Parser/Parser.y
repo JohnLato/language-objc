@@ -11,9 +11,7 @@
 --  preprocessor.  
 --
 --  The parser recognizes all of ISO C 99 and most common GNU C extensions.
-{
-module Language.C.Parser.Parser (parseC) where
-
+--
 --  With C99 we refer to the ISO C99 standard, specifically the section numbers
 --  used below refer to this report:
 --
@@ -294,6 +292,17 @@ external_declaration
 
 -- parse C function definition (C99 6.9.1)
 --
+-- function_definition :- specifiers? fun-declarator compound-statement
+--                        specifiers? old-fun-declarator  declaration-list compound-statement
+--
+-- The specifiers are a list consisting of type-names (int, struct foo, ...),
+-- storage-class specifiers (extern, static,...), type qualifiers (const, volatile, ...).
+--
+--   declaration_specifier     : (storage-class >= 1 | type-qualifier | typename >=1 )* "extern static volatile int"
+--   type_specifier            : (type-qualifier | typename >= 1)*                      "const int", "long int"
+--   declaration_qualifier_list: (storage-class >= 1 | type-qualifier)*                 "extern static volatile"
+--   type_qualifier_list:        type-qualifier+                                        "volatile"
+
 function_definition :: { CFunDef }
 function_definition
   :                            function_declarator compound_statement
@@ -598,28 +607,25 @@ declaring_list
 --
 -- * summary:
 --   [ type_qualifier | storage_class
---   | basic_type_name | elaborated_type_name | tyident ]{
+--   | basic_type_name | elaborated_type_name | tyident ] {
 --     (    1 >= basic_type_name
 --      |x| 1 == elaborated_type_name
 --      |x| 1 == tyident
 --     ) && 1 >= storage_class
 --   }
 --
+-- 
 declaration_specifier :: { [CDeclSpec] }
 declaration_specifier
   : basic_declaration_specifier		{ reverse $1 }	-- Arithmetic or void
-  | sue_declaration_specifier		{ reverse $1 }	-- Struct/Union/Enum
+  | sue_declaration_specifier		{ reverse $1 }	  -- Struct/Union/Enum
   | typedef_declaration_specifier	{ reverse $1 }	-- Typedef
 
 
--- A mixture of type qualifiers and storage class specifiers in any order, but
--- containing at least one storage class specifier.
+-- A mixture of type qualifiers (const, volatile, restrict, inline) and storage class specifiers
+-- (extern, static, auto, register, __thread), in any order, but containing at least one storage class specifier.
 --
--- * summary:
---   [type_qualifier | storage_class]{ 1 >= storage_class }
---
--- * detail:
---   [type_qualifier] storage_class [type_qualifier | storage_class]
+-- declaration_qualifier_list :- [type_qualifier | storage_class]* { |storage_class| >= 1 }
 --
 declaration_qualifier_list :: { Reversed [CDeclSpec] }
 declaration_qualifier_list
@@ -695,7 +701,7 @@ basic_type_name
 -- class specifier.
 --
 -- * summary:
---   [type_qualifier | storage_class | basic_type_name]{
+--   [type_qualifier | storage_class | basic_type_name] {
 --     1 >= storage_class && 1 >= basic_type_name
 --   }
 --
@@ -1190,12 +1196,10 @@ old_function_declarator
   | '*' type_qualifier_list old_function_declarator
   	{% withAttrs $1 $ CPtrDeclr (reverse $2) $3 }
 
--- FIXME: Is it correct to drop the identifier_list when we have an
---        oldstyle postfix function declarator ?
 postfix_old_function_declarator :: { CDeclr }
 postfix_old_function_declarator
   : paren_identifier_declarator '(' identifier_list ')'
-  	{% withAttrs $2 $ CFunDeclr $1 [] False }
+  	{% withAttrs $2 $ CFunDeclr $1 [] (Left $ reverse $3) }
 
   | '(' old_function_declarator ')'
   	{ $2 }
@@ -1203,7 +1207,9 @@ postfix_old_function_declarator
   | '(' old_function_declarator ')' postfixing_abstract_declarator
   	{ $4 $2 }
 
-
+--
+-- Non-empty list of type qualifiers (const, volatile, ...)
+--
 type_qualifier_list :: { Reversed [CTypeQual] }
 type_qualifier_list
   : type_qualifier			{ singleton $1 }
@@ -1311,7 +1317,7 @@ postfixing_abstract_declarator
 
   | '(' parameter_type_list ')'
   	{% withAttrs $1 $ \attrs declr -> case $2 of
-             (params, variadic) -> CFunDeclr declr params variadic attrs }
+             (params, variadic) -> CFunDeclr declr params (Right variadic) attrs }
 
 
 -- * Note that we recognise but ignore the C99 static keyword (see C99 6.7.5.3)

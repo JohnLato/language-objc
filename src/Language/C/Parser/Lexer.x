@@ -174,9 +174,9 @@ L\'($inchar|@charesc)\' { token CTokCLit (fst . oneChar . tail . tail) }
 @hexprefix@hexmant                                  { token_fail "Hexadecimal floating constant requires an exponent" }  
 
 -- string literal (follows K&R A2.6)
---
-\"($instr|@charesc)*\"      { token CTokSLit normalizeEscapes }
-L\"($instr|@charesc)*\"     { token CTokSLit (normalizeEscapes . tail) }
+-- C99: 6.4.5.
+\"($instr|@charesc)*\"      { token CTokSLit (normalizeEscapes . init . tail) }
+L\"($instr|@charesc)*\"     { token CTokSLit (normalizeEscapes . init . tail . tail) }
 
 L?\'@ucn\'                        { token_fail "Universal character names are unsupported" }
 L?\'\\[^0-7'\"\?\\abfnrtvuUx]\'     { token_fail "Invalid escape sequence" }
@@ -354,6 +354,7 @@ oneChar ('\\':c:cs)  = case c of
                  (i, cs') -> (toEnum i, cs')
 oneChar (c   :cs)    = (c, cs)
 
+-- TODO: Move to AST.Constant
 normalizeEscapes [] = []
 normalizeEscapes cs = case oneChar cs of
                         (c, cs') -> c : normalizeEscapes cs'

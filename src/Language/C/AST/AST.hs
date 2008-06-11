@@ -434,6 +434,9 @@ instance Eq CEnum where
 --   empty and the variadic flag is `False' (ie, the parameter names are not
 --   stored in the tree).  Remember, a new style definition with no parameters 
 --   requires a single `void' in the argument list (according to the standard).
+--   
+--   FIXME: It is incorrect to forget the parameter list for old-style definitions,
+--          consider e.g. foo(y,x) int y; int x { } 
 --
 -- * We unfold K&R's parameter-type-list nonterminal into the declarator
 --   variant for functions.
@@ -449,7 +452,7 @@ data CDeclr = CVarDeclr (Maybe Ident)           -- declared identifier
                         Attrs
             | CFunDeclr CDeclr
                         [CDecl]                 -- `parameter' declarations
-                        Bool                    -- is variadic?
+                        (Either [Ident] Bool)   -- old-style parameters or new-style isVariadic?
                         Attrs
 
 instance Pos CDeclr where

@@ -76,8 +76,12 @@ instance Pretty CExtDecl where
     pretty (CAsmExt  _   ) = text "int __asm__ext__todo;"
 
 instance Pretty CFunDef where
-    pretty (CFunDef declspecs declr decls stat _) =
-        hsep (map pretty declspecs) <+> pretty declr $$ prettyPrec (-1) stat
+    pretty (CFunDef declspecs declr decls stat _) =          -- Example:
+        hsep (map pretty declspecs)                          -- extern long
+        <+> pretty declr                                     -- foo(int a, b)
+        $+$ (ii . vcat . map (<> semi) . map pretty) decls   --     register long b;
+        $$ prettyPrec (-1) stat                              -- {  ... 
+                                                             -- }
 
 instance Pretty CStat where
     pretty (CLabel ident stat _) = identP ident <> text ":" $$ pretty stat
@@ -226,10 +230,15 @@ instance Pretty CDeclr where
     prettyPrec p (CArrDeclr declr quals expr _) =
         parenPrec p 5 $ hsep (map pretty quals) <+> prettyPrec 6 declr
                       <> text "[" <> maybeP pretty expr <> text "]"
-    prettyPrec p (CFunDeclr declr decls var _) =
+    prettyPrec p (CFunDeclr declr decls (Right isVariadic) _) =
         prettyPrec 6 declr <> text "("
             <> sep (punctuate comma (map pretty decls))
-            <> (if var then text "," <+> text "..." else empty) <> text ")"
+            <> (if isVariadic then text "," <+> text "..." else empty) <> text ")"
+    prettyPrec p (CFunDeclr declr decls (Left oldStyleIds) _) =
+        prettyPrec 6 declr <> text "("
+            <> sep (punctuate comma (map identP oldStyleIds))
+            <> text ")"
+            <> (if null decls then empty else error ("TODO: Inconsistent AST ? :"++ (show $ map pretty decls)))
 
 instance Pretty CInit where
     pretty (CInitExpr expr _) = pretty expr
@@ -340,10 +349,10 @@ instance Pretty CConst where
     pretty (CIntConst   int _) = text (showIntConstant int "")
     pretty (CCharConst  chr _) = text (showCharConstant chr "")
     pretty (CFloatConst flt _) = text flt
-    pretty (CStrConst   str _) = text (showStringLiteral (tail . init $ str) "")
+    pretty (CStrConst   str _) = text (showStringLiteral str "")
 
 instance Pretty CStrLit where
-    pretty (CStrLit   str _) = text (showStringLiteral (tail . init $ str) "")
+    pretty (CStrLit   str _) = text (showStringLiteral str "")
     
 -- precedence of C operators
 binPrec :: CBinaryOp -> Int

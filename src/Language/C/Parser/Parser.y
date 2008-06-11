@@ -1451,8 +1451,9 @@ array_designator
 --
 -- * GNU extensions:
 --     allow a compound statement as an expression
---     various __builtin_* forms that take type parameters
---
+--     __builtin_va_arg
+--     __builtin_offsetof
+--     __builtin_types_compatible_p
 primary_expression :: { CExpr }
 primary_expression
   : ident		       {% withAttrs $1 $ CVar $1 }
@@ -1476,8 +1477,8 @@ primary_expression
 
 offsetof_member_designator :: { () }
 offsetof_member_designator
-  : ident						{ () }
-  | offsetof_member_designator '.' ident		{ () }
+  : identifier						{ () }
+  | offsetof_member_designator '.' identifier		{ () }
   | offsetof_member_designator '[' expression ']'	{ () }
 
 

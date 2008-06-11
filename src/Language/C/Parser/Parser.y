@@ -19,52 +19,43 @@
 --
 --  Relevant sections:
 --
--- 6.5.1 -- parse C primary expression 
--- 6.5.2 --parse C postfix expression 
--- 6.5.3 -- parse C unary expression 
--- 6.5.4 -- parse C cast expression 
--- 6.5.5 -- parse C multiplicative expression 
--- 6.5.6 -- parse C additive expression 
--- 6.5.7 -- parse C shift expression 
--- 6.5.8 -- parse C relational expression 
--- 6.5.9 -- parse C equality expression 
--- 6.5.10 -- parse C bitwise and expression 
--- 6.5.11 -- parse C bitwise exclusive or expression 
--- 6.5.12 -- parse C bitwise or expression 
--- 6.5.13 -- parse C logical and expression 
--- 6.5.14 -- parse C logical or expression 
--- 6.5.15 -- parse C conditional expression 
--- 6.5.16 -- parse C assignment expression 
--- 6.5.17 -- parse C expression 
--- 6.6 -- parse C constant expression 
--- 6.7 -- parse C declaration 
--- 6.7 -- parse C declaration specifiers 
--- 6.7.1 -- parse C storage class specifier 
--- 6.7.2 -- parse C type specifier 
--- 6.7.2.1 -- parse C structure declaration 
--- 6.7.2.1 -- parse C structure declarator 
--- 6.7.2.1 -- parse C structure or union declaration 
--- 6.7.2.2 -- parse C enumeration declaration 
--- 6.7.3 -- parse C type qualifier 
--- 6.7.5 -- parse C declarator 
--- 6.7.5 -- parse C parameter type list 
--- 6.7.5.2 -- complete variable length arrays [ '*' ] means the latter). see 
--- 6.7.5.3 -- * Note that we recognise but ignore the C99 static keyword see 
--- 6.7.6 -- parse C abstract declarator 
--- 6.7.6 -- parse C type name 
--- 6.7.8 -- parse C initializer 
--- 6.8 -- parse C statement 
--- 6.8.1 -- parse C labeled statement 
--- 6.8.2 -- parse C compound statement 
--- 6.8.3 -- parse C expression statement 
--- 6.8.4 -- parse C selection statement 
--- 6.8.5 -- parse C iteration statement 
--- 6.8.6 -- parse C jump statement 
--- 6.9 -- parse a complete C translation unit 
--- 6.9 -- parse external C declaration 
--- 6.9.1 -- parse C function definition 
+-- 6.5 Expressions .1 - .17 and 6.6 (almost literally)
+--  Supported GNU extensions:
+--     - Allow a compound statement as an expression
+--     - Various __builtin_* forms that take type parameters
+--     - `alignof' expression or type
+--     - `__extension__' to suppress warnings about extensions
+--     - Allow taking address of a label with: && label
+--     - Omitting the `then' part of conditional expressions
 --
---  Since some of the grammar productions are quite difficult to read
+-- 6.7 C Declarations .1 -.8
+--  Supported GNU extensions:
+--     - '__thread' thread local storage (6.7.1)
+--
+-- 6.8 Statements .1 - .8
+--  Supported GNU extensions:
+--    - case ranges (C99 6.8.1)
+--    - '__label__ ident;' declarations (C99 6.8.2)
+--    - computed gotos (C99 6.8.6)
+--    
+-- 6.9 Translation unit
+--  Supported GNU extensions:
+--     - allow empty translation_unit
+--     - allow redundant ';'
+--     - allow extension keyword before external declaration
+--     - asm definitions
+--
+-- GNU extensions are documented in the gcc parser
+--    
+--    http://gcc.gnu.org/viewcvs/trunk/gcc/c-parser.c
+--
+-- and on: http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html
+--
+------------------------------------------------------------------
+{
+module Language.C.Parser.Parser (parseC) where
+
+--  Since some of the grammar productions are quite difficult to read,
 --  (especially those involved with the decleration syntax) we document them
 --  with an extended syntax that allows a more consise representation:
 --

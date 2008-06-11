@@ -2,10 +2,9 @@ Name:           language-c
 Version:        0.1
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
-License:        GPL
-License-File:   COPYING
-Copyright:      Copyright (c) [1999..2007] Manuel M T Chakravarty, Duncan Coutts (c2hs)
-                              2008         Benedikt Huber
+License:        BSD3
+License-File:   LICENSE
+Copyright:      LICENSE
 Author:         AUTHORS
 Maintainer:     -
 Stability:      -

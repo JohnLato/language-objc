@@ -238,7 +238,7 @@ instance Pretty CDeclr where
         prettyPrec 6 declr <> text "("
             <> sep (punctuate comma (map identP oldStyleIds))
             <> text ")"
-            <> (if null decls then empty else error ("TODO: Inconsistent AST ? :"++ (show $ map pretty decls)))
+            <> (if null decls then empty else error "inconsistent AST")
 
 instance Pretty CInit where
     pretty (CInitExpr expr _) = pretty expr
@@ -293,11 +293,16 @@ instance Pretty CExpr where
     prettyPrec p (CVar ident _) = identP ident
     prettyPrec p (CConst const _) = pretty const
     prettyPrec p (CCompoundLit decl initl _) =
-        pretty decl <> hsep (map p initl) where
-        p (desigs, init) = hsep (map pretty desigs) <> pretty init -- FIXME
+        parens (pretty decl) <+> (braces . hsep . punctuate comma) (map p initl) where
+        p ([], init)           = pretty init  
+        p ([struct_mem], init) = pretty struct_mem <+> text "=" <+> pretty init  
+        p ( _ , _ ) = error "Inconsistent AST: more than one left-hand-side in CCompoundLit init-list entry"
+        
     prettyPrec p (CStatExpr stat _) =
-        text "({" <> pretty stat <> text "})" -- FIXME
+        text "(" <> pretty stat <> text ")"
+    
     prettyPrec p (CLabAddrExpr ident _) = text "&" <> identP ident -- FIXME
+    
     prettyPrec p (CBuiltinExpr _) = text "__builtin__todo()" -- TODO
 
 instance Pretty CAssignOp where

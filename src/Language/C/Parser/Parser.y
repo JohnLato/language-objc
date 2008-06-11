@@ -126,7 +126,7 @@ import Language.C.AST.AST       (CHeader(..), CExtDecl(..), CFunDef(..), CStat(.
                    CStructTag(..), CEnum(..), CDeclr(..), CInit(..), CInitList,
                    CDesignator(..), CExpr(..), CAssignOp(..), CBinaryOp(..),
                    CUnaryOp(..), CConst (..), CStrLit (..), cstrConst, 
-                   CAsmStmt(..), CAsmOperand(..))
+                   CAsmStmt(..), CAsmOperand(..), CBuiltin(..))
 import Language.C.AST.Builtin   (builtinTypeNames)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
 import Language.C.Toolkit.ParserMonad (P, execParser, getNewName, addTypedef, shadowTypedef,
@@ -1466,20 +1466,20 @@ primary_expression
   	{% withAttrs $1 $ CStatExpr $2 }
 
   | "__builtin_va_arg" '(' assignment_expression ',' type_name ')'
-  	{% withAttrs $1 CBuiltinExpr }
+  	{% withAttrs $1 $ CBuiltinExpr . CBuiltinVaArg $3 $5 }
 
   | "__builtin_offsetof" '(' type_name ',' offsetof_member_designator ')'
-  	{% withAttrs $1 CBuiltinExpr }
+  	{% withAttrs $1 $ CBuiltinExpr . CBuiltinOffsetOf $3 (reverse $5) }
 
   | "__builtin_types_compatible_p" '(' type_name ',' type_name ')'
-  	{% withAttrs $1 CBuiltinExpr }
+  	{% withAttrs $1 $ CBuiltinExpr . CBuiltinTypesCompatible $3 $5 }
 
 
-offsetof_member_designator :: { () }
+offsetof_member_designator :: { Reversed [CDesignator] }
 offsetof_member_designator
-  : identifier						{ () }
-  | offsetof_member_designator '.' identifier		{ () }
-  | offsetof_member_designator '[' expression ']'	{ () }
+  : identifier						                        {% withAttrs $1 $ singleton . CMemberDesig $1 }
+  | offsetof_member_designator '.' identifier		  {% withAttrs $3 $ ($1 `snoc`) . CMemberDesig $3 }
+  | offsetof_member_designator '[' expression ']'	{% withAttrs $3 $ ($1 `snoc`) . CArrDesig $3 }
 
 
 -- parse C postfix expression (C99 6.5.2)

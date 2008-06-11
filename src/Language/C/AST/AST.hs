@@ -28,7 +28,7 @@ module Language.C.AST.AST (
   CDeclr(..), CInit(..), CInitList, CDesignator(..), CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..), 
   CConst (..), CStrLit(..), cstrConst, 
-  CAsmStmt(..), CAsmOperand(..) )
+  CAsmStmt(..), CAsmOperand(..), CBuiltin(..) )
 where
 import Data.List
 import Language.C.Toolkit.Position   (Pos(posOf))
@@ -560,7 +560,7 @@ data CExpr = CComma       [CExpr]       -- comma expression list, n >= 2
                           Attrs
            | CLabAddrExpr Ident         -- GNUC address of label
                           Attrs
-           | CBuiltinExpr Attrs         -- place holder for GNUC builtin exprs
+           | CBuiltinExpr CBuiltin      -- place holder for GNUC builtin exprs
 
 instance Pos CExpr where
   posOf (CComma       _     at) = posOf at
@@ -581,7 +581,7 @@ instance Pos CExpr where
   posOf (CCompoundLit _ _   at) = posOf at
   posOf (CStatExpr    _     at) = posOf at
   posOf (CLabAddrExpr _     at) = posOf at
-  posOf (CBuiltinExpr       at) = posOf at
+  posOf (CBuiltinExpr       bt) = posOf bt
 
 instance Eq CExpr where
   (CComma       _     at1) == (CComma       _     at2) = at1 == at2
@@ -602,7 +602,20 @@ instance Eq CExpr where
   (CCompoundLit _ _   at1) == (CCompoundLit _ _   at2) = at1 == at2
   (CStatExpr    _     at1) == (CStatExpr    _     at2) = at1 == at2
   (CLabAddrExpr _     at1) == (CLabAddrExpr _     at2) = at1 == at2
-  (CBuiltinExpr       at1) == (CBuiltinExpr       at2) = at1 == at2
+  (CBuiltinExpr builtin1) == (CBuiltinExpr builtin2)   = builtin1 == builtin2
+
+-- GNU Builtins, which cannot be typed in C99
+-- 
+-- int __builtin_types_compatible_p(type_1, type_2)
+data CBuiltin = 
+          CBuiltinVaArg CExpr CDecl Attrs            -- (expr, type)
+        | CBuiltinOffsetOf CDecl [CDesignator] Attrs -- (type, designator)    
+        | CBuiltinTypesCompatible CDecl CDecl Attrs  -- (type,type)
+instance Pos CBuiltin where
+    posOf (CBuiltinVaArg _ _ at) = posOf at
+    posOf (CBuiltinOffsetOf _ _ at) = posOf at
+    posOf (CBuiltinTypesCompatible _ _ at) = posOf at
+instance Eq CBuiltin where
 
 -- C assignment operators (K&R A7.17) (EXPORTED)
 --

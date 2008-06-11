@@ -120,7 +120,7 @@ instance Pretty CStat where
                <+> maybeP pretty cond <> semi
                <+> maybeP pretty step <> text ")" $+$ prettyPrec (-1) stat
     pretty (CGoto ident _) = ii $ text "goto" <+> identP ident <> semi
-    pretty (CGotoPtr expr _) = ii $ text "goto" <+> pretty expr <> semi
+    pretty (CGotoPtr expr _) = ii $ text "goto" <+> text "*" <+> prettyPrec 30 expr <> semi
     pretty (CCont _) = ii $ text "continue" <> semi
     pretty (CBreak _) = ii $ text "break" <> semi
     pretty (CReturn Nothing _) = ii $ text "return" <> semi
@@ -296,14 +296,31 @@ instance Pretty CExpr where
         parens (pretty decl) <+> (braces . hsep . punctuate comma) (map p initl) where
         p ([], init)           = pretty init  
         p ([struct_mem], init) = pretty struct_mem <+> text "=" <+> pretty init  
-        p ( _ , _ ) = error "Inconsistent AST: more than one left-hand-side in CCompoundLit init-list entry"
+        p (badDecls , init)  = 
+            error $ "Inconsistent AST: more than one left-hand-side in CCompoundLit init-list entry" ++
+                    (show $ (hsep $ punctuate comma $ map pretty badDecls) <+> text "=" <+> pretty init)
         
     prettyPrec p (CStatExpr stat _) =
         text "(" <> pretty stat <> text ")"
     
-    prettyPrec p (CLabAddrExpr ident _) = text "&" <> identP ident -- FIXME
+    -- unary_expr :- && ident  {- address of label -}
+    prettyPrec p (CLabAddrExpr ident _) = text "&&" <> identP ident
     
-    prettyPrec p (CBuiltinExpr _) = text "__builtin__todo()" -- TODO
+    prettyPrec p (CBuiltinExpr builtin) = pretty builtin
+
+instance Pretty CBuiltin where
+    pretty (CBuiltinVaArg expr ty_name _) = 
+        text "__builtin_va_arg" <+>
+        (parens $ pretty expr <> comma <+> pretty ty_name)
+    -- The first desig has to be a member field.
+    pretty (CBuiltinOffsetOf ty_name (CMemberDesig field1 _ : desigs) _) = 
+        text "__builtin_offsetof" <+>
+        (parens $ pretty ty_name <> comma <+> identP field1 <> hcat (map pretty desigs) )
+    pretty (CBuiltinOffsetOf ty_name otherDesigs _) = 
+        error $ "Inconsistent AST: Cannot interpret designators in offsetOf: "++ show (hcat$ map pretty otherDesigs)
+    pretty (CBuiltinTypesCompatible ty1 ty2 _) =
+        text "__builtin_types_compatible_p" <+>
+        (parens $ pretty ty1 <> comma <+> pretty ty2)
 
 instance Pretty CAssignOp where
     pretty CAssignOp = text "="

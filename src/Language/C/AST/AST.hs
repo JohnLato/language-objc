@@ -26,7 +26,9 @@ module Language.C.AST.AST (
   CDecl(..), CDeclSpec(..), CStorageSpec(..), CTypeSpec(..),
   CTypeQual(..), CStructUnion(..),  CStructTag(..), CEnum(..),
   CDeclr(..), CInit(..), CInitList, CDesignator(..), CExpr(..),
-  CAssignOp(..), CBinaryOp(..), CUnaryOp(..), CConst (..))
+  CAssignOp(..), CBinaryOp(..), CUnaryOp(..), 
+  CConst (..), CStrLit(..), cstrConst, 
+  CAsmStmt(..), CAsmOperand(..) )
 where
 import Data.List
 import Language.C.Toolkit.Position   (Pos(posOf))
@@ -47,8 +49,8 @@ instance Eq CHeader where
 -- external C declaration (K&R A10) (EXPORTED)
 --
 data CExtDecl = CDeclExt CDecl
-                    | CFDefExt CFunDef
-                    | CAsmExt  Attrs            -- a chunk of assembly code (which is
+              | CFDefExt CFunDef
+              | CAsmExt  Attrs            -- a chunk of assembly code (which is
                                         -- not itself recorded)
 
 instance Pos CExtDecl where
@@ -131,8 +133,9 @@ data CStat = CLabel    Ident            -- label
            | CBreak    Attrs            -- break statement
            | CReturn   (Maybe CExpr)
                        Attrs
-           | CAsm      Attrs            -- a chunk of assembly code (which is
-                                        -- not itself recorded)
+           | CAsm      CAsmStmt         -- assembly statement 
+                       Attrs
+
 
 instance Pos CStat where
   posOf (CLabel    _ _     at) = posOf at
@@ -150,7 +153,7 @@ instance Pos CStat where
   posOf (CCont             at) = posOf at
   posOf (CBreak            at) = posOf at
   posOf (CReturn   _       at) = posOf at
-  posOf (CAsm              at) = posOf at
+  posOf (CAsm _            at) = posOf at
 
 instance Eq CStat where
   (CLabel    _ _     at1) == (CLabel    _ _     at2) = at1 == at2
@@ -168,7 +171,24 @@ instance Eq CStat where
   (CCont             at1) == (CCont             at2) = at1 == at2
   (CBreak            at1) == (CBreak            at2) = at1 == at2
   (CReturn   _       at1) == (CReturn   _       at2) = at1 == at2
-  (CAsm              at1) == (CAsm              at2) = at1 == at2
+  (CAsm _             at1) == (CAsm _            at2) = at1 == at2
+
+-- GNU Assembler 
+data CAsmStmt = CAsmStmt (Maybe CTypeQual)     -- maybe volatile
+                                CStrLit        -- assembler expression (String)
+                               [CAsmOperand]   -- output operands
+                               [CAsmOperand]   -- input operands
+                               [CStrLit]       -- Clobbers
+                                Attrs
+instance Pos CAsmStmt where
+    posOf (CAsmStmt _ _ _ _ _ at) = posOf at
+    
+data CAsmOperand = CAsmOperand (Maybe Ident)   -- argument name
+                                CStrLit        -- constraint expr
+                                CExpr          -- argument
+                                Attrs
+instance Pos CAsmOperand where
+    posOf (CAsmOperand _ _ _ at) = posOf at                            
 
 -- C99 Block items, things that may appear in compound statements
 data CBlockItem = CBlockStmt    CStat
@@ -428,7 +448,7 @@ data CDeclr = CVarDeclr (Maybe Ident)           -- declared identifier
                         (Maybe CExpr)           -- array size
                         Attrs
             | CFunDeclr CDeclr
-                        [CDecl]                 -- *parameter* declarations
+                        [CDecl]                 -- `parameter' declarations
                         Bool                    -- is variadic?
                         Attrs
 
@@ -636,6 +656,7 @@ data CUnaryOp = CPreIncOp               -- prefix increment operator
 --
 -- * we do not list enumeration constants here, as they are identifiers
 --
+-- TODO: maybe move CStrConst to its own type
 -- TODO: in general we loose the type information here (the suffixes l, u, LL)
 data CConst = CIntConst Integer Attrs
             | CCharConst Char Attrs
@@ -654,3 +675,10 @@ instance Eq CConst where
   (CFloatConst _ at1) == (CFloatConst _ at2) = at1 == at2
   (CStrConst   _ at1) == (CStrConst   _ at2) = at1 == at2
   _                   == _                   = False
+  
+-- Sometimes it is convenient to have seperate string literals.
+data CStrLit = CStrLit String Attrs
+instance Pos CStrLit where
+    posOf (CStrLit _ at) = posOf at
+cstrConst :: CStrLit -> CConst
+cstrConst (CStrLit str at) = CStrConst str at

@@ -49,6 +49,9 @@ deriving instance Typeable CAssignOp
 deriving instance Typeable CBinaryOp
 deriving instance Typeable CUnaryOp
 deriving instance Typeable CConst
+deriving instance Typeable CStrLit
+deriving instance Typeable CAsmStmt
+deriving instance Typeable CAsmOperand
 --
 deriving instance Data CHeader
 deriving instance Data CExtDecl
@@ -71,4 +74,7 @@ deriving instance Data CAssignOp
 deriving instance Data CBinaryOp
 deriving instance Data CUnaryOp
 deriving instance Data CConst
+deriving instance Data CStrLit
+deriving instance Data CAsmStmt
+deriving instance Data CAsmOperand
 

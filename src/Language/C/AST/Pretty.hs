@@ -121,12 +121,31 @@ instance Pretty CStat where
     pretty (CBreak _) = ii $ text "break" <> semi
     pretty (CReturn Nothing _) = ii $ text "return" <> semi
     pretty (CReturn (Just e) _) = ii $ text "return" <+> pretty e <> semi
-    pretty (CAsm _) = ii $ text "__asm_todo()" <> semi -- TODO
-
+    pretty (CAsm asmStmt _) = pretty asmStmt
     prettyPrec p (CCompound bis _) =
         let inner = text "{" $+$ vcat (map pretty bis) $$ text "}"
         in  if p == -1 then inner else ii inner
     prettyPrec _ p = pretty p
+
+instance Pretty CAsmStmt where
+    pretty (CAsmStmt tyQual expr outOps inOps clobbers _) =
+        ii $ text "__asm__" <+> 
+             maybeP pretty tyQual <>
+             parens asmStmt <> semi
+      where
+        asmStmt = pretty expr <+> 
+                  (if all null [inOps,outOps] && null clobbers then empty else ops)
+        ops     =  text ":" <+> hcat (punctuate comma (map pretty outOps)) <+>
+                   text ":" <+> hcat (punctuate comma (map pretty inOps)) <+>
+                   (if null clobbers then empty else clobs)
+        clobs   =  text ":" <+> hcat (punctuate comma (map pretty clobbers))
+
+instance Pretty CAsmOperand where
+    -- asm_operand :~ [operand-name] "constraint" ( expr )  
+    pretty (CAsmOperand mArgName cnstr expr _) =
+        maybeP (\argName -> text "[" <> identP argName <> text "]") mArgName <+>
+        pretty cnstr <+>
+        parens (pretty expr)
 
 instance Pretty CBlockItem where
     pretty (CBlockStmt stat) = pretty stat
@@ -230,7 +249,7 @@ instance Pretty CExpr where
     prettyPrec p (CAssign op expr1 expr2 _) =
         parenPrec p 2 $ prettyPrec 3 expr1 <+> pretty op <+> prettyPrec 2 expr2
     prettyPrec p (CCond expr1 expr2 expr3 _) =
-        parenPrec p 2 $ prettyPrec 4 expr1 <+> text "?" -- FIXME: this seems to be a parser bug (when setting prec = 3)
+        parenPrec p 2 $ prettyPrec 4 expr1 <+> text "?" -- NB: assignment only has a higher precedence if cond is on the rhs
            <+> maybeP pretty expr2 <+> text ":" <+> prettyPrec 4 expr3
     prettyPrec p (CBinary op expr1 expr2 _) =
         let prec = binPrec op
@@ -323,6 +342,9 @@ instance Pretty CConst where
     pretty (CFloatConst flt _) = text flt
     pretty (CStrConst   str _) = text (showStringLiteral (tail . init $ str) "")
 
+instance Pretty CStrLit where
+    pretty (CStrLit   str _) = text (showStringLiteral (tail . init $ str) "")
+    
 -- precedence of C operators
 binPrec :: CBinaryOp -> Int
 binPrec CMulOp = 20

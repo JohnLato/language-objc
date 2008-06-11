@@ -136,7 +136,8 @@ import Language.C.AST.AST       (CHeader(..), CExtDecl(..), CFunDef(..), CStat(.
                    CTypeSpec(..), CTypeQual(..), CStructUnion(..),
                    CStructTag(..), CEnum(..), CDeclr(..), CInit(..), CInitList,
                    CDesignator(..), CExpr(..), CAssignOp(..), CBinaryOp(..),
-                   CUnaryOp(..), CConst (..))
+                   CUnaryOp(..), CConst (..), CStrLit (..), cstrConst, 
+                   CAsmStmt(..), CAsmOperand(..))
 import Language.C.AST.Builtin   (builtinTypeNames)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
 import Language.C.Toolkit.ParserMonad (P, execParser, getNewName, addTypedef, shadowTypedef,
@@ -345,12 +346,12 @@ declaration_list
 statement :: { CStat }
 statement
   : labeled_statement			{ $1 }
-  | compound_statement			{ $1 }
-  | expression_statement		{ $1 }
-  | selection_statement			{ $1 }
-  | iteration_statement			{ $1 }
-  | jump_statement			{ $1 }
-  | asm_statement			{ $1 }
+  | compound_statement		{ $1 }
+  | expression_statement	{ $1 }
+  | selection_statement		{ $1 }
+  | iteration_statement		{ $1 }
+  | jump_statement			  { $1 }
+  | asm_statement			    {% withAttrs $1 (CAsm $1) }
 
 
 -- parse C labeled statement (C99 6.8.1)
@@ -481,57 +482,58 @@ jump_statement
   | return expression_opt ';'		{% withAttrs $1 $ CReturn $2 }
 
 
--- parse GNU C __asm__ (...) statement (recording only a place holder result)
+-- parse GNU C __asm__ (...) statement (compatible with C99: J.5.10)
 --
-asm_statement :: { CStat }
+-- asm_stmt    :- asm volatile? ( "asm..." : output-operands : input-operands : asm-clobbers )
+-- asm_operand :- [operand-name] "constraint" ( expr )  
+-- asm_clobber :- "r1", "r2", ...
+--              
+asm_statement :: { CAsmStmt }
 asm_statement
-  : asm maybe_type_qualifier '(' expression ')' ';'
-  	{% withAttrs $1 CAsm }
+  : asm maybe_type_qualifier '(' string_literal ')' ';'
+  	{% withAttrs $1 $ CAsmStmt $2 $4 [] [] [] }
 
-  | asm maybe_type_qualifier '(' expression ':' asm_operands ')' ';'
-  	{% withAttrs $1 CAsm }
+  | asm maybe_type_qualifier '(' string_literal ':' asm_operands ')' ';'
+  	{% withAttrs $1 $ CAsmStmt $2 $4 $6 [] [] }
 
-  | asm maybe_type_qualifier '(' expression ':' asm_operands
-					    ':' asm_operands ')' ';'
-  	{% withAttrs $1 CAsm }
-  | asm maybe_type_qualifier '(' expression ':' asm_operands ':' asm_operands
-					    ':' asm_clobbers ')' ';'
-  	{% withAttrs $1 CAsm }
+  | asm maybe_type_qualifier '(' string_literal ':' asm_operands ':' asm_operands ')' ';'
+  	{% withAttrs $1 $ CAsmStmt $2 $4 $6 $8 [] }
+
+  | asm maybe_type_qualifier '(' string_literal ':' asm_operands ':' asm_operands ':' asm_clobbers ')' ';'
+  	{% withAttrs $1 $ CAsmStmt $2 $4 $6 $8 (reverse $10) }
 
 
-maybe_type_qualifier :: { () }
+maybe_type_qualifier :: { Maybe CTypeQual }
 maybe_type_qualifier
-  : {- empty -}		{ () }
-  | type_qualifier	{ () }
+  : {- empty -}		  { Nothing }
+  | type_qualifier	{ Just $1 }
 
-
-asm_operands :: { () }
+asm_operands :: { [CAsmOperand] }
 asm_operands
-  : {- empty -}				{ () }
-  | nonnull_asm_operands		{ () }
+  : {- empty -}				{ [] }
+  | nonnull_asm_operands		{ reverse $1 }
 
-
-nonnull_asm_operands :: { () }
+nonnull_asm_operands :: { Reversed [CAsmOperand] }
 nonnull_asm_operands
-  : asm_operand					{ () }
-  | nonnull_asm_operands ',' asm_operand	{ () }
+  : asm_operand					{ singleton $1 }
+  | nonnull_asm_operands ',' asm_operand	{ $1 `snoc` $3 }
 
-
-asm_operand :: { () }
+asm_operand :: { CAsmOperand }
 asm_operand
-  : string_literal '(' expression ')'			{ () }
-  | '[' ident ']' string_literal '(' expression ')'	{ () }
-  | '[' tyident ']' string_literal '(' expression ')'	{ () }
+  : string_literal '(' expression ')'			            {% withAttrs $1 $ CAsmOperand Nothing $1 $3 }
+  | '[' ident ']' string_literal '(' expression ')'   {% withAttrs $4 $ CAsmOperand (Just $2) $4 $6 }
+  | '[' tyident ']' string_literal '(' expression ')'	{% withAttrs $4 $ CAsmOperand (Just $2) $4 $6 }
 
 
-asm_clobbers :: { () }
+asm_clobbers :: { Reversed [CStrLit] }
 asm_clobbers
-  : string_literal			{ () }
-  | asm_clobbers ',' string_literal	{ () }
+  : string_literal			            { singleton $1 }
+  | asm_clobbers ',' string_literal	{ $1 `snoc` $3 }
 
 
 -- parse C declaration (C99 6.7)
---
+--   sue                     ... struct/union/enum
+--   storage-class specifier ... typedef specifier
 declaration :: { CDecl }
 declaration
   : sue_declaration_specifier ';'
@@ -1010,10 +1012,11 @@ declarator
 
 -- Parse GNU C's asm annotations
 --
-asm_opt :: { () }
+-- Those annotations allow to give an assembler name to a function or identifier.
+asm_opt :: { Maybe CStrLit }
 asm_opt
-  : {- empty -}				{ () }
-  | asm '(' string_literal_list ')'	{ () }
+  : {- empty -}				          { Nothing }
+  | asm '(' string_literal ')'	{ Just $3 }
 
 
 typedef_declarator :: { CDeclr }
@@ -1187,7 +1190,8 @@ old_function_declarator
   | '*' type_qualifier_list old_function_declarator
   	{% withAttrs $1 $ CPtrDeclr (reverse $2) $3 }
 
-
+-- FIXME: Is it correct to drop the identifier_list when we have an
+--        oldstyle postfix function declarator ?
 postfix_old_function_declarator :: { CDeclr }
 postfix_old_function_declarator
   : paren_identifier_declarator '(' identifier_list ')'
@@ -1454,10 +1458,12 @@ array_designator
 --
 primary_expression :: { CExpr }
 primary_expression
-  : ident		{% withAttrs $1 $ CVar $1 }
-  | constant	  	{% withAttrs $1 $ CConst $1 }
-  | string_literal	{% withAttrs $1 $ CConst $1 }
+  : ident		       {% withAttrs $1 $ CVar $1 }
+  | constant	  	 {% withAttrs $1 $ CConst   $1 }
+  | string_literal {% withAttrs $1 $ CConst (cstrConst $1) }
   | '(' expression ')'	{ $2 }
+
+  -- GNU extensions
   | '(' compound_statement ')'
   	{% withAttrs $1 $ CStatExpr $2 }
 
@@ -1478,7 +1484,7 @@ offsetof_member_designator
   | offsetof_member_designator '[' expression ']'	{ () }
 
 
---parse C postfix expression (C99 6.5.2)
+-- parse C postfix expression (C99 6.5.2)
 --
 postfix_expression :: { CExpr }
 postfix_expression
@@ -1535,6 +1541,7 @@ unary_expression
   | unary_operator cast_expression	{% withAttrs $1 $ CUnary (unL $1) $2 }
   | sizeof unary_expression		{% withAttrs $1 $ CSizeofExpr $2 }
   | sizeof '(' type_name ')'		{% withAttrs $1 $ CSizeofType $3 }
+  -- GNU: alignof and && extension
   | alignof unary_expression		{% withAttrs $1 $ CAlignofExpr $2 }
   | alignof '(' type_name ')'		{% withAttrs $1 $ CAlignofType $3 }
   | "&&" identifier			{% withAttrs $1 $ CLabAddrExpr $2 }
@@ -1696,7 +1703,6 @@ logical_or_expression
 --
 -- * GNU extensions:
 --     omitting the `then' part
---
 conditional_expression :: { CExpr }
 conditional_expression
   : logical_or_expression
@@ -1711,6 +1717,9 @@ conditional_expression
 
 -- parse C assignment expression (C99 6.5.16)
 --
+-- * NOTE: LHS of assignment is more restricted than in gcc.
+--         `x ? y : z = 3' parses in gcc as `(x ? y : z) = 3',
+--         but `x ? y : z' is not an unary expression.
 assignment_expression :: { CExpr }
 assignment_expression
   : conditional_expression
@@ -1745,7 +1754,6 @@ expression
   | assignment_expression ',' comma_expression
   	{% let es = reverse $3 in withAttrs es $ CComma ($1:es) }
 
-
 comma_expression :: { Reversed [CExpr] }
 comma_expression
   : assignment_expression			{ singleton $1 }
@@ -1777,18 +1785,18 @@ constant_expression
 --
 constant :: { CConst }
 constant
-  : cint	{% withAttrs $1 $ case $1 of CTokILit _ i -> CIntConst i }
-  | cchar	{% withAttrs $1 $ case $1 of CTokCLit _ c -> CCharConst c }
+  : cint	  {% withAttrs $1 $ case $1 of CTokILit _ i -> CIntConst i }
+  | cchar	  {% withAttrs $1 $ case $1 of CTokCLit _ c -> CCharConst c }
   | cfloat	{% withAttrs $1 $ case $1 of CTokFLit _ f -> CFloatConst f }
 
 
-string_literal :: { CConst }
+string_literal :: { CStrLit }
 string_literal
   : cstr
-  	{% withAttrs $1 $ case $1 of CTokSLit _ s -> CStrConst s }
+  	{% withAttrs $1 $ case $1 of CTokSLit _ s -> CStrLit s }
 
   | cstr string_literal_list
-  	{% withAttrs $1 $ case $1 of CTokSLit _ s -> CStrConst (concat (s : reverse $2)) }
+  	{% withAttrs $1 $ case $1 of CTokSLit _ s -> CStrLit (concat (s : reverse $2)) }
 
 
 string_literal_list :: { Reversed [String] }

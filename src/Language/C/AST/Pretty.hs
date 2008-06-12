@@ -271,6 +271,9 @@ instance Pretty CExpr where
         parenPrec p 26 $ prettyPrec 26 expr <> text "++"
     prettyPrec p (CUnary CPostDecOp expr _) =
         parenPrec p 26 $ prettyPrec 26 expr <> text "--"
+    prettyPrec p (CUnary op expr@(CUnary _ _ _) _) =
+        --                             parens aren't neccessary, but look nicer imho
+        parenPrec p 25 $ pretty op <+> parens (prettyPrec 25 expr)
     prettyPrec p (CUnary op expr _) =
         parenPrec p 25 $ pretty op <> prettyPrec 25 expr
     prettyPrec p (CSizeofExpr expr _) =

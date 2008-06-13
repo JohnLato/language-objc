@@ -1,0 +1,1 @@
+void f(int *restrict a[2], int *restrict c[restrict]);

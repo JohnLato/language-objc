@@ -3,6 +3,19 @@ typedef struct point { int x; int y; } Point;
 void drawline(Point x, Point y);
 void drawline_(Point *x, Point *y);
 
+/* partial initializer */
+struct s { int a; int b; int c; };
+struct s s6 = { .a = 1 };
+
+/* array special form */
+unsigned int a[19] = { 3, 4, 0, 2, 2, [17] = 3, 3 };
+
+/* old style */
+union {
+  double d;
+  long long l;
+} x = { l: 0x7ff8000000000000LL };
+
 /* Compound literals */
 int *p = (int []) {2, 4}; 
 const float* pows = (const float []) {1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6};

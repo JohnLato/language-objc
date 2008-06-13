@@ -1,12 +1,23 @@
 #!/bin/sh
 source ./configuration
 
-TEST_SUITES="gcc-dg-incompliant gcc-dg-c89 gcc-dg-c99 gcc-dg-gnu99"
-for t in TEST_SUITES; do
-	sh clear_test_suite t
+TEST_SUITES="gcc-dg-incompliant gcc-dg-c89 gcc-dg-c99 gcc-dg-gnu99 gcc-dg-non-compile"
+for t in $TEST_SUITES; do
+	echo "Cleaning test suite $t"
+	sh clear_test_suite $t
 done
+
+BASE_DIR=`pwd`
 cd gcc.dg
-for f in `find . -name '*.c'`; do
+DG_DIR=`pwd`
+
+for cf in `find . -name '*.c'`; do
+	cd $DG_DIR/`dirname $cf`
+	f=`basename $cf`
+
+	grep -e "^$f" $BASE_DIR/dg-ignore.txt
+	if [ $? -eq 0 ]; then echo " ... skipped"; continue; fi
+
 	COMPLIANCE=
 	gcc -fsyntax-only -ansi -pedantic-errors  $f 2>/dev/null
 	if [ $? -eq 0 ] ; then COMPLIANCE=c89; fi
@@ -26,6 +37,15 @@ for f in `find . -name '*.c'`; do
 		echo "[INFO] Running Test $f ($COMPLIANCE)"
 		source $CTEST_BINDIR/set_test_suite gcc-dg-$COMPLIANCE
 		export CTEST_DRIVER=CRoundTrip
-		run-test $f
+		sh run-test $f
+	else
+		grep "dg-error" $f >/dev/null
+		if [ $? -eq 0 ]; then
+			echo "[Info] Checking if $f (dg-error and -fsyntax-only fails) doesn't parse either"
+			source $CTEST_BINDIR/set_test_suite gcc-dg-non-compile
+			export CTEST_DRIVER=CParse
+			export CTEST_NON_PARSE=1
+			sh run-test $f
+		fi
 	fi
 done

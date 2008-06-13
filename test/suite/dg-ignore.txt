@@ -1,0 +1,28 @@
+filename  reason
+
+dollar.c        Extended Source Character Set
+
+digraph1.c      Digraphs
+digraphs.c      Digraphs
+paste2.c        Digraphs
+
+lexnum.c        Trigraphs
+lexstrng.c      Trigraphs
+pr18502-1.c     Trigraphs
+trigraphs.c     Trigraphs
+
+charconst-3.c   Multi-Char chars
+charconst-4.c   Multi-Char chars
+
+escape.c        UNC
+ucnid-1.c       UNC
+ucnid-2.c       UNC
+ucnid-3.c       UNC
+ucnid-4.c       UNC
+ucnid-5.c       UNC
+ucnid-6.c       UNC
+
+ia64-float80-1.c float80 builtin
+ia64-postinc.c   float128 builtin
+
+concat.c        390K input size

@@ -20,12 +20,12 @@ int (__attribute__((const)) x) (a, b)
 {
   return a + b;
 }
+typedef void * va_list;
 
 /* gcc.dg/mult-attr */
 extern __attribute__((__format__(__printf__, 1, 0))) void
      my_vprintf_scanf (const char *, va_list, const char *, ...)
      __attribute__((__format__(__scanf__, 3, 4)));
-
 extern void (__attribute__((__format__(__printf__, 1, 0))) my_vprintf_scanf2)
      (const char *, va_list, const char *, ...)
      __attribute__((__format__(__scanf__, 3, 4)));
@@ -33,3 +33,12 @@ extern void (__attribute__((__format__(__printf__, 1, 0))) my_vprintf_scanf2)
 extern __attribute__((__format__(__scanf__, 3, 4))) void
      (__attribute__((__format__(__printf__, 1, 0))) my_vprintf_scanf3)
      (const char *, va_list, const char *, ...);
+
+/* various other attributes */
+void __attribute__((dj)) foo() { }
+typedef enum { a } __attribute__((packed)) t;
+unsigned __l __attribute__((__mode__(__SI__)));
+double foo_01_12 (void)
+{
+  return (__extension__ ((union { unsigned __l __attribute__((__mode__(__SI__))); float __d; }) { __l: 0x3f800000UL }).__d);
+}

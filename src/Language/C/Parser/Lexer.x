@@ -25,8 +25,9 @@
 --    to be introduced in a later phase (by converting the corresponding
 --    identifiers). 
 --
---  * We also recognize GNU C `__attribute__', `__extension__', `__const', 
---    `__const__', `__inline', `__inline__', `__restrict', and `__restrict__'.
+--  * We also recognize GNU C `__attribute__', `__extension__', `__complex__',
+--    `__const',  `__const__', `__imag', `__imag__', `__inline', `__inline__', 
+--    `__real', `__real__, `__restrict', and `__restrict__'.
 --
 --  * Any line starting with `#pragma' is ignored.
 --
@@ -88,8 +89,9 @@ $infname  = \ -\127 # [ \\ \" ]             -- valid character in a filename
 -- * C99: 6.4.4.1
 @int = $digitNZ$digit*
 @llsuffix  = ll|LL
+@gnusuffix = [ij]?
 @intsuffix = [uU][lL]?|[uU]@llsuffix|[lL][uU]?|@llsuffix[uU]?
-
+@intgnusuffix = @intsuffix@gnusuffix?|@gnusuffix@intsuffix?
 -- components of float constants (follows K&R A2.5.3)
 --
 -- * C99: 6.4.4.2
@@ -106,8 +108,7 @@ $infname  = \ -\127 # [ \\ \" ]             -- valid character in a filename
 @binexp    = [pP][\+\-]?@digits
 
 @floatsuffix    = [fFlL]
-
-
+@floatgnusuffix = @floatsuffix@gnusuffix?|@gnusuffix@floatsuffix?
 tokens :-
 
 -- whitespace (follows K&R A2.1) 
@@ -154,9 +155,9 @@ $letter($letter|$digit)*  { \pos len str -> idkwtok (take len str) pos }
 -- integer constants (follows K&R A2.5.1, C99 6.4.4.1)
 --
 -- * FIXME: type flags get lost
-0$octdigit*@intsuffix?      { token CTokILit (fst . head . readOct) }
-$digitNZ$digit*@intsuffix?  { token CTokILit (fst . head . readDec) }
-0[xX]$hexdigit+@intsuffix?  { token CTokILit (fst . head . readHex . drop 2) }
+0$octdigit*@intgnusuffix?       { token CTokILit (fst . head . readOct) }
+$digitNZ$digit*@intgnusuffix?   { token CTokILit (fst . head . readDec) }
+0[xX]$hexdigit+@intgnusuffix?   { token CTokILit (fst . head . readHex . drop 2) }
 (0$octdigit*|$digitNZ$digit*|0[xX]$hexdigit+)[uUlL]+ { token_fail "Invalid integer constant suffix" }
 
 -- character constants (follows K&R A2.5.2, C99 6.4.4.4)
@@ -169,9 +170,9 @@ L\'($inchar|@charesc)\' { token CTokCLit (fst . oneChar . tail . tail) }
 --
 -- * NOTE: Hexadecimal floating constants without binary exponents are forbidden.
 --         They generate a lexer error, because they are hard to recognize in the parser.
-(@mantpart@exppart?|@intpart@exppart)@floatsuffix?  { token CTokFLit id }
-@hexprefix(@hexmant|@hexdigits)@binexp@floatsuffix? { token CTokFLit id }
-@hexprefix@hexmant                                  { token_fail "Hexadecimal floating constant requires an exponent" }  
+(@mantpart@exppart?|@intpart@exppart)@floatgnusuffix?  { token CTokFLit id }
+@hexprefix(@hexmant|@hexdigits)@binexp@floatgnusuffix? { token CTokFLit id }
+@hexprefix@hexmant                                     { token_fail "Hexadecimal floating constant requires an exponent" }  
 
 -- string literal (follows K&R A2.6)
 -- C99: 6.4.5.
@@ -258,6 +259,7 @@ idkwtok ('_':'_':'c':'o':'n':'s':'t':[])         = tok CTokConst
 idkwtok ('_':'_':'c':'o':'n':'s':'t':'_':'_':[])       = tok CTokConst
 idkwtok ('c':'o':'n':'t':'i':'n':'u':'e':[])         = tok CTokContinue
 idkwtok ('_':'C':'o':'m':'p':'l':'e':'x':[])         = tok CTokComplex
+idkwtok ('_':'_':'c':'o':'m':'p':'l':'e':'x':'_':'_':[]) = tok CTokComplex
 idkwtok ('d':'e':'f':'a':'u':'l':'t':[])         = tok CTokDefault
 idkwtok ('d':'o':[])               = tok CTokDo
 idkwtok ('d':'o':'u':'b':'l':'e':[])           = tok CTokDouble
@@ -300,11 +302,12 @@ idkwtok ('_':'_':'v':'o':'l':'a':'t':'i':'l':'e':'_':'_':[]) = tok CTokVolatile
 idkwtok ('w':'h':'i':'l':'e':[])           = tok CTokWhile
 idkwtok ('_':'_':'l':'a':'b':'e':'l':'_':'_':[])             = tok CTokLabel
 idkwtok ('_':'_':'a':'t':'t':'r':'i':'b':'u':'t':'e':[]) = tok (CTokGnuC GnuCAttrTok)
---            ignoreAttribute >> lexToken
 idkwtok ('_':'_':'a':'t':'t':'r':'i':'b':'u':'t':'e':'_':'_':[]) = tok (CTokGnuC GnuCAttrTok)
---            ignoreAttribute >> lexToken
-idkwtok ('_':'_':'e':'x':'t':'e':'n':'s':'i':'o':'n':'_':'_':[]) =
-            tok (CTokGnuC GnuCExtTok)
+idkwtok ('_':'_':'e':'x':'t':'e':'n':'s':'i':'o':'n':'_':'_':[]) = tok (CTokGnuC GnuCExtTok)
+idkwtok ('_':'_':'r':'e':'a':'l':[])   = tok (CTokGnuC GnuCComplexReal)
+idkwtok ('_':'_':'r':'e':'a':'l':'_':'_':[])   = tok (CTokGnuC GnuCComplexReal)
+idkwtok ('_':'_':'i':'m':'a':'g':[])   = tok (CTokGnuC GnuCComplexImag)
+idkwtok ('_':'_':'i':'m':'a':'g':'_':'_':[])   = tok (CTokGnuC GnuCComplexImag)
 idkwtok ('_':'_':'b':'u':'i':'l':'t':'i':'n':'_':rest)
         | rest == "va_arg"             = tok (CTokGnuC GnuCVaArg)
         | rest == "offsetof"           = tok (CTokGnuC GnuCOffsetof)

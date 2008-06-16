@@ -28,6 +28,7 @@
 --     - `__extension__' to suppress warnings about extensions
 --     - Allow taking address of a label with: && label
 --     - Omitting the `then' part of conditional expressions
+--     - complex numbers
 --
 -- 6.7 C Declarations .1 -.8
 --  Supported GNU extensions:
@@ -225,7 +226,8 @@ ident		{ CTokIdent  _ $$ }		-- identifier
 tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 "__attribute__"	{ CTokGnuC GnuCAttrTok _ }	-- special GNU C tokens
 "__extension__"	{ CTokGnuC GnuCExtTok  _ }	-- special GNU C tokens
-
+"__real__"        { CTokGnuC GnuCComplexReal _ } 
+"__imag__"        { CTokGnuC GnuCComplexImag _ } 
 -- special GNU C builtin 'functions' that actually take types as parameters:
 "__builtin_va_arg"		{ CTokGnuC GnuCVaArg    _ }
 "__builtin_offsetof"		{ CTokGnuC GnuCOffsetof _ }

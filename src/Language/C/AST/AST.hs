@@ -110,7 +110,8 @@ data CStat = CLabel    Ident            -- label
                        Attrs
            | CExpr     (Maybe CExpr)    -- expression statement, maybe empty
                         Attrs
-           | CCompound [CBlockItem]     -- list of declarations and statements
+           | CCompound [Ident]          -- optional local __label__ declarations
+                       [CBlockItem]     -- list of declarations and statements
                         Attrs
            | CIf       CExpr            -- conditional expression
                        CStat
@@ -146,7 +147,7 @@ instance Pos CStat where
   posOf (CCases    _ _ _   at) = posOf at
   posOf (CDefault  _       at) = posOf at
   posOf (CExpr     _       at) = posOf at
-  posOf (CCompound _       at) = posOf at
+  posOf (CCompound _ _     at) = posOf at
   posOf (CIf       _ _ _   at) = posOf at
   posOf (CSwitch   _ _     at) = posOf at
   posOf (CWhile    _ _ _   at) = posOf at
@@ -164,7 +165,7 @@ instance Eq CStat where
   (CCases    _ _ _   at1) == (CCases    _ _ _   at2) = at1 == at2
   (CDefault  _       at1) == (CDefault  _       at2) = at1 == at2
   (CExpr     _       at1) == (CExpr     _       at2) = at1 == at2
-  (CCompound _       at1) == (CCompound _       at2) = at1 == at2
+  (CCompound _ _     at1) == (CCompound _ _     at2) = at1 == at2
   (CIf       _ _ _   at1) == (CIf       _ _ _   at2) = at1 == at2
   (CSwitch   _ _     at1) == (CSwitch   _ _     at2) = at1 == at2
   (CWhile    _ _ _   at1) == (CWhile    _ _ _   at2) = at1 == at2

@@ -36,6 +36,10 @@ class Pretty p where
 maybeP :: (p -> Doc) -> Maybe p -> Doc
 maybeP = maybe empty
 
+-- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
+mlistP :: ([p] -> Doc) -> [p] -> Doc
+mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
+
 -- pretty print identifier
 identP :: Ident -> Doc
 identP = text . identToLexeme
@@ -99,7 +103,7 @@ instance Pretty CStat where
                     <+> pretty expr2 <> text ":" $$ pretty stat
     pretty (CDefault stat _) = text "default:" $$ pretty stat
     pretty (CExpr expr _) = ii $ maybeP pretty expr <> semi
-    pretty c@(CCompound _ _) = prettyPrec 0 c
+    pretty c@(CCompound _ _ _) = prettyPrec 0 c
     pretty ifStmt@(CIf expr stat estat _) = 
         ii $  text "if" <+> text "(" <> pretty expr <> text ")"
                 $+$ prettyPrec (-1) stat
@@ -133,9 +137,10 @@ instance Pretty CStat where
     pretty (CReturn Nothing _) = ii $ text "return" <> semi
     pretty (CReturn (Just e) _) = ii $ text "return" <+> pretty e <> semi
     pretty (CAsm asmStmt _) = pretty asmStmt
-    prettyPrec p (CCompound bis _) =
-        let inner = text "{" $+$ vcat (map pretty bis) $$ text "}"
+    prettyPrec p (CCompound localLabels bis _) =
+        let inner = text "{" $+$ mlistP ppLblDecls localLabels $+$ vcat (map pretty bis) $$ text "}"
         in  if p == -1 then inner else ii inner
+        where ppLblDecls =  vcat . map (\l -> text "__label__" <+> identP l <+> semi) 
     prettyPrec _ p = pretty p
 
 instance Pretty CAsmStmt where

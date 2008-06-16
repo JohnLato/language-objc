@@ -93,12 +93,13 @@ module Language.C.Parser.Parser (parseC) where
 --
 --- TODO ----------------------------------------------------------------------
 --
---  * label declarations aren't recorded yet
---  * We ignore the C99 static keyword (see C99 6.7.5.3)
---  *  We do not distinguish in the AST between incomplete array types and
---         complete variable length arrays ([ '*' ] means the latter). (see C99 6.7.5.2)
---  * The AST doesn't allow recording attributes of unnamed struct field
+--  !* We ignore the C99 static keyword (see C99 6.7.5.3)
+--  !* We do not distinguish in the AST between incomplete array types and
+--      complete variable length arrays ([ '*' ] means the latter). (see C99 6.7.5.2)
+--  !* The AST doesn't allow recording attributes of unnamed struct field
+--
 --  * Documentation isn't complete and consistent yet.
+
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 
@@ -373,10 +374,10 @@ labeled_statement
 compound_statement :: { CStat }
 compound_statement
   : '{' enter_scope block_item_list leave_scope '}'
-  	{% withAttrs $1 $ CCompound (reverse $3) }
+  	{% withAttrs $1 $ CCompound [] (reverse $3) }
 
   | '{' enter_scope label_declarations block_item_list leave_scope '}'
-  	{% withAttrs $1 $ CCompound (reverse $4) }
+  	{% withAttrs $1 $ CCompound (reverse $3) (reverse $4) }
 
 
 -- No syntax for these, just side effecting semantic actions.
@@ -422,11 +423,10 @@ nested_function_definition
 	{% leaveScope >> (withAttrs $1 $ CFunDef (liftTypeQuals $1 ++ liftCAttrs $2) $3 [] $4) }
 
 
--- TODO : label declarations
-label_declarations :: { () }  
+label_declarations :: { Reversed [Ident] }  
 label_declarations
-  : "__label__" identifier_list ';'			{ () }
-  | label_declarations "__label__" identifier_list ';'	{ () }
+  : "__label__" identifier_list ';'			{ $2 }
+  | label_declarations "__label__" identifier_list ';'	{ $1 `rappendr` $3 }
 
 
 -- parse C expression statement (C99 6.8.3)

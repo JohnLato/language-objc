@@ -25,4 +25,9 @@ ucnid-6.c       UNC
 ia64-float80-1.c float80 builtin
 ia64-postinc.c   float128 builtin
 
+c99-float-1.c   Preprocessor fails
+
+cast-lvalue-2.c   casting an lvalue
+
 concat.c        390K input size
+concat2.c       390K input size

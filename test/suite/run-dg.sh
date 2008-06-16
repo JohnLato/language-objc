@@ -1,7 +1,7 @@
 #!/bin/sh
 source ./configuration
 
-TEST_SUITES="gcc-dg-incompliant gcc-dg-c89 gcc-dg-c99 gcc-dg-gnu99 gcc-dg-non-compile"
+TEST_SUITES="gcc-dg-incompliant gcc-dg-c89 gcc-dg-c99 gcc-dg-gnu99"
 for t in $TEST_SUITES; do
 	echo "Cleaning test suite $t"
 	sh clear_test_suite $t
@@ -38,14 +38,5 @@ for cf in `find . -name '*.c'`; do
 		source $CTEST_BINDIR/set_test_suite gcc-dg-$COMPLIANCE
 		export CTEST_DRIVER=CRoundTrip
 		sh run-test $f
-	else
-		grep "dg-error" $f >/dev/null
-		if [ $? -eq 0 ]; then
-			echo "[Info] Checking if $f (dg-error and -fsyntax-only fails) doesn't parse either"
-			source $CTEST_BINDIR/set_test_suite gcc-dg-non-compile
-			export CTEST_DRIVER=CParse
-			export CTEST_NON_PARSE=1
-			sh run-test $f
-		fi
 	fi
 done

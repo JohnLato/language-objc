@@ -8,7 +8,7 @@ source $CTEST_BINDIR/setup_test_suite smoke
 cd smoke
 
 export CTEST_DRIVER=CParse
-sh run-test doesnotexist.c
+# sh run-test doesnotexist.c
 export CTEST_NON_PARSE=1
 sh run-test test_non_parse.c
 export CTEST_NON_PARSE=0

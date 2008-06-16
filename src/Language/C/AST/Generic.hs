@@ -52,6 +52,7 @@ deriving instance Typeable CConst
 deriving instance Typeable CStrLit
 deriving instance Typeable CAsmStmt
 deriving instance Typeable CAsmOperand
+deriving instance Typeable CAttr
 deriving instance Typeable CBuiltin
 --
 deriving instance Data CHeader
@@ -78,4 +79,5 @@ deriving instance Data CConst
 deriving instance Data CStrLit
 deriving instance Data CAsmStmt
 deriving instance Data CAsmOperand
+deriving instance Data CAttr
 deriving instance Data CBuiltin

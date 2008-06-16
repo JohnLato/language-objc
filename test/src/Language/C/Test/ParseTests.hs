@@ -29,6 +29,7 @@ import System.Directory
 import System.Exit
 import System.FilePath (takeBaseName)
 import System.IO
+import System.Process
 
 import Language.C
 import Language.C.Toolkit.Position
@@ -63,25 +64,32 @@ withFileExt filename ext = (stripExt filename) ++ "." ++ ext where
 runCPP :: FilePath -> [String] -> TestMonad (FilePath,FilePath)      
 runCPP origFile cppArgs = do
   -- copy original file (for reporting)
-  cFile <- withTempFile ".c" $ \_ -> return ()
+  cFile <- withTempFile_ ".c" $ \_ -> return ()
   copySuccess <- liftIOCatched (copyFile origFile cFile)
   case copySuccess of
     Left err -> errorOnInit cppArgs $ "Copy failed: " ++ show err
     Right () -> dbgMsg      $ "Copy: " ++ origFile ++ " ==> " ++ cFile ++ "\n"
   
-  -- preprocess C file, if it isn't preprocessed already
+  -- preprocess C file, if it isn't preprocessed already process
   preFile <- case isPreprocessedFile cFile of
     False -> do
       dbgMsg $ "Preprocessing " ++ origFile ++ "\n"
-      preFile     <- withTempFile ".i" $ \_hnd -> return ()
-      gccExitcode <- liftIO $ rawSystem "gcc" (["-E", "-o", preFile] ++ cppArgs ++ [cFile])
+      preFile     <- withTempFile_ ".i" $ \_hnd -> return ()
+      (preErrReport, gccExitcode) <- withTempFile ".cpp_report" $ \errReportHnd -> do
+         liftIO $ runProcess "gcc"  (["-E", "-o", preFile] ++ cppArgs ++ [origFile]) 
+                  Nothing Nothing 
+                  Nothing Nothing (Just errReportHnd)
+                  >>= waitForProcess
       case gccExitcode of 
         ExitSuccess       ->  do
           modify $ addTmpFile preFile
           return preFile
-        ExitFailure fCode ->
-          errorOnInit cppArgs $ "C preprocessor failed: " ++ "`gcc -E -o " ++ preFile ++ " " ++ origFile ++ 
-                                "' returned exit code `" ++ show fCode ++ "'"
+        ExitFailure fCode -> do
+          modify $ addTmpFile preErrReport
+          errReport <- liftIO $ readFile preErrReport
+          errorOnInit cppArgs $ "C preprocessor failed: " ++ "`gcc -E -o " ++ preFile ++ " " ++ (unwords cppArgs) ++ " " ++ origFile ++ 
+                                "' returned exit code `" ++ show fCode ++ "'\n" ++
+                                "Output from stderr: " ++ errReport
     True -> return cFile
   return (cFile,preFile)
 
@@ -120,7 +128,7 @@ runParseTest preFile initialPos = do
 
 reportParseError :: ([String],Position) -> String -> TestMonad FilePath
 reportParseError (errMsgs,pos) input = do
-  withTempFile ".report" $ \hnd -> liftIO $ do
+  withTempFile_ ".report" $ \hnd -> liftIO $ do
     pwd        <- getCurrentDirectory
     contextMsg <- getContextInfo pos
     hPutStr hnd $ "Failed to parse " ++ (posFile pos)
@@ -147,7 +155,7 @@ runPrettyPrint ast = do
     dbgMsg "Pretty Print ..."
     (fullExport,t) <-
       time $
-        withTempFile "pp.c" $ \hnd -> 
+        withTempFile_ "pp.c" $ \hnd -> 
           liftIO $ hPutStrLn hnd $ show (pretty ast)
     modify $ addTmpFile fullExport
     locs <- liftIO $ lineCount fullExport
@@ -156,7 +164,7 @@ runPrettyPrint ast = do
     
     -- export the parsed file, with headers via include
     dbgMsg $ "Pretty Print [report] ... "
-    smallExport <- withTempFile "ppr.c" $ \hnd ->
+    smallExport <- withTempFile_ "ppr.c" $ \hnd ->
       liftIO $ hPutStrLn hnd $ show (prettyUsingInclude ast)
     dbgMsg $ "to " ++ smallExport ++ "\n"
 
@@ -189,10 +197,10 @@ runEquivTest (CHeader decls1 _) (CHeader decls2 _) = do
       else 
         case find (\(_, (d1,d2)) -> d1 /= d2) (zip [0..] (zip ast1 ast2)) of
           Just (ix, (decl1,decl2)) -> do
-            declf1 <- withTempFile ".1.ast"    $ \hnd -> liftIO $ hPutStrLn hnd (show $ pretty decl1)
-            declf2 <- withTempFile ".2.ast"    $ \hnd -> liftIO $ hPutStrLn hnd (show $ pretty decl2)
+            declf1 <- withTempFile_ ".1.ast"    $ \hnd -> liftIO $ hPutStrLn hnd (show $ pretty decl1)
+            declf2 <- withTempFile_ ".2.ast"    $ \hnd -> liftIO $ hPutStrLn hnd (show $ pretty decl2)
             modify $ (addTmpFile declf1 . addTmpFile declf2)
-            diff   <- withTempFile ".ast_diff" $ \_hnd -> return ()
+            diff   <- withTempFile_ ".ast_diff" $ \_hnd -> return ()
             decl1Src <- liftIO $ getDeclSrc decls1 ix
             decl2Src <- liftIO $ getDeclSrc decls2 ix
             liftIO $ do

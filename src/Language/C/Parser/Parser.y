@@ -78,23 +78,9 @@ module Language.C.Parser.Parser (parseC) where
 --
 --   ...      stands for some part of the grammar omitted for clarity
 --
---   [A]      represents sequences, 0 or more.
+--   {A}      represents sequences, 0 or more.
 --
---   [A]{C}   sequences with some constraint, usually on the number of
---            terminals or non-terminals appearing in the sequence.
---
---  Constraints on sequences
---
---   n==t     terminal or non-terminal t must appear exactly n times
---
---   n>=t     terminal or non-terminal t must appear at least n times
---
---   C1 && C1 conjunction of constraints
---
---   C1 || C2 disjunction of constraints
---
---   C1 |x| C2 exclusive disjunction of constraints
---
+--   <permute> modifier which states that any permutation of the immediate subterms is valid
 --
 --  Comments:
 --
@@ -106,12 +92,12 @@ module Language.C.Parser.Parser (parseC) where
 --
 --- TODO ----------------------------------------------------------------------
 --
---  * GNUC __attribute__s should be enetered into the parse tree since they
---    contain useful api/abi information.
---
---  * Some other extensions are currently recognised by the parser but not
---    entered into the parse tree.
---
+--  * label declarations aren't recorded yet
+--  * We ignore the C99 static keyword (see C99 6.7.5.3)
+--  *  We do not distinguish in the AST between incomplete array types and
+--         complete variable length arrays ([ '*' ] means the latter). (see C99 6.7.5.2)
+--  * The AST doesn't allow recording attributes of unnamed struct field
+--  * Documentation isn't complete and consistent yet.
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 

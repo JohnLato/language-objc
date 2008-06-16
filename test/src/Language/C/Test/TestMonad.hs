@@ -17,7 +17,7 @@ TestData(..),emptyTestData,cleanTmpFiles,initTestData,setTestRunResults,addTest,
 -- * test monad
 TestMonad,runTests,
 -- * actions in the test monad
-dbgMsg,addTestM,liftIOCatched,exitTest,errorOnInit,time,withTempFile,
+dbgMsg,addTestM,liftIOCatched,exitTest,errorOnInit,time,withTempFile_,withTempFile,
 -- * main convenience
 defaultMain,
 )
@@ -116,14 +116,17 @@ errorOnInit args msg = do
 exitTest :: TestMonad a
 exitTest = join (gets testExit) >> error "Internal call/cc error (not reached)"
 
-withTempFile :: String -> (Handle -> TestMonad a) -> TestMonad FilePath
+withTempFile_ :: String -> (Handle -> TestMonad a) -> TestMonad FilePath
+withTempFile_ ext = liftM fst . withTempFile ext
+
+withTempFile :: String -> (Handle -> TestMonad a) -> TestMonad (FilePath, a)
 withTempFile ext a = do
   tmpdir <- liftM tmpDir ask
   tmpl   <- gets tmpTemplate
   (tmpFile, tmpHnd) <- liftIO $ openTempFile tmpdir (tmpl ++ ext) 
-  a tmpHnd
+  r <- a tmpHnd
   liftIO$ hClose tmpHnd
-  return tmpFile      
+  return (tmpFile, r)
 
 
 -- | @defaultMain testRunner executes the test set @tests = testRunner cmdLineArgs@ 

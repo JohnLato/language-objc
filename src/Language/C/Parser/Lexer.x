@@ -1,8 +1,8 @@
 -----------------------------------------------------------------------------
 -- Module      :  Lexer.x
--- Copyright (c) [1999..2004] Manuel M T Chakravarty
--- Copyright (c) 2005 Duncan Coutts
--- Copyright (c) 2008 Benedikt Huber
+-- Copyright   : (c) [1999..2004] Manuel M T Chakravarty
+--               (c) 2005 Duncan Coutts
+--               (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable

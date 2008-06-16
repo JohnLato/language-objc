@@ -1,7 +1,8 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  AST
--- Copyright   :  (c) [1999..2008] Manuel M T Chakravarty
+-- Copyright   :  (c) [1999..2007] Manuel M T Chakravarty
+--                (c) 2008 Benedikt Huber        
 -- License     :  BSD-style
 -- Maintainer  :  -
 -- Portability :  portable
@@ -19,13 +20,15 @@
 --  supports the C99 `restrict' extension
 --  <http://www.lysator.liu.se/c/restrict.html>, `inline' functions, and also
 --  the GNU C `alignof' extension.
+--
 -----------------------------------------------------------------------------
 module Language.C.AST.AST (
   CHeader(..), 
   CExtDecl(..), CFunDef(..), CStat(..), CBlockItem(..),
-  CDecl(..), CDeclSpec(..), CStorageSpec(..), CTypeSpec(..),
+  CDecl(..), CDeclSpec(..), CStorageSpec(..), CTypeSpec(..), CAttr(..),
   CTypeQual(..), CStructUnion(..),  CStructTag(..), CEnum(..),
-  CDeclr(..), CInit(..), CInitList, CDesignator(..), CExpr(..),
+  CDeclr(..), varDeclr, appendDeclrAttrs, 
+  CInit(..), CInitList, CDesignator(..), CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..), 
   CConst (..), CStrLit(..), cstrConst, 
   CAsmStmt(..), CAsmOperand(..), CBuiltin(..) )
@@ -50,23 +53,22 @@ instance Eq CHeader where
 --
 data CExtDecl = CDeclExt CDecl
               | CFDefExt CFunDef
-              | CAsmExt  Attrs            -- a chunk of assembly code (which is
-                                        -- not itself recorded)
+              | CAsmExt  CStrLit Attrs  -- a chunk of assembly code (GNU: asm definitions)
 
 instance Pos CExtDecl where
   posOf (CDeclExt decl) = posOf decl
   posOf (CFDefExt fdef) = posOf fdef
-  posOf (CAsmExt at)    = posOf at
+  posOf (CAsmExt _ at)  = posOf at
 
 instance Eq CExtDecl where
   CDeclExt decl1 == CDeclExt decl2 = decl1 == decl2
   CFDefExt fdef1 == CFDefExt fdef2 = fdef1 == fdef2
-  CAsmExt at1    == CAsmExt at2    =   at1 == at2
+  CAsmExt _ at1  == CAsmExt _ at2  =   at1 == at2
 
 instance Attributed CExtDecl where
   attrsOf (CDeclExt decl) = attrsOf decl
   attrsOf (CFDefExt funDef) = attrsOf funDef
-  attrsOf (CAsmExt at) = at
+  attrsOf (CAsmExt _ at) = at
 
 -- C function definition (K&R A10.1) (EXPORTED)
 --
@@ -93,8 +95,9 @@ instance Attributed CFunDef where
 
 -- C statement (A9) (EXPORTED)
 --
-data CStat = CLabel    Ident            -- label
+data CStat = CLabel    Ident            -- label                        
                        CStat
+                       [CAttr]          -- __attribute__
                        Attrs
            | CCase     CExpr            -- constant expression
                        CStat
@@ -138,7 +141,7 @@ data CStat = CLabel    Ident            -- label
 
 
 instance Pos CStat where
-  posOf (CLabel    _ _     at) = posOf at
+  posOf (CLabel    _ _ _   at) = posOf at
   posOf (CCase     _ _     at) = posOf at
   posOf (CCases    _ _ _   at) = posOf at
   posOf (CDefault  _       at) = posOf at
@@ -156,7 +159,7 @@ instance Pos CStat where
   posOf (CAsm _            at) = posOf at
 
 instance Eq CStat where
-  (CLabel    _ _     at1) == (CLabel    _ _     at2) = at1 == at2
+  (CLabel    _ _ _   at1) == (CLabel    _ _ _   at2) = at1 == at2
   (CCase     _ _     at1) == (CCase     _ _     at2) = at1 == at2
   (CCases    _ _ _   at1) == (CCases    _ _ _   at2) = at1 == at2
   (CDefault  _       at1) == (CDefault  _       at2) = at1 == at2
@@ -248,10 +251,10 @@ instance Eq CBlockItem where
 --     where the declarator must be abstract, ie, must not contain a declared
 --     identifier. 
 --
-data CDecl = CDecl [CDeclSpec]          -- type specifier and qualifier
-                   [(Maybe CDeclr,        -- declarator (may be omitted)
-                     Maybe CInit,         -- optional initialize
-                     Maybe CExpr)]        -- optional size (const expr)
+data CDecl = CDecl [CDeclSpec]          -- type specifier and qualifier, __attribute__
+                   [(Maybe CDeclr,      -- declarator (may be omitted)
+                     Maybe CInit,       -- optional initialize
+                     Maybe CExpr)]      -- optional size (const expr)
                    Attrs
 instance Attributed CDecl where
   attrsOf (CDecl _ _ at) = at
@@ -259,6 +262,7 @@ instance Pos CDecl where
   posOf (CDecl _ _ at) = posOf at
 instance Eq CDecl where
   (CDecl _ _ at1) == (CDecl _ _ at2) = at1 == at2
+
 -- C declaration specifiers and qualifiers (EXPORTED)
 --
 data CDeclSpec = CStorageSpec CStorageSpec
@@ -359,39 +363,41 @@ instance Eq CTypeSpec where
 -- C type qualifier (K&R A8.2) (EXPORTED)
 --
 -- * plus `restrict' from C99 and `inline'
---
+-- * plus __attribute__ annotations for types
 data CTypeQual = CConstQual Attrs
                | CVolatQual Attrs
                | CRestrQual Attrs
                | CInlinQual Attrs
+               | CAttrQual  CAttr
 
 instance Pos CTypeQual where
  posOf (CConstQual at) = posOf at
  posOf (CVolatQual at) = posOf at
  posOf (CRestrQual at) = posOf at
  posOf (CInlinQual at) = posOf at
-
+ posOf (CAttrQual cattrs) = posOf cattrs
 instance Eq CTypeQual where
   (CConstQual at1) == (CConstQual at2) = at1 == at2
   (CVolatQual at1) == (CVolatQual at2) = at1 == at2
   (CRestrQual at1) == (CRestrQual at2) = at1 == at2
   (CInlinQual at1) == (CInlinQual at2) = at1 == at2
+  (CAttrQual at1)  == (CAttrQual at2) = at1 == at2
 
 -- C structure of union declaration (K&R A8.3) (EXPORTED)
 --
--- * in both case, either the identifier is present or the list must be
---   non-empty 
+-- * in both case, either the identifier or the declaration list is present
 --
 data CStructUnion = CStruct CStructTag
                             (Maybe Ident)
-                            [CDecl]     -- *structure* declaration
+                            (Maybe [CDecl])     -- `structure' declaration
+                            [CAttr]            -- __attribute__s
                             Attrs
 
 instance Pos CStructUnion where
-  posOf (CStruct _ _ _ at) = posOf at
+  posOf (CStruct _ _ _ _ at) = posOf at
 
 instance Eq CStructUnion where
-  (CStruct _ _ _ at1) == (CStruct _ _ _ at2) = at1 == at2
+  (CStruct _ _ _ _ at1) == (CStruct _ _ _ _ at2) = at1 == at2
 
 -- (EXPORTED)
 --
@@ -404,13 +410,14 @@ data CStructTag = CStructTag
 data CEnum = CEnum (Maybe Ident)
                    [(Ident,                     -- variant name
                      Maybe CExpr)]              -- explicit variant value
+                   [CAttr]                     -- __attribute__s
                    Attrs
 
 instance Pos CEnum where
-  posOf (CEnum _ _ at) = posOf at
+  posOf (CEnum _ _ _ at) = posOf at
 
 instance Eq CEnum where
-  (CEnum _ _ at1) == (CEnum _ _ at2) = at1 == at2
+  (CEnum _ _ _ at1) == (CEnum _ _ _ at2) = at1 == at2
 
 -- C declarator (K&R A8.5) and abstract declarator (K&R A8.8) (EXPORTED)
 --
@@ -442,31 +449,50 @@ instance Eq CEnum where
 --   variant for functions.
 --
 data CDeclr = CVarDeclr (Maybe Ident)           -- declared identifier
+                        (Maybe CStrLit)         -- asm name (this is a consequent design, but pretty printing is more difficut)
+                        [CAttr]                 -- __attribute__s
+                        Attrs                        
+            | CPtrDeclr [CTypeQual]             -- type quals and __attribute__
+                        CDeclr                  -- outer declr
                         Attrs
-            | CPtrDeclr [CTypeQual]             -- indirections
-                        CDeclr
-                        Attrs
-            | CArrDeclr CDeclr
-                        [CTypeQual]
+            | CArrDeclr CDeclr                  -- outer declr
+                        [CTypeQual]             -- type quals and __attribute__
                         (Maybe CExpr)           -- array size
                         Attrs
-            | CFunDeclr CDeclr
-                        [CDecl]                 -- `parameter' declarations
-                        (Either [Ident] Bool)   -- old-style parameters or new-style isVariadic?
+            | CFunDeclr CDeclr                  -- outer declr
+                        (Either [Ident] ([CDecl],Bool)) -- old-style parameters or new-style decls + isVariadic
+                        [CAttr]                 -- __attribute__s
                         Attrs
 
 instance Pos CDeclr where
-  posOf (CVarDeclr _     at) = posOf at
-  posOf (CPtrDeclr _ _   at) = posOf at
-  posOf (CArrDeclr _ _ _ at) = posOf at
-  posOf (CFunDeclr _ _ _ at) = posOf at
+  posOf (CVarDeclr _ident _asmName _cAttrs at) = posOf at
+  posOf (CPtrDeclr _typeQuals _innerDeclr at) = posOf at
+  posOf (CArrDeclr _innerDeclr _typeQuals _arraySize at) = posOf at
+  posOf (CFunDeclr _innerDeclr _parameters _cAttrs at) = posOf at
 
 instance Eq CDeclr where
-  (CVarDeclr _     at1) == (CVarDeclr _     at2) = at1 == at2
+  (CVarDeclr _ _ _ at1) == (CVarDeclr _ _ _ at2) = at1 == at2
   (CPtrDeclr _ _   at1) == (CPtrDeclr _ _   at2) = at1 == at2
   (CArrDeclr _ _ _ at1) == (CArrDeclr _ _ _ at2) = at1 == at2
   (CFunDeclr _ _ _ at1) == (CFunDeclr _ _ _ at2) = at1 == at2
 
+varDeclr :: CDeclr -> CDeclr
+varDeclr = follow where
+  follow varDeclr@(CVarDeclr _ident _asmName _cAttrs _at) = varDeclr
+  follow (CPtrDeclr _typeQuals odeclr _at) = follow odeclr
+  follow (CArrDeclr odeclr _typeQuals _arraySize _at) = follow odeclr
+  follow (CFunDeclr odeclr _parameters _cAttrs _at) = follow odeclr
+
+appendDeclrAttrs :: [CAttr] -> CDeclr -> CDeclr
+appendDeclrAttrs newAttrs (CVarDeclr ident asmName cAttrs at) 
+    = CVarDeclr ident asmName (cAttrs ++ newAttrs) at
+appendDeclrAttrs newAttrs (CPtrDeclr typeQuals odeclr at)     
+    = CPtrDeclr (typeQuals ++ map CAttrQual newAttrs) odeclr at 
+appendDeclrAttrs newAttrs (CArrDeclr odeclr typeQuals arraySize at) 
+    = CArrDeclr odeclr (typeQuals ++ map CAttrQual newAttrs) arraySize at
+appendDeclrAttrs newAttrs (CFunDeclr odeclr parameters cAttrs at) 
+    = CFunDeclr odeclr parameters (cAttrs ++ newAttrs) at
+          
 -- C initializer (K&R A8.7) (EXPORTED)
 --
 data CInit = CInitExpr CExpr
@@ -504,6 +530,15 @@ instance Eq CDesignator where
   (CMemberDesig  _ at1) == (CMemberDesig  _ at2) = at1 == at2
   (CRangeDesig _ _ at1) == (CRangeDesig _ _ at2) = at1 == at2
 
+
+
+-- attribute / assembler annotations
+data CAttr = CAttr Ident [CExpr] Attrs
+instance Pos CAttr where
+    posOf (CAttr _ _ at)    = posOf at
+instance Eq CAttr where
+    (CAttr _ _ at1) == (CAttr _ _ at2) = at1 == at2
+
 -- C expression (K&R A7) (EXPORTED)
 --
 -- * these can be arbitrary expression, as the argument of `sizeof' can be
@@ -539,6 +574,10 @@ data CExpr = CComma       [CExpr]       -- comma expression list, n >= 2
                           Attrs
            | CAlignofType CDecl         -- type name
                           Attrs
+           | CComplexReal CExpr         -- real part of complex number
+                          Attrs 
+           | CComplexImag CExpr         -- imaginary part of complex number
+                          Attrs
            | CIndex       CExpr         -- array
                           CExpr         -- index
                           Attrs
@@ -573,6 +612,8 @@ instance Pos CExpr where
   posOf (CSizeofType  _     at) = posOf at
   posOf (CAlignofExpr _     at) = posOf at
   posOf (CAlignofType _     at) = posOf at
+  posOf (CComplexReal _     at) = posOf at
+  posOf (CComplexImag _     at) = posOf at
   posOf (CIndex       _ _   at) = posOf at
   posOf (CCall        _ _   at) = posOf at
   posOf (CMember      _ _ _ at) = posOf at
@@ -594,6 +635,8 @@ instance Eq CExpr where
   (CSizeofType  _     at1) == (CSizeofType  _     at2) = at1 == at2
   (CAlignofExpr _     at1) == (CAlignofExpr _     at2) = at1 == at2
   (CAlignofType _     at1) == (CAlignofType _     at2) = at1 == at2
+  (CComplexReal _     at1) == (CComplexReal _     at2) = at1 == at2
+  (CComplexImag _     at1) == (CComplexImag _     at2) = at1 == at2
   (CIndex       _ _   at1) == (CIndex       _ _   at2) = at1 == at2
   (CCall        _ _   at1) == (CCall        _ _   at2) = at1 == at2
   (CMember      _ _ _ at1) == (CMember      _ _ _ at2) = at1 == at2
@@ -696,5 +739,7 @@ instance Eq CConst where
 data CStrLit = CStrLit String Attrs
 instance Pos CStrLit where
     posOf (CStrLit _ at) = posOf at
+instance Attributed CStrLit where
+    attrsOf (CStrLit _ at) = at
 cstrConst :: CStrLit -> CConst
 cstrConst (CStrLit str at) = CStrConst str at

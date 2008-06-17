@@ -9,18 +9,16 @@
 --
 -- Abstract syntax of C source and header files.
 --
---  The tree structure corresponds to the grammar in Appendix A of K&R.  This
+--  The tree structure is based on the grammar in Appendix A of K&R.  The
 --  abstract syntax simplifies the concrete syntax by merging similar concrete
 --  constructs into a single type of abstract tree structure: declarations are
 --  merged with structure declarations, parameter declarations and type names,
 --  and declarators are merged with abstract declarators.
 --
 --  With K&R we refer to ``The C Programming Language'', second edition, Brain
---  W. Kernighan and Dennis M. Ritchie, Prentice Hall, 1988.  This module
---  supports the C99 `restrict' extension
---  <http://www.lysator.liu.se/c/restrict.html>, `inline' functions, and also
---  the GNU C `alignof' extension.
---
+--  W. Kernighan and Dennis M. Ritchie, Prentice Hall, 1988. The AST supports all
+--  of C99 <http://www.open-std.org/JTC1/SC22/WG14/www/docs/n1256.pdf> and several 
+--  GNU extensions <http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html>.
 -----------------------------------------------------------------------------
 module Language.C.AST.AST (
   CHeader(..), 
@@ -38,8 +36,11 @@ import Language.C.Toolkit.Position   (Pos(posOf))
 import Language.C.Toolkit.Idents     (Ident)
 import Language.C.Toolkit.Attributes (Attrs,Attributed(..))
 
--- a complete C header file (K&R A10) (EXPORTED)
+-- | Complete C tranlsation unit (C99 6.9, K&R A10)
+--  
+-- Consits of a list of external (i.e. toplevel) declarations.
 --
+-- /FIXME/: A better name would be 'CTranslUnit'.
 data CHeader = CHeader [CExtDecl]
                            Attrs
 instance Attributed CHeader where
@@ -49,11 +50,12 @@ instance Pos CHeader where
 instance Eq CHeader where
   (CHeader _ at1) == (CHeader _ at2) = at1 == at2
     
--- external C declaration (K&R A10) (EXPORTED)
+-- | External C declaration (C99 6.9, K&R A10)
 --
+-- Either a toplevel declaration, function definition or external assembler.
 data CExtDecl = CDeclExt CDecl
               | CFDefExt CFunDef
-              | CAsmExt  CStrLit Attrs  -- a chunk of assembly code (GNU: asm definitions)
+              | CAsmExt  CStrLit Attrs  -- TODO: better delegate to something like CAsm for consistency
 
 instance Pos CExtDecl where
   posOf (CDeclExt decl) = posOf decl
@@ -70,17 +72,21 @@ instance Attributed CExtDecl where
   attrsOf (CFDefExt funDef) = attrsOf funDef
   attrsOf (CAsmExt _ at) = at
 
--- C function definition (K&R A10.1) (EXPORTED)
+-- | C function definition (C99 6.9.1, K&R A10.1)
 --
--- * The only type specifiers allowed are `extern' and `static'.
+-- A function definition is of the form @CFunDef specifiers declarator decllist? stmt@.
 --
--- * The declarator must specify explicitly that the declared identifier has
---   function type.
+-- * @specifiers@ are the type and storage-class specifiers of the function.
+--   The only storage-class specifiers allowed are /extern/ and /static/.
 --
--- * The optional declaration list is for old-style function declarations.
+-- * The @declarator@ must be such that the declared identifier has /function type/.
+--   The return type shall be void or an object type other than array type.
 --
--- * The statement must be a compound statement.
+-- * The optional declaration list @decllist@ is for old-style function declarations.
 --
+-- * The statement @stmt@ is a compound statement.
+--
+-- /TODO/: Merge oldstyle/newstyle declarations
 data CFunDef = CFunDef [CDeclSpec]      -- type specifier and qualifier
                        CDeclr           -- declarator
                        [CDecl]          -- optional declaration list
@@ -93,52 +99,55 @@ instance Eq CFunDef where
 instance Attributed CFunDef where
   attrsOf (CFunDef _ _ _ _ at) = at
 
--- C statement (A9) (EXPORTED)
+-- | C statement (K&R A9, C99 6.8)
 --
 data CStat = CLabel    Ident            -- label                        
-                       CStat
-                       [CAttr]          -- __attribute__
-                       Attrs
+                       CStat            
+                       [CAttr]          
+                       Attrs            -- ^ An (attributed) label followed by a statement
            | CCase     CExpr            -- constant expression
+                       CStat            
+                       Attrs            -- ^ A statement of the form @case expr : stmt@
+           | CCases    CExpr            
+                       CExpr            
                        CStat
-                       Attrs
-           | CCases    CExpr            -- case range
-                       CExpr                -- `case lower .. upper :'
+                       Attrs            -- ^ A case range of the form @case lower ... upper : stmt@
+           | CDefault  CStat            
+                       Attrs            -- ^ The default case @default : stmt@
+           | CExpr     (Maybe CExpr)    
+                        Attrs           -- ^ A simple statement, that is in C: evaluating an expression with side-effects
+                                        --   and discarding the result.
+           | CCompound [Ident]          
+                       [CBlockItem]     
+                        Attrs           -- ^ compound statement @CCompound localLabels blockItems at@
+           | CIf       CExpr            
+                       CStat            
+                (Maybe CStat)    
+                       Attrs            -- ^ conditional statement @CIf ifExpr thenStmt maybeElseStmt at@
+           | CSwitch   CExpr            
                        CStat
-                       Attrs
-           | CDefault  CStat            -- default case
-                       Attrs
-           | CExpr     (Maybe CExpr)    -- expression statement, maybe empty
-                        Attrs
-           | CCompound [Ident]          -- optional local __label__ declarations
-                       [CBlockItem]     -- list of declarations and statements
-                        Attrs
-           | CIf       CExpr            -- conditional expression
-                       CStat
-                (Maybe CStat)    -- optional "else" case
-                       Attrs
-           | CSwitch   CExpr            -- selector
-                       CStat
-                       Attrs
+                       Attrs            -- ^ switch statement @CSwitch selectorExpr switchStmt@, where @switchStmt@ usually includes
+                                        -- /case/, /break/ and /default/ statements
            | CWhile    CExpr
                        CStat
-                       Bool         -- `True' implies "do-while" statement
-                       Attrs
+                       Bool         
+                       Attrs            -- ^ while or do-while statement @CWhile guard stmt isDoWhile at@
            | CFor      (Either (Maybe CExpr) CDecl)
                            (Maybe CExpr)
                            (Maybe CExpr)
                        CStat
-                       Attrs
-           | CGoto     Ident            -- label
-                       Attrs
-           | CGotoPtr  CExpr            -- computed address
-                       Attrs
-           | CCont     Attrs            -- continue statement
-           | CBreak    Attrs            -- break statement
+                       Attrs            -- ^ for statement @CFor init expr-2 expr-3 stmt@, where @init@ is either a declaration or
+                                        -- initializing expression
+           | CGoto     Ident            -- 
+                       Attrs            -- ^ goto statement @CGoto label@
+           | CGotoPtr  CExpr            
+                       Attrs            -- ^ computed goto @CGotoPtr labelExpr@
+           | CCont     Attrs            -- ^ continue statement
+           | CBreak    Attrs            -- ^ break statement
            | CReturn   (Maybe CExpr)
-                       Attrs
-           | CAsm      CAsmStmt         -- assembly statement 
-                       Attrs
+                       Attrs            -- ^ return statement @CReturn returnExpr@
+           | CAsm      CAsmStmt         
+                       Attrs            -- ^ assembly statement 
 
 
 instance Pos CStat where
@@ -177,16 +186,29 @@ instance Eq CStat where
   (CReturn   _       at1) == (CReturn   _       at2) = at1 == at2
   (CAsm _             at1) == (CAsm _            at2) = at1 == at2
 
--- GNU Assembler 
-data CAsmStmt = CAsmStmt (Maybe CTypeQual)     -- maybe volatile
-                                CStrLit        -- assembler expression (String)
-                               [CAsmOperand]   -- output operands
-                               [CAsmOperand]   -- input operands
-                               [CStrLit]       -- Clobbers
-                                Attrs
+-- | GNU Assembler statement
+--
+-- > CAsmStatement type-qual? asm-expr out-ops in-ops clobbers _
+--
+-- is an inline assembler statement. 
+-- The only type-qualifier (if any) allowed is /volatile/.
+-- @asm-expr@ is the actual assembler epxression (a string), @out-ops@ and @in-ops@ are the input
+-- and output operands of the statement. 
+-- @clobbers@ is a list of registers which are clobbered when executing the assembler statement
+data CAsmStmt 
+  = CAsmStmt (Maybe CTypeQual)     -- maybe volatile
+                    CStrLit        -- assembler expression (String)
+                   [CAsmOperand]   -- output operands
+                   [CAsmOperand]   -- input operands
+                   [CStrLit]       -- Clobbers
+                    Attrs
 instance Pos CAsmStmt where
     posOf (CAsmStmt _ _ _ _ _ at) = posOf at
     
+-- | Assembler operand
+--
+-- @CAsmOperand argName? constraintExpr arg@ specifies an operand for an assembler
+-- statement.
 data CAsmOperand = CAsmOperand (Maybe Ident)   -- argument name
                                 CStrLit        -- constraint expr
                                 CExpr          -- argument
@@ -194,10 +216,13 @@ data CAsmOperand = CAsmOperand (Maybe Ident)   -- argument name
 instance Pos CAsmOperand where
     posOf (CAsmOperand _ _ _ at) = posOf at                            
 
--- C99 Block items, things that may appear in compound statements
-data CBlockItem = CBlockStmt    CStat
-                | CBlockDecl    CDecl
-                | CNestedFunDef CFunDef         -- GNU C has nested functions
+-- | C99 Block items
+--
+--  Things that may appear in compound statements: either statements, declarations 
+--   or nested function definitions.
+data CBlockItem = CBlockStmt    CStat           -- ^ A statement
+                | CBlockDecl    CDecl           -- ^ A local declaration
+                | CNestedFunDef CFunDef         -- ^ A nested function (GNU C)
 
 instance Pos CBlockItem where
   posOf (CBlockStmt stmt)  = posOf stmt
@@ -210,47 +235,47 @@ instance Eq CBlockItem where
   CNestedFunDef fdef1 == CNestedFunDef fdef2 = fdef1 == fdef2
 
 
--- C declaration (K&R A8), structure declaration (K&R A8.3), parameter
--- declaration (K&R A8.6.3), and type name (K&R A8.8) (EXPORTED) 
+-- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
+--   declarations and type names.
 --
--- * Toplevel declarations (K&R A8): 
+-- A declaration is of the form @CDecl specifiers init-declarator-list@, where the form of the declarator list's
+--  elements depends on the kind of declaration:
 --
---   - they require that the type specifier and qualifier list is not empty,
---     but gcc allows it and just issues a warning; for the time being, we
---     also allow it;
---   - at most one storage class specifier is allowed per declaration;
---   - declarators must be present and size expressions are not allowed, ie,
---     the elements of K&R's init-declarator-list are represented by triples
---     of the form `(Just declr, oinit, Nothing)', where `oinit' maybe
---     `Nothing' or `Just init'; and
---   - abstract declarators are not allowed.
+-- 1) Toplevel declarations (K&R A8, C99 6.7 declaration)
 --
--- * Structure declarations (K&R A8.3):
+--   * c99 requires that there is at least one specifier, though this is merely a syntactic restriction
+-- 
+--   * at most one storage class specifier is allowed per declaration
 --
---   - do not allow storage specifiers;
---   - do not allow initializers; 
---   - require a non-empty declarator-triple list, where abstract declarators 
---     are not allowed; and
---   - each of the declarator-triples has to contain either a declarator or a
---     size expression, or both, ie, it has the form `(Just decl, Nothing,
---     Nothing)', `(Nothing, Nothing, Just size)', or `(Just decl, Nothing,
---     Just size)'.
+--   * the elements of the non-empty @init-declarator-list@ are of the form @(Just declr, init?, Nothing)@. 
+--      The declarator @declr@ has to be present and non-abstract and the initialization expression is 
+--      optional.
 --
--- * Parameter declarations (K&R A8.6.3):
+-- 2) Structure declarations (K&R A8.3, C99 6.7.2.1 struct-declaration)
 --
---   - allow neither initializers nor size expressions;
---   - allow at most one declarator triple of the form `(Just declr, Nothing, 
---     Nothing)' (in case of an empty declarator, the list must be empty); and
---   - allow abstract declarators.
+--   Those are the declarations of a structure's members.
 --
--- * Type names (A8.8):
+--   * do not allow storage specifiers
 --
---   - do not allow storage specifiers;
---   - allow neither initializers nor size expressions; and
---   - allow at most one declarator triple of the form `(Just declr, Nothing, 
---     Nothing)' (in case of an empty declarator, the list must be empty),
---     where the declarator must be abstract, ie, must not contain a declared
---     identifier. 
+--   * in strict C99, the list of declarators has to be non-empty
+--
+--   * the elements of @init-declarator-list@ are either of the form @(Just declr, Nothing, size?)@,
+--     representing a member with optional bit-field size, or of the form @(Nothing, Nothing, Just size)@,
+--     for unnamed bitfields. @declr@ has to be non-abstract.
+--
+--   * no member of a structure shall have incomplete type
+--    
+-- 3) Parameter declarations (K&R A8.6.3, C99 6.7.5 parameter-declaration)
+--
+--   * @init-declarator-list@ must contain at most one triple of the form @(Just declr, Nothing, Nothing)@, 
+--     i.e. consist of a single declarator, which is allowed to be abstract (i.e. unnamed).
+--
+-- 4) Type names (A8.8, C99 6.7.6)
+--
+--   * do not allow storage specifiers
+--
+--   * @init-declarator-list@ must contain at most one triple of the form @(Just declr, Nothing, Nothing)@.
+--     where @declr@ is an abstract declarator (i.e. doesn't contain a declared identifier)
 --
 data CDecl = CDecl [CDeclSpec]          -- type specifier and qualifier, __attribute__
                    [(Maybe CDeclr,      -- declarator (may be omitted)
@@ -264,11 +289,13 @@ instance Pos CDecl where
 instance Eq CDecl where
   (CDecl _ _ at1) == (CDecl _ _ at2) = at1 == at2
 
--- C declaration specifiers and qualifiers (EXPORTED)
+-- | C declaration specifiers and qualifiers
 --
-data CDeclSpec = CStorageSpec CStorageSpec
-               | CTypeSpec    CTypeSpec
-               | CTypeQual    CTypeQual
+-- Declaration specifiers include at most one storage-class specifier (C99 6.7.1),
+-- type specifiers (6.7.2) and type qualifiers (6.7.3).
+data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or typedef
+               | CTypeSpec    CTypeSpec     -- ^ type name
+               | CTypeQual    CTypeQual     -- ^ type qualifier
                deriving (Eq)
 
 instance Pos CDeclSpec where
@@ -276,14 +303,14 @@ instance Pos CDeclSpec where
   posOf (CTypeSpec    tspec) = posOf tspec
   posOf (CTypeQual    tqual) = posOf tqual
 
--- C storage class specifier (K&R A8.1) (EXPORTED)
+-- | C storage class specifier (and typedefs) (K&R A8.1, C99 6.7.1)
 --
-data CStorageSpec = CAuto     Attrs
-                  | CRegister Attrs
-                  | CStatic   Attrs
-                  | CExtern   Attrs
-                  | CTypedef  Attrs     -- syntactic awkwardness of C
-                  | CThread   Attrs     -- GNUC thread local storage
+data CStorageSpec = CAuto     Attrs     -- ^ automatic storage
+                  | CRegister Attrs     -- ^ register storage
+                  | CStatic   Attrs     -- ^ static linkage
+                  | CExtern   Attrs     -- ^ external linkage
+                  | CTypedef  Attrs     -- ^ a typedef
+                  | CThread   Attrs     -- ^ GNUC thread local storage
 
 instance Pos CStorageSpec where
   posOf (CAuto     at) = posOf at
@@ -301,8 +328,12 @@ instance Eq CStorageSpec where
   (CTypedef  at1) == (CTypedef  at2) = at1 == at2
   (CThread   at1) == (CThread   at2) = at1 == at2
 
--- C type specifier (K&R A8.2) (EXPORTED)
+-- | C type specifier (K&R A8.2, C99 6.7.2)
 --
+-- Type specifiers are either basic types such as @char@ or @int@, 
+-- @struct@, @union@ or @enum@ specifiers or typedef names.
+--
+-- As a GNU extension, a @typeof@ expression also is a type specifier.
 data CTypeSpec = CVoidType    Attrs
                | CCharType    Attrs
                | CShortType   Attrs
@@ -314,16 +345,16 @@ data CTypeSpec = CVoidType    Attrs
                | CUnsigType   Attrs
                | CBoolType    Attrs
                | CComplexType Attrs
-               | CSUType      CStructUnion
-                              Attrs
-               | CEnumType    CEnum
-                              Attrs
-               | CTypeDef     Ident             -- typedef name
-                              Attrs
+               | CSUType      CStructUnion      
+                              Attrs             -- ^ Struct or Union specifier
+               | CEnumType    CEnum             
+                              Attrs             -- ^ Enumeration specifier
+               | CTypeDef     Ident
+                              Attrs             -- ^ Typedef name
                | CTypeOfExpr  CExpr
-                              Attrs
+                              Attrs             -- ^ @typeof(expr)@
                | CTypeOfType  CDecl
-                              Attrs
+                              Attrs             -- ^ @typeof(type)@
 
 instance Pos CTypeSpec where
   posOf (CVoidType      at) = posOf at
@@ -361,10 +392,10 @@ instance Eq CTypeSpec where
   (CTypeOfExpr _ at1) == (CTypeOfExpr _ at2) = at1 == at2
   (CTypeOfType _ at1) == (CTypeOfType _ at2) = at1 == at2
 
--- C type qualifier (K&R A8.2) (EXPORTED)
+-- | C type qualifiers (K&R A8.2, C99 6.7.3) and function specifiers (C99 6.7.4)
 --
--- * plus `restrict' from C99 and `inline'
--- * plus __attribute__ annotations for types
+-- @const@, @volatile@ and @restrict@ type qualifiers and @inline@ function specifier.
+-- Additionally, @__attribute__@ annotations for declarators and types.
 data CTypeQual = CConstQual Attrs
                | CVolatQual Attrs
                | CRestrQual Attrs
@@ -384,13 +415,17 @@ instance Eq CTypeQual where
   (CInlinQual at1) == (CInlinQual at2) = at1 == at2
   (CAttrQual at1)  == (CAttrQual at2) = at1 == at2
 
--- C structure of union declaration (K&R A8.3) (EXPORTED)
+-- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
--- * in both case, either the identifier or the declaration list is present
---
+-- @CStruct tag identifier struct-decls c-attrs@ represents a struct or union specifier (depending on @tag@).
+
+--   * either the @identifier@ or the declaration list @struct-decls@ (or both) are present
+--     Example: in @struct foo x;@, the identifier is present, in @struct { } x@ the declaration list, and
+--     in @struct foo { int y; } x; @ both of them
+--   * @c-attrs@ is a list of @__attribute__@s associated with the struct or union specifier
 data CStructUnion = CStruct CStructTag
                             (Maybe Ident)
-                            (Maybe [CDecl])     -- `structure' declaration
+                            (Maybe [CDecl])    -- member declarations
                             [CAttr]            -- __attribute__s
                             Attrs
 
@@ -406,8 +441,19 @@ data CStructTag = CStructTag
                 | CUnionTag
                 deriving (Eq)
 
--- C enumeration declaration (K&R A8.4) (EXPORTED)
+-- | C enumeration specifier (K&R A8.4, C99 6.7.2.2)
 --
+-- @CEnum identifier enumerator-list attrs@ represent as enum specifier
+--
+--  * Either the identifier or the enumerator-list (or both) have to be present.
+--
+--  * Empty enumerator lists are not allowed, so if enumerator-list is empty, it is considered
+--    to be absent.
+--
+--  * The enumerator list is of the form @(enumeration-constant, enumeration-value?)@, where the latter
+--    is an optional constant integral expression.
+--
+--  * @attrs@ is a list of @__attribute__@ annotations associated with the enumeration specifier
 data CEnum = CEnum (Maybe Ident)
                    [(Ident,                     -- variant name
                      Maybe CExpr)]              -- explicit variant value
@@ -420,50 +466,54 @@ instance Pos CEnum where
 instance Eq CEnum where
   (CEnum _ _ _ at1) == (CEnum _ _ _ at2) = at1 == at2
 
--- C declarator (K&R A8.5) and abstract declarator (K&R A8.8) (EXPORTED)
+-- | C declarator (K&R A8.5, C99 6.7.5) and abstract declarator (K&R A8.8, C99 6.7.6)
 --
--- * We have one type qualifer list `[CTypeQual]' for each indirection (ie,
---   each occurrence of `*' in the concrete syntax).
+-- The representation of declarators is syntax-oriented. In the following, asm and attribute annotations are
+-- left out for simplicity, @[| |]@ denotes concrete to abstract syntax transformation:
 --
--- * We unfold K&R's direct-declarators nonterminal into declarators.  Note
---   that `*(*x)' is equivalent to `**x'.
+-- * A pointer declarator @ * tyquals declr @ is represented as @CPtrDeclr [| tyquals |] [| declr |]@
 --
--- * Declarators (A8.5) and abstract declarators (A8.8) are represented in the 
---   same structure.  In the case of a declarator, the identifier in
---   `CVarDeclr' must be present; in an abstract declarator it misses.
---   `CVarDeclr Nothing ...' on its own is meaningless, it may only occur as
---   part of a larger type (ie, there must be a pointer, an array, or function
---   declarator around).
+-- * A function declarator @declr ( params )@ is represented as @CFunDeclr [| declr |] [| params |]@
 --
--- * The qualifiers list in a `CPtrDeclr' may not be empty.
+-- * A array declarator @declr [ tyquals expr static? ]@ is represented as @CArrayDeclr [| declr |] [| tyquals |] [| expr |]@
 --
--- * Old and new style function definitions are merged into a single case
---   `CFunDeclr'.  In case of an old style definition, the parameter list is
---   empty and the variadic flag is `False' (ie, the parameter names are not
---   stored in the tree).  Remember, a new style definition with no parameters 
---   requires a single `void' in the argument list (according to the standard).
+-- * A direct declarator @ident@ is represented as @CVarDeclr (Just [| ident |])@ 
+--
+-- * An abstract declarator's leaf (syntactically this is an empty string) is represented as @CVarDeclr Nothing@
+--
+-- Additionally we have that
+--
+--    * Old style parameter lists (a list of identifiers) are represented by @Left idents@
 --   
---   FIXME: It is incorrect to forget the parameter list for old-style definitions,
---          consider e.g. foo(y,x) int y; int x { } 
+--    * New style parameter lists have the form @Right (declarations, isVariadic)@
 --
--- * We unfold K&R's parameter-type-list nonterminal into the declarator
---   variant for functions.
+-- Examples:
 --
-data CDeclr = CVarDeclr (Maybe Ident)           -- declared identifier
-                        (Maybe CStrLit)         -- asm name (this is a consequent design, but pretty printing is more difficut)
-                        [CAttr]                 -- __attribute__s
-                        Attrs                        
-            | CPtrDeclr [CTypeQual]             -- type quals and __attribute__
-                        CDeclr                  -- outer declr
-                        Attrs
-            | CArrDeclr CDeclr                  -- outer declr
-                        [CTypeQual]             -- type quals and __attribute__
-                        (Maybe CExpr)           -- array size
-                        Attrs
-            | CFunDeclr CDeclr                  -- outer declr
-                        (Either [Ident] ([CDecl],Bool)) -- old-style parameters or new-style decls + isVariadic
-                        [CAttr]                 -- __attribute__s
-                        Attrs
+--  * A function @f@ returning a pointer is represented as 
+-- 
+--    > CPtrDeclr _ (CFunDeclr (CVarDeclr (Just f) _ _))
+--
+--  * An abstract declarator @*(*)[]@ (pointer to array of pointers to ?) is represented as
+--    
+--    > CPtrDeclr _ (CArrDeclr (CPtrDeclr _ (CVarDeclr Nothing _ _)) _ _)
+--
+-- TODO: Maybe we should merge old-style / new-style representations.
+data CDeclr = CVarDeclr (Maybe Ident)           
+                        (Maybe CStrLit)         
+                        [CAttr]                 
+                        Attrs                   -- ^ @CVarDeclr ident? asmname? c-attrs@ represents a direct declarator or
+                                                -- abstract declarator leaf (ident absent).
+            | CPtrDeclr [CTypeQual]             
+                        CDeclr                  
+                        Attrs                   -- ^ Pointer declarator @CPtrDeclr tyquals declr@
+            | CArrDeclr CDeclr                  
+                        [CTypeQual]             
+                        (Maybe CExpr)           
+                        Attrs                   -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@ 
+            | CFunDeclr CDeclr                  
+                        (Either [Ident] ([CDecl],Bool)) 
+                        [CAttr]                 
+                        Attrs                   -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@ 
 
 instance Pos CDeclr where
   posOf (CVarDeclr _ident _asmName _cAttrs at) = posOf at
@@ -494,13 +544,15 @@ appendDeclrAttrs newAttrs (CArrDeclr odeclr typeQuals arraySize at)
 appendDeclrAttrs newAttrs (CFunDeclr odeclr parameters cAttrs at) 
     = CFunDeclr odeclr parameters (cAttrs ++ newAttrs) at
           
--- C initializer (K&R A8.7) (EXPORTED)
+-- | C initializer (K&R A8.7)
 --
 data CInit = CInitExpr CExpr
-                       Attrs            -- assignment expression
+                       Attrs            -- ^ assignment expression
            | CInitList CInitList
-                       Attrs
+                       Attrs            -- ^ initialization list (see 'CInitList')
 
+-- | Initialization List
+--
 type CInitList = [([CDesignator], CInit)]
 
 instance Pos CInit where
@@ -511,15 +563,17 @@ instance Eq CInit where
   (CInitExpr _ at1) == (CInitExpr _ at2) = at1 == at2
   (CInitList _ at1) == (CInitList _ at2) = at1 == at2
 
--- C initializer designator (EXPORTED)
+-- | Designators
 --
+-- A designator specifies a member of an object, either an element or range of an array,
+-- or the named member of a struct/union.
 data CDesignator = CArrDesig     CExpr
-                                 Attrs
+                                 Attrs  -- ^ array position designator
                  | CMemberDesig  Ident
-                                 Attrs
-                 | CRangeDesig   CExpr  -- GNUC array range designator
+                                 Attrs  -- ^ member designator
+                 | CRangeDesig   CExpr  
                                  CExpr
-                                 Attrs
+                                 Attrs  -- ^ array range designator @CRangeDesig from to _@ (GNU C)
 
 instance Pos CDesignator where
   posOf (CArrDesig     _ at) = posOf at
@@ -533,19 +587,34 @@ instance Eq CDesignator where
 
 
 
--- attribute / assembler annotations
+-- | @__attribute__@ annotations
+--
+-- Those are of the form @CAttr attribute-name attribute-parameters@, 
+-- and serve as generic properties of some syntax tree elements.
+--
+-- Some examples:
+--
+-- * labels can be attributed with /unused/ to indicate that their not used
+--
+-- * struct definitions can be attributed with /packed/ to tell the compiler to use the most compact representation
+--
+-- * declarations can be attributed with /deprecated/
+--
+-- * function declarations can be attributes with /noreturn/ to tell the compiler that the function will never return,
+--  
+-- * or with /const/ to indicate that it is a pure function
 data CAttr = CAttr Ident [CExpr] Attrs
 instance Pos CAttr where
     posOf (CAttr _ _ at)    = posOf at
 instance Eq CAttr where
     (CAttr _ _ at1) == (CAttr _ _ at2) = at1 == at2
 
--- C expression (K&R A7) (EXPORTED)
+-- | C expression (K&R A7)
 --
 -- * these can be arbitrary expression, as the argument of `sizeof' can be
 --   arbitrary, even if appearing in a constant expression
 --
--- * GNU C extension: `alignof'
+-- * GNU C extensions: @alignof@, @__real@, @__imag@, @({ stmt-expr })@, @&& label@ and built-ins 
 --
 data CExpr = CComma       [CExpr]       -- comma expression list, n >= 2
                           Attrs
@@ -648,25 +717,24 @@ instance Eq CExpr where
   (CLabAddrExpr _     at1) == (CLabAddrExpr _     at2) = at1 == at2
   (CBuiltinExpr builtin1) == (CBuiltinExpr builtin2)   = builtin1 == builtin2
 
--- GNU Builtins, which cannot be typed in C99
+-- | GNU Builtins, which cannot be typed in C99
 -- 
--- int __builtin_types_compatible_p(type_1, type_2)
 data CBuiltin = 
-          CBuiltinVaArg CExpr CDecl Attrs            -- (expr, type)
-        | CBuiltinOffsetOf CDecl [CDesignator] Attrs -- (type, designator)    
-        | CBuiltinTypesCompatible CDecl CDecl Attrs  -- (type,type)
+          CBuiltinVaArg CExpr CDecl Attrs            -- ^ @(expr, type)@
+        | CBuiltinOffsetOf CDecl [CDesignator] Attrs -- ^ @(type, designator-list)@
+        | CBuiltinTypesCompatible CDecl CDecl Attrs  -- ^ @(type,type)@
 instance Pos CBuiltin where
     posOf (CBuiltinVaArg _ _ at) = posOf at
     posOf (CBuiltinOffsetOf _ _ at) = posOf at
     posOf (CBuiltinTypesCompatible _ _ at) = posOf at
 instance Eq CBuiltin where
 
--- C assignment operators (K&R A7.17) (EXPORTED)
+-- | C assignment operators (K&R A7.17)
 --
 data CAssignOp = CAssignOp
                | CMulAssOp
                | CDivAssOp
-               | CRmdAssOp              -- remainder and assignment
+               | CRmdAssOp              -- ^ remainder and assignment
                | CAddAssOp
                | CSubAssOp
                | CShlAssOp
@@ -676,48 +744,49 @@ data CAssignOp = CAssignOp
                | COrAssOp
                deriving (Eq)
 
--- C binary operators (K&R A7.6-15) (EXPORTED)
+-- | C binary operators (K&R A7.6-15)
 --
 data CBinaryOp = CMulOp
                | CDivOp
-               | CRmdOp                 -- remainder of division
+               | CRmdOp                 -- ^ remainder of division
                | CAddOp
                | CSubOp
-               | CShlOp                 -- shift left
-               | CShrOp                 -- shift right
-               | CLeOp                  -- less
-               | CGrOp                  -- greater
-               | CLeqOp                 -- less or equal
-               | CGeqOp                 -- greater or equal
-               | CEqOp                  -- equal
-               | CNeqOp                 -- not equal
-               | CAndOp                 -- bitwise and
-               | CXorOp                 -- exclusive bitwise or
-               | COrOp                  -- inclusive bitwise or
-               | CLndOp                 -- logical and
-               | CLorOp                 -- logical or
+               | CShlOp                 -- ^ shift left
+               | CShrOp                 -- ^ shift right
+               | CLeOp                  -- ^ less
+               | CGrOp                  -- ^ greater
+               | CLeqOp                 -- ^ less or equal
+               | CGeqOp                 -- ^ greater or equal
+               | CEqOp                  -- ^ equal
+               | CNeqOp                 -- ^ not equal
+               | CAndOp                 -- ^ bitwise and
+               | CXorOp                 -- ^ exclusive bitwise or
+               | COrOp                  -- ^ inclusive bitwise or
+               | CLndOp                 -- ^ logical and
+               | CLorOp                 -- ^ logical or
                deriving (Eq)
 
--- C unary operator (K&R A7.3-4) (EXPORTED)
+-- | C unary operator (K&R A7.3-4)
 --
-data CUnaryOp = CPreIncOp               -- prefix increment operator
-              | CPreDecOp               -- prefix decrement operator
-              | CPostIncOp              -- postfix increment operator
-              | CPostDecOp              -- postfix decrement operator
-              | CAdrOp                  -- address operator
-              | CIndOp                  -- indirection operator
-              | CPlusOp                 -- prefix plus
-              | CMinOp                  -- prefix minus
-              | CCompOp                 -- one's complement
-              | CNegOp                  -- logical negation
+data CUnaryOp = CPreIncOp               -- ^ prefix increment operator
+              | CPreDecOp               -- ^ prefix decrement operator
+              | CPostIncOp              -- ^ postfix increment operator
+              | CPostDecOp              -- ^ postfix decrement operator
+              | CAdrOp                  -- ^ address operator
+              | CIndOp                  -- ^ indirection operator
+              | CPlusOp                 -- ^ prefix plus
+              | CMinOp                  -- ^ prefix minus
+              | CCompOp                 -- ^ one's complement
+              | CNegOp                  -- ^ logical negation
               deriving (Eq)
 
--- C constant (K&R A2.5 & A7.2) (EXPORTED)
+-- | C constant (K&R A2.5 & A7.2)
 --
 -- * we do not list enumeration constants here, as they are identifiers
 --
--- TODO: maybe move CStrConst to its own type
--- TODO: in general we loose the type information here (the suffixes l, u, LL)
+-- /TODO/: maybe move CStrConst to its own type
+--
+-- /TODO/: in general we loose the type information here (the suffixes l, u, LL)
 data CConst = CIntConst Integer Attrs
             | CCharConst Char Attrs
             | CFloatConst String Attrs

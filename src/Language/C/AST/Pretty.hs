@@ -239,9 +239,7 @@ instance Pretty CEnum where
         p (ident, expr) = identP ident <+> maybeP ((text "=" <+>) . pretty) expr
 
 instance Pretty CDeclr where
-    prettyPrec prec declr = -- text "/* Declarator: " <+> describeDeclr declr <+> text "*/" $$
-                            prettyDeclr prec declr 
-                            -- $$ text "/* End Declarator */"
+    prettyPrec prec declr = prettyDeclr prec declr 
 
 prettyDeclr :: Int -> CDeclr -> Doc
 prettyDeclr prec declr =

@@ -96,7 +96,7 @@ module Language.C.Parser.Parser (parseC) where
 --  !* We ignore the C99 static keyword (see C99 6.7.5.3)
 --  !* We do not distinguish in the AST between incomplete array types and
 --      complete variable length arrays ([ '*' ] means the latter). (see C99 6.7.5.2)
---  !* The AST doesn't allow recording attributes of unnamed struct field
+--  !* The AST doesn't allow recording __attribute__ of unnamed struct field
 --
 --  * Documentation isn't complete and consistent yet.
 
@@ -278,12 +278,12 @@ external_declaration
 -- The specifiers are a list consisting of type-names (int, struct foo, ...),
 -- storage-class specifiers (extern, static,...) and type qualifiers (const, volatile, ...).
 --
---   declaration_specifier     : (storage-class >= 1 | type-qualifier | typename >=1 )* "extern static volatile int"
---   type_specifier            : (type-qualifier | typename >= 1)*                      "const int", "long int"
---   declaration_qualifier_list: (storage-class >= 1 | type-qualifier)*                 "extern static volatile"
---   type_qualifier_list:        type-qualifier+                                        "volatile"
+--   declaration_specifier      :- <permute> type-qualifier* storage-class+ typename+    "extern unsigned static volatile int f()"
+--   type_specifier             :- <permute> type-qualifier* typename+                   "const int f()", "long int f()"
+--   declaration_qualifier_list :- <permute> type_qualifier* storage-class+              "extern static const f()"
+--   type_qualifier_list        :- type-qualifier+                                       "const f()"
 --
---  GNU extension: 
+-- * GNU extension: 
 --    __attribute__ annotations
 --
 function_definition :: { CFunDef }
@@ -393,7 +393,6 @@ block_item_list
   : {- empty -}			{ empty }
   | block_item_list block_item	{ $1 `snoc` $2 }
 
-
 block_item :: { CBlockItem }
 block_item
   : statement			{ CBlockStmt $1 }
@@ -481,7 +480,7 @@ jump_statement
   | return expression_opt ';'		{% withAttrs $1 $ CReturn $2 }
 
 
--- parse GNU C __asm__ (...) statement (compatible with C99: J.5.10)
+-- parse GNU C __asm__ statement (compatible with C99: J.5.10)
 --
 -- asm_stmt    :- asm volatile? ( "asm..." : output-operands : input-operands : asm-clobbers )
 -- asm_operand :- [operand-name] "constraint" ( expr )  
@@ -598,7 +597,12 @@ declaration = sue_declaration | declaration_list
 
 "Attributes may appear after the colon following a label (expect case and default)"
 
+labeled_statement :- identifier ':' attrs_opt statement
+
 "Attributes may go either immediately after the struct/union/enum keyword or after the closing brace"
+
+struct attrs_opt ...
+struct ... { } attrs_opt
 
 "In general: Attributes appear as part of declarations, either belonging to a declaration or declarator"
 
@@ -606,7 +610,7 @@ declaration = sue_declaration | declaration_list
 "An attribute list may appear immediately before the comma, = or semicolon terminating a declaration of an identifier"
 
 ---------------------------------------------------------------------------------------------------------------
-For the parser, we modified the following rules to be interleaved with attributes (though the last symbol may not be an attribute):
+For the parser, we modified the following rules to be interleaved with attributes:
 
 default_declaring_list' :-  (declaration_qualifier_list' | type_qualifier_list' attr*) 
                                              identifier_declarator asm*attr* initializer? 
@@ -615,13 +619,8 @@ declaring_list' :-          specifier' declarator asm*attr* initializer?
                                  { ',' attr* declarator asm*attr* initializer? } 
 
 
-type_qualifier_list' 
-  is like type_qualifier_list, but with preceeding and/or interleaving (but not terminating) __attribute__ annotations.
-declaration_qualifier_list'
-declaration_specifier' and
-type_specifier' 
-  are like their unprimed variants, but with arbitrary preceeding, interleaving and/or terminating __attribute__ 
-  annotations.
+type_qualifier_list' is like type_qualifier_list, but with preceeding and/or interleaving (but not terminating) __attribute__ annotations.
+declaration_qualifier_list', declaration_specifier' and type_specifier' are like their unprimed variants, but with arbitrary preceeding, interleaving and/or terminating __attribute__ annotations.
 
 "An attribute list may appear immediately before a declarator other than the first in a comma seperated list of declarators"
 
@@ -2221,6 +2220,7 @@ parseC input initialPosition =
   case execParser header input initialPosition (map fst builtinTypeNames) (namesStartingFrom 0) of
 		Left header -> Right header
 		Right (msg,pos) -> Left (msg,pos)
+
 
 {-  
 parseC :: String -> Position -> PreCST s s' CHeader

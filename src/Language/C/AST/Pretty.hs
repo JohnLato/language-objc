@@ -83,7 +83,7 @@ prettyUsingInclude cast@(CHeader edecls _) =
 instance Pretty CExtDecl where
     pretty (CDeclExt decl) = pretty decl <> semi
     pretty (CFDefExt fund) = pretty fund
-    pretty (CAsmExt  asmStmt  _) = text "asm" <> parens (pretty asmStmt) <> semi
+    pretty (CAsmExt  asmStmt) = text "asm" <> parens (pretty asmStmt) <> semi
 
 -- TODO: Check that old-style and new-style aren't mixed
 instance Pretty CFunDef where

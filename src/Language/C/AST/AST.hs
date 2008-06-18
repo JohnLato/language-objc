@@ -28,13 +28,14 @@ module Language.C.AST.AST (
   CDeclr(..), varDeclr, appendDeclrAttrs, 
   CInit(..), CInitList, CDesignator(..), CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..), 
-  CConst (..), CStrLit(..), cstrConst, 
+  CConst (..), CStrLit(..), liftStrLit, 
   CAsmStmt(..), CAsmOperand(..), CBuiltin(..) )
 where
 import Data.List
 import Language.C.Toolkit.Position   (Pos(posOf))
 import Language.C.Toolkit.Idents     (Ident)
 import Language.C.Toolkit.Attributes (Attrs,Attributed(..))
+import Language.C.AST.Constants
 
 -- | Complete C tranlsation unit (C99 6.9, K&R A10)
 --  
@@ -55,22 +56,22 @@ instance Eq CHeader where
 -- Either a toplevel declaration, function definition or external assembler.
 data CExtDecl = CDeclExt CDecl
               | CFDefExt CFunDef
-              | CAsmExt  CStrLit Attrs  -- TODO: better delegate to something like CAsm for consistency
+              | CAsmExt  CStrLit
 
 instance Pos CExtDecl where
   posOf (CDeclExt decl) = posOf decl
   posOf (CFDefExt fdef) = posOf fdef
-  posOf (CAsmExt _ at)  = posOf at
+  posOf (CAsmExt asm)  = posOf asm
 
 instance Eq CExtDecl where
   CDeclExt decl1 == CDeclExt decl2 = decl1 == decl2
   CFDefExt fdef1 == CFDefExt fdef2 = fdef1 == fdef2
-  CAsmExt _ at1  == CAsmExt _ at2  =   at1 == at2
+  CAsmExt asm1  == CAsmExt asm2    = asm1 == asm2
 
 instance Attributed CExtDecl where
   attrsOf (CDeclExt decl) = attrsOf decl
   attrsOf (CFDefExt funDef) = attrsOf funDef
-  attrsOf (CAsmExt _ at) = at
+  attrsOf (CAsmExt asm) = attrsOf asm
 
 -- | C function definition (C99 6.9.1, K&R A10.1)
 --
@@ -811,5 +812,7 @@ instance Pos CStrLit where
     posOf (CStrLit _ at) = posOf at
 instance Attributed CStrLit where
     attrsOf (CStrLit _ at) = at
-cstrConst :: CStrLit -> CConst
-cstrConst (CStrLit str at) = CStrConst str at
+
+-- | Lift a string literal to a C constant
+liftStrLit :: CStrLit -> CConst
+liftStrLit (CStrLit str at) = CStrConst str at

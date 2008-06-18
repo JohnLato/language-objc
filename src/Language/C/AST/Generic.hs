@@ -20,9 +20,12 @@ import Language.C.Toolkit.Attributes
 import Language.C.Toolkit.UNames
 import Language.C.Toolkit.Position
 import Language.C.AST.AST
+import Language.C.AST.Constants
 import Data.Generics
+
 deriving instance Typeable Ident
 deriving instance Data Ident
+
 instance Typeable Attrs where 
   typeOf _ = mkTyConApp (mkTyCon "Language.C.Toolkit.Attrs") [] 
 instance Data Attrs where -- TODO
@@ -54,7 +57,14 @@ deriving instance Typeable CStrLit
 deriving instance Typeable CAsmStmt
 deriving instance Typeable CAsmOperand
 deriving instance Typeable CAttr
+
 deriving instance Typeable CBuiltin
+deriving instance Typeable CChar
+deriving instance Typeable CFloat
+deriving instance Typeable CInteger
+deriving instance Typeable CIntFlag
+deriving instance Typeable CString
+deriving instance Typeable1 Flags
 --
 deriving instance Data CHeader
 deriving instance Data CExtDecl
@@ -82,3 +92,10 @@ deriving instance Data CAsmStmt
 deriving instance Data CAsmOperand
 deriving instance Data CAttr
 deriving instance Data CBuiltin
+
+deriving instance Data CChar
+deriving instance Data CFloat
+deriving instance Data CInteger
+deriving instance Data CString
+deriving instance Data CIntFlag
+deriving instance (Data a) => Data (Flags a)

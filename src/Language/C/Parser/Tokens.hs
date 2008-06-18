@@ -15,7 +15,7 @@ module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where
 
 import Language.C.Toolkit.Position  (Position(..), Pos(posOf))
 import Language.C.Toolkit.Idents    (Ident, identToLexeme)
-import Language.C.AST.Constants     (showCharConstant, showStringLiteral)
+import Language.C.AST.Constants     (CChar, CInteger, CFloat, CString)
 
 -- token definition
 -- ----------------
@@ -122,10 +122,10 @@ data CToken = CTokLParen   !Position            -- `('
                                                 -- (or `__volatile', 
                                                 -- `__volatile__')
             | CTokWhile    !Position            -- `while'
-            | CTokCLit     !Position !Char      -- character constant
-            | CTokILit     !Position !Integer   -- integer constant
-            | CTokFLit     !Position String     -- float constant
-            | CTokSLit     !Position String     -- string constant (no escapes)
+            | CTokCLit     !Position !CChar     -- character constant
+            | CTokILit     !Position !CInteger  -- integer constant
+            | CTokFLit     !Position CFloat     -- float constant
+            | CTokSLit     !Position CString    -- string constant
             | CTokIdent    !Position !Ident     -- identifier
 
               -- not generated here, but in `CParser.parseCHeader'
@@ -327,10 +327,10 @@ instance Show CToken where
   showsPrec _ (CTokVoid     _  ) = showString "void"
   showsPrec _ (CTokVolatile _  ) = showString "volatile"
   showsPrec _ (CTokWhile    _  ) = showString "while"
-  showsPrec _ (CTokCLit     _ c) = showCharConstant c
-  showsPrec _ (CTokILit     _ i) = (showString . show) i
-  showsPrec _ (CTokFLit     _ s) = showString s
-  showsPrec _ (CTokSLit     _ s) = showStringLiteral s
+  showsPrec _ (CTokCLit     _ c) = shows c
+  showsPrec _ (CTokILit     _ i) = shows i
+  showsPrec _ (CTokFLit     _ f) = shows f
+  showsPrec _ (CTokSLit     _ s) = shows s
   showsPrec _ (CTokIdent    _ i) = (showString . identToLexeme) i
   showsPrec _ (CTokTyIdent  _ i) = (showString . identToLexeme) i
   showsPrec _ (CTokGnuC GnuCAttrTok _) = showString "__attribute__"

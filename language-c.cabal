@@ -20,7 +20,7 @@ Flag splitBase
 Flag deriveData
     Description: Derive Typeable and Data instances for the AST, and
                  add support for generic traversal.
-    Default: False
+    Default: True
 
 Library
 

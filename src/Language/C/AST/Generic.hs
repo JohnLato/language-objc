@@ -25,7 +25,8 @@ deriving instance Typeable Ident
 deriving instance Data Ident
 instance Typeable Attrs where 
   typeOf _ = mkTyConApp (mkTyCon "Language.C.Toolkit.Attrs") [] 
-instance Data Attrs
+instance Data Attrs where -- TODO
+
 deriving instance Typeable Position
 deriving instance Data Position
 deriving instance Typeable CHeader

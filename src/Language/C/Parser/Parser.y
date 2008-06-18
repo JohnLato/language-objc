@@ -1665,7 +1665,7 @@ primary_expression :: { CExpr }
 primary_expression
   : ident		       {% withAttrs $1 $ CVar $1 }
   | constant	  	 {% withAttrs $1 $ CConst   $1 }
-  | string_literal {% withAttrs $1 $ CConst (cstrConst $1) }
+  | string_literal {% withAttrs $1 $ CConst (liftStrLit $1) }
   | '(' expression ')'	{ $2 }
 
   -- GNU extensions

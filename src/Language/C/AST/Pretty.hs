@@ -243,6 +243,8 @@ instance Pretty CDeclr where
 
 prettyDeclr :: Int -> CDeclr -> Doc
 prettyDeclr prec declr =
+                            -- text "/* Declarator: " <+> describeDeclr declr <+> text "*/" $$
+                            -- ( $$ text "/* End Declarator */" )
     let vardeclr = varDeclr declr in
     ppdeclrs prec declr <+> prettyAsmName vardeclr <+> prettyAttrList vardeclr
     where
@@ -420,13 +422,13 @@ instance Pretty CUnaryOp where
     pretty CNegOp     = text "!"
 
 instance Pretty CConst where
-    pretty (CIntConst   int _) = text (showIntConstant int "")
-    pretty (CCharConst  chr _) = text (showCharConstant chr "")
-    pretty (CFloatConst flt _) = text flt
-    pretty (CStrConst   str _) = text (showStringLiteral str "")
+    pretty (CIntConst   int _) = text (show int)
+    pretty (CCharConst  chr _) = text (show chr)
+    pretty (CFloatConst flt _) = text (show flt)
+    pretty (CStrConst   str _) = text (show str)
 
 instance Pretty CStrLit where
-    pretty (CStrLit   str _) = text (showStringLiteral str "")
+    pretty (CStrLit   str _) = text (show str)
     
 -- precedence of C operators
 binPrec :: CBinaryOp -> Int

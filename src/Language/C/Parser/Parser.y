@@ -114,15 +114,19 @@ import Language.C.AST.AST       (CHeader(..), CExtDecl(..), CFunDef(..), CStat(.
                    CTypeSpec(..), CTypeQual(..), CStructUnion(..),
                    CStructTag(..), CEnum(..), CDeclr(..), varDeclr, CInit(..), CInitList, CAttr(..), appendDeclrAttrs,
                    CDesignator(..), CExpr(..), CAssignOp(..), CBinaryOp(..),
-                   CUnaryOp(..), CConst (..), CStrLit (..), cstrConst, 
+                   CUnaryOp(..), CConst (..), CStrLit (..), liftStrLit, 
                    CAsmStmt(..), CAsmOperand(..), CBuiltin(..))
 import Language.C.AST.Builtin   (builtinTypeNames)
+import Language.C.AST.Constants (concatCStrings, CString)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
 import Language.C.Toolkit.ParserMonad (P, execParser, getNewName, addTypedef, shadowTypedef,
                      enterScope, leaveScope )
 }
 
 %name header header
+%name statement statement
+%name expression expression
+
 %tokentype { CToken }
 
 %monad { P } { >>= } { return }
@@ -267,7 +271,7 @@ external_declaration
   : function_definition		              { CFDefExt $1 }
   | declaration			                  { CDeclExt $1 }
   | "__extension__" external_declaration  { $2 }
-  | asm '(' string_literal ')' ';'		  {% withAttrs $2 $ CAsmExt $3 }
+  | asm '(' string_literal ')' ';'		  { CAsmExt $3 }
 
 
 -- parse C function definition (C99 6.9.1)
@@ -2004,10 +2008,10 @@ string_literal
   	{% withAttrs $1 $ case $1 of CTokSLit _ s -> CStrLit s }
 
   | cstr string_literal_list
-  	{% withAttrs $1 $ case $1 of CTokSLit _ s -> CStrLit (concat (s : reverse $2)) }
+  	{% withAttrs $1 $ case $1 of CTokSLit _ s -> CStrLit (concatCStrings (s : reverse $2)) }
 
 
-string_literal_list :: { Reversed [String] }
+string_literal_list :: { Reversed [CString] }
 string_literal_list
   : cstr			{ case $1 of CTokSLit _ s -> singleton s }
   | string_literal_list cstr	{ case $2 of CTokSLit _ s -> $1 `snoc` s }

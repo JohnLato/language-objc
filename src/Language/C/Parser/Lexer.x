@@ -59,6 +59,7 @@ import Language.C.Toolkit.Idents    (lexemeToIdent)
 import Language.C.Parser.Tokens
 import Language.C.Toolkit.ParserMonad
 
+import Language.C.AST.Constants
 }
 
 $space = [ \ \t ]                           -- horizontal white space
@@ -81,17 +82,20 @@ $infname  = \ -\127 # [ \\ \" ]             -- valid character in a filename
 --
 -- * also used for strings
 -- * C99: 6.4.4.4
-@charesc  = \\([ntvbrfae\\\?\'\"]|$octdigit{1,3}|x$hexdigit+)
+@charesc  = \\([ntvbrfaeE\\\?\'\"]|$octdigit{1,3}|x$hexdigit+)
 @ucn      = \\u$hexdigit{4}|\\U$hexdigit{8}
 
 -- components of integer constants
 --
 -- * C99: 6.4.4.1
 @int = $digitNZ$digit*
+
+-- integer suffixes
 @llsuffix  = ll|LL
 @gnusuffix = [ij]?
 @intsuffix = [uU][lL]?|[uU]@llsuffix|[lL][uU]?|@llsuffix[uU]?
 @intgnusuffix = @intsuffix@gnusuffix?|@gnusuffix@intsuffix?
+
 -- components of float constants (follows K&R A2.5.3)
 --
 -- * C99: 6.4.4.2
@@ -109,6 +113,9 @@ $infname  = \ -\127 # [ \\ \" ]             -- valid character in a filename
 
 @floatsuffix    = [fFlL]
 @floatgnusuffix = @floatsuffix@gnusuffix?|@gnusuffix@floatsuffix?
+
+
+
 tokens :-
 
 -- whitespace (follows K&R A2.1) 
@@ -154,34 +161,35 @@ $letter($letter|$digit)*  { \pos len str -> idkwtok (take len str) pos }
 
 -- integer constants (follows K&R A2.5.1, C99 6.4.4.1)
 --
--- * FIXME: type flags get lost
-0$octdigit*@intgnusuffix?       { token CTokILit (fst . head . readOct) }
-$digitNZ$digit*@intgnusuffix?   { token CTokILit (fst . head . readDec) }
-0[xX]$hexdigit+@intgnusuffix?   { token CTokILit (fst . head . readHex . drop 2) }
+0$octdigit*@intgnusuffix?       { token_plus CTokILit (readCInteger readOct) }
+$digitNZ$digit*@intgnusuffix?   { token_plus CTokILit (readCInteger readDec) }
+0[xX]$hexdigit+@intgnusuffix?   { token_plus CTokILit (readCInteger readHex . drop 2) }
+
 (0$octdigit*|$digitNZ$digit*|0[xX]$hexdigit+)[uUlL]+ { token_fail "Invalid integer constant suffix" }
 
 -- character constants (follows K&R A2.5.2, C99 6.4.4.4)
 --
--- * Universal Character Names and Multi-Character Character constants are unsupported and cause an error.
-\'($inchar|@charesc)\'  { token CTokCLit (fst . oneChar . tail) }
-L\'($inchar|@charesc)\' { token CTokCLit (fst . oneChar . tail . tail) }
+-- * Universal Character Names are unsupported and cause an error.
+\'($inchar|@charesc)\'  { token CTokCLit (cchar . fst . unescapeChar . tail) }
+L\'($inchar|@charesc)\' { token CTokCLit (cchar_w . fst . unescapeChar . tail . tail) }
+\'($inchar|@charesc){2,}\' { token CTokCLit (flip cchars False . unescapeMultiChars .tail) }
+L\'($inchar|@charesc){2,}\' { token CTokCLit (flip cchars True . unescapeMultiChars . tail . tail) }
 
 -- float constants (follows K&R A2.5.3. C99 6.4.4.2)
 --
 -- * NOTE: Hexadecimal floating constants without binary exponents are forbidden.
 --         They generate a lexer error, because they are hard to recognize in the parser.
-(@mantpart@exppart?|@intpart@exppart)@floatgnusuffix?  { token CTokFLit id }
-@hexprefix(@hexmant|@hexdigits)@binexp@floatgnusuffix? { token CTokFLit id }
+(@mantpart@exppart?|@intpart@exppart)@floatgnusuffix?  { token CTokFLit readCFloat }
+@hexprefix(@hexmant|@hexdigits)@binexp@floatgnusuffix? { token CTokFLit readCFloat }
 @hexprefix@hexmant                                     { token_fail "Hexadecimal floating constant requires an exponent" }  
 
 -- string literal (follows K&R A2.6)
 -- C99: 6.4.5.
-\"($instr|@charesc)*\"      { token CTokSLit (normalizeEscapes . init . tail) }
-L\"($instr|@charesc)*\"     { token CTokSLit (normalizeEscapes . init . tail . tail) }
+\"($instr|@charesc)*\"      { token CTokSLit (cstring . unescapeString . init . tail) }
+L\"($instr|@charesc)*\"     { token CTokSLit (cstring_w . unescapeString . init . tail . tail) }
 
 L?\'@ucn\'                        { token_fail "Universal character names are unsupported" }
 L?\'\\[^0-7'\"\?\\abfnrtvuUx]\'     { token_fail "Invalid escape sequence" }
-L?\'($inchar|@charesc|@ucn){2,}\' { token_fail "Multi-character char constants are unsupported" }
 L?\"($inchar|@charesc)*@ucn($inchar|@charesc|@ucn)*\" { token_fail "Universal character names in string literals are unsupported"}
 
 -- operators and separators
@@ -334,33 +342,11 @@ ignoreAttribute = skipTokens 0
 tok :: (Position -> CToken) -> Position -> P CToken
 tok tc pos = return (tc pos)
 
--- converts the first character denotation of a C-style string to a character
--- and the remaining string
---
-oneChar             :: String -> (Char, String)
-oneChar ('\\':c:cs)  = case c of
-       'n'  -> ('\n', cs)
-       't'  -> ('\t', cs)
-       'v'  -> ('\v', cs)
-       'b'  -> ('\b', cs)
-       'r'  -> ('\r', cs)
-       'f'  -> ('\f', cs)
-       'a'  -> ('\a', cs)
-       'e'  -> ('\ESC', cs)  --GNU C extension
-       '\\' -> ('\\', cs)
-       '?'  -> ('?', cs)
-       '\'' -> ('\'', cs)
-       '"'  -> ('"', cs)
-       'x'  -> case head (readHex cs) of
-                 (i, cs') -> (toEnum i, cs')
-       _    -> case head (readOct (c:cs)) of
-                 (i, cs') -> (toEnum i, cs')
-oneChar (c   :cs)    = (c, cs)
-
--- TODO: Move to AST.Constant
-normalizeEscapes [] = []
-normalizeEscapes cs = case oneChar cs of
-                        (c, cs') -> c : normalizeEscapes cs'
+-- special utility for the lexer
+unescapeMultiChars :: String -> [Char]
+unescapeMultiChars cs@(_ : _ : _) = case unescapeChar cs of (c,cs') -> c : unescapeMultiChars cs'
+unescapeMultiChars ('\'' : []) = [] 
+unescapeMultiChars _ = error "Unexpected end of multi-char constant"
 
 adjustPos :: String -> Position -> Position
 adjustPos str (Position fname row _) = Position fname' row' 0
@@ -395,6 +381,13 @@ token :: (Position -> a -> CToken) -> (String -> a)
       -> Position -> Int -> String -> P CToken
 token tok read pos len str = return (tok pos (read $ take len str))
 
+{-# INLINE token_plus #-}
+-- token that may fail
+token_plus :: (Position -> a -> CToken) -> (String -> Either String a)
+      -> Position -> Int -> String -> P CToken
+token_plus tok read pos len str = 
+  case read (take len str) of Left err -> failP pos [ "Lexical error ! ", err ]
+                              Right ok -> return $! tok pos ok
 
 -- -----------------------------------------------------------------------------
 -- The input type

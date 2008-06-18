@@ -783,15 +783,11 @@ data CUnaryOp = CPreIncOp               -- ^ prefix increment operator
 
 -- | C constant (K&R A2.5 & A7.2)
 --
--- * we do not list enumeration constants here, as they are identifiers
---
--- /TODO/: maybe move CStrConst to its own type
---
--- /TODO/: in general we loose the type information here (the suffixes l, u, LL)
-data CConst = CIntConst Integer Attrs
-            | CCharConst Char Attrs
-            | CFloatConst String Attrs
-            | CStrConst   String Attrs
+-- see 'Language.C.AST.Constants'
+data CConst = CIntConst   CInteger Attrs
+            | CCharConst  CChar    Attrs
+            | CFloatConst CFloat   Attrs
+            | CStrConst   CString  Attrs
 
 instance Pos CConst where
   posOf (CIntConst   _ at) = posOf at
@@ -806,10 +802,12 @@ instance Eq CConst where
   (CStrConst   _ at1) == (CStrConst   _ at2) = at1 == at2
   _                   == _                   = False
   
--- Sometimes it is convenient to have seperate string literals.
-data CStrLit = CStrLit String Attrs
+-- | Attributed string literals
+data CStrLit = CStrLit CString Attrs
 instance Pos CStrLit where
     posOf (CStrLit _ at) = posOf at
+instance Eq CStrLit where
+  (==) (CStrLit _ at1) (CStrLit _ at2) = at1 == at2
 instance Attributed CStrLit where
     attrsOf (CStrLit _ at) = at
 

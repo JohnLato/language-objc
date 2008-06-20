@@ -15,8 +15,11 @@ if [ -z $CTEST_REPORT_FILE ]; then die "Missing environment variable \$CTEST_REP
 # Temporary file to collect stderr output
 TMPFILE=`mktemp $CTEST_TMPDIR/cc-wrapper.XXXXXX` || exit 1
 
+if [ -z $CTEST_MAX_MEM ]; then
+	CTEST_MAX_MEM=64M
+fie
 # Run the test (max 30 seconds), teeing output to TMPFILE
-doalarm 30 $CTEST_BINDIR/$CTEST_DRIVER +RTS -M64M -RTS $@ 2>&1 | tee $TMPFILE
+doalarm 30 $CTEST_BINDIR/$CTEST_DRIVER +RTS -M$CTEST_MAX_MEM -RTS $@ 2>&1 | tee $TMPFILE
 
 # If return status of test driver isn't 0, we have a fatal error and report it.
 if [ $PIPESTATUS -ne 0 ]; then

@@ -15,7 +15,7 @@ BASE_DIR=`pwd`
 cd gcc.dg
 DG_DIR=`pwd`
 for cf in $@ ; do
-	f=`find . -name $cf`
+for f in `find . -name $cf | grep -v noncompile`; do
 	echo "[INFO] Running Test $f"
 	# grep -e "^$f" $BASE_DIR/dg-ignore.txt
 	# if [ $? -eq 0 ]; then echo " ... skipped"; continue; fi
@@ -28,6 +28,8 @@ for cf in $@ ; do
 	else
 		echo "[ERROR] Not running Test $f"
 		gcc -I$DG_DIR -I$DG_DIR/cpp -fsyntax-only -std=gnu9x $f
-		exit 1
+		echo "[EXIT]"
+		exit 1		
 	fi
+done
 done

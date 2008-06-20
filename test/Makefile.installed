@@ -1,0 +1,66 @@
+# Install language-c 
+# ( cd .. ; cabal install -p )
+# Install language-c-test-framework
+# ( cd ../test-framework ; cabal install -p )
+
+# Makefile for test drivers
+
+ifndef HC
+	HC=ghc
+endif
+
+ifndef OPT
+	OPT=-O
+endif
+
+ifdef PROFILE
+	OPTS += -prof -auto-all
+	SUFFIX=_p
+endif
+
+BUILD_DIR_BASE=build$(SUFFIX)
+
+OPT += -package language-c -package language-c-test-framework
+
+all: c_test test_drivers check_args render_tests
+
+# neat GNU make extension
+profile : OPT += -prof -auto-all
+profile : SUFFIX = _p
+profile : c_test test_drivers
+         
+test_drivers: parse round_trip equiv report_fatal
+
+INCLUDE=-isrc
+
+c_test: 
+	@mkdir -p $(BUILD_DIR_BASE)/$(@)/
+	$(HC) $(OPT) -odir $(BUILD_DIR_BASE)/$(@)/ -o bin/CTest$(SUFFIX) $(INCLUDE) --make src/CTest.hs
+
+parse: 
+	@mkdir -p $(BUILD_DIR_BASE)/$(@)/
+	$(HC) $(OPT) -odir $(BUILD_DIR_BASE)/$(@)/ -o bin/CParse$(SUFFIX) $(INCLUDE) --make src/CParse.hs
+
+round_trip:
+	@mkdir -p $(BUILD_DIR_BASE)/$(@)/
+	$(HC) $(OPT) -odir $(BUILD_DIR_BASE)/$(@)/ -o bin/CRoundTrip$(SUFFIX) $(INCLUDE) --make src/CRoundTrip.hs
+
+equiv:
+	@mkdir -p $(BUILD_DIR_BASE)/$(@)/
+	$(HC) $(OPT) -odir $(BUILD_DIR_BASE)/$(@)/ -o bin/CEquiv$(SUFFIX) $(INCLUDE) --make src/CEquiv.hs
+
+render_tests:
+	@mkdir -p $(BUILD_DIR_BASE)/$(@)/
+	$(HC) $(OPT) -odir $(BUILD_DIR_BASE)/$(@)/ -o bin/RenderTests$(SUFFIX) $(INCLUDE) --make src/RenderTests.hs
+
+report_fatal:
+	@mkdir -p $(BUILD_DIR_BASE)/$(@)/
+	$(HC) $(OPT) -odir $(BUILD_DIR_BASE)/$(@)/ -o bin/ReportFatal$(SUFFIX) $(INCLUDE) --make src/ReportFatal.hs
+
+check_args:
+	@mkdir -p $(BUILD_DIR_BASE)/$(@)/
+	$(HC) $(OPT) -odir $(BUILD_DIR_BASE)/$(@)/ -o bin/CheckGccArgs$(SUFFIX) $(INCLUDE) --make src/CheckGccArgs.hs
+
+clean:
+	rm -rf build/*
+	rm -rf build_p/*

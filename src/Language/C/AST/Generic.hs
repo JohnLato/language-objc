@@ -17,19 +17,19 @@
 module Language.C.AST.Generic where
 import Language.C.Toolkit.Idents
 import Language.C.Toolkit.Attributes
-import Language.C.Toolkit.UNames
+import Language.C.Toolkit.Names
 import Language.C.Toolkit.Position
 import Language.C.AST.AST
 import Language.C.AST.Constants
 import Data.Generics
 
+deriving instance Typeable Name
+deriving instance Data Name
 deriving instance Typeable Ident
 deriving instance Data Ident
 
-instance Typeable Attrs where 
-  typeOf _ = mkTyConApp (mkTyCon "Language.C.Toolkit.Attrs") [] 
-instance Data Attrs where -- TODO
-
+deriving instance Typeable Attrs
+deriving instance Data Attrs
 deriving instance Typeable Position
 deriving instance Data Position
 deriving instance Typeable CHeader

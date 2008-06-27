@@ -22,5 +22,5 @@ import Language.C.AST.Attrs (CObj(BuiltinCO))
 
 -- predefined type names
 --
-builtinTypeNames :: [(Ident, CObj)]
-builtinTypeNames  = [(onlyPosIdent builtinPos "__builtin_va_list", BuiltinCO)]
+builtinTypeNames :: [Ident]
+builtinTypeNames  = [onlyPosIdent builtinPos "__builtin_va_list"]

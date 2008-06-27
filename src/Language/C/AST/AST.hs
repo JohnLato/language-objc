@@ -530,7 +530,7 @@ instance Eq CDeclr where
 
 varDeclr :: CDeclr -> CDeclr
 varDeclr = follow where
-  follow varDeclr@(CVarDeclr _ident _asmName _cAttrs _at) = varDeclr
+  follow vdeclr@(CVarDeclr _ident _asmName _cAttrs _at) = vdeclr
   follow (CPtrDeclr _typeQuals odeclr _at) = follow odeclr
   follow (CArrDeclr odeclr _typeQuals _arraySize _at) = follow odeclr
   follow (CFunDeclr odeclr _parameters _cAttrs _at) = follow odeclr

@@ -104,7 +104,7 @@ import Prelude    hiding (reverse)
 import qualified Data.List as List
 
 import Language.C.Toolkit.Position   (Position, Pos(..), nopos)
-import Language.C.Toolkit.UNames     (names, namesStartingFrom)
+import Language.C.Toolkit.Names      (namesStartingFrom)
 import Language.C.Toolkit.Idents     (Ident, internalIdent)
 import Language.C.Toolkit.Attributes (Attrs, newAttrs, newAttrsOnlyPos, attrsOf)
 
@@ -2221,7 +2221,7 @@ happyError = parseError
 -- the position of the error.
 parseC :: String -> Position -> Either ([String],Position) CHeader
 parseC input initialPosition = 
-  case execParser header input initialPosition (map fst builtinTypeNames) (namesStartingFrom 0) of
+  case execParser header input initialPosition builtinTypeNames (namesStartingFrom 0) of
 		Left header -> Right header
 		Right (msg,pos) -> Left (msg,pos)
 

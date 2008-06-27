@@ -2,6 +2,7 @@
 -- |
 -- Module      :  Language.C.Toolkit.Idents
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
+--                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
@@ -15,7 +16,7 @@
 --  * The ordering relation on identifiers is also based on the hash and,
 --    hence, does *not* follow the alphanumerical ordering of the lexemes of
 --    the identifiers. Instead, it provides a fast ordering when identifiers
---    are used as keys in a `FiniteMap'.
+--    are used as keys in a `Data.Map'.
 --
 --  * Attributes may be associated to identifiers, except with `OnlyPos'
 --    identifiers, which have a position as their only attribute (they do not
@@ -26,13 +27,15 @@
 --
 --  * Hashing is not 8bit clean.
 --
-module Language.C.Toolkit.Idents (Ident(..), lexemeToIdent, internalIdent,
-               onlyPosIdent, identToLexeme, getIdentAttrs)
+module Language.C.Toolkit.Idents (
+    Ident(..), 
+    lexemeToIdent, internalIdent,onlyPosIdent, identToLexeme, 
+    getIdentAttrs,dumpIdent)
 where
 
 import Data.Char
 import Language.C.Toolkit.Position   (Position, Pos(posOf), nopos)
-import Language.C.Toolkit.UNames     (Name)
+import Language.C.Toolkit.Names      (Name)
 import Language.C.Toolkit.Errors     (interr)
 import Language.C.Toolkit.Attributes (Attrs, newAttrsOnlyPos, newAttrs,
                    Attributed(attrsOf), posOfAttrsOf)
@@ -91,10 +94,14 @@ quad (c1:c2:[]     )  = ord c2 * bits7 + ord c1
 quad (c1:[]        )  = ord c1
 quad ([]           )  = 0
 
-bits7  = 2^7
-bits14 = 2^14
-bits21 = 2^21
-bits28 = 2^28
+bits7 :: Int
+bits7  = 2^(7::Int)
+bits14 :: Int
+bits14 = 2^(14::Int)
+bits21 :: Int
+bits21 = 2^(21::Int)
+bits28 :: Int
+bits28 = 2^(28::Int)
 
 -- given the lexeme of an identifier, yield the abstract identifier (EXPORTED)
 --

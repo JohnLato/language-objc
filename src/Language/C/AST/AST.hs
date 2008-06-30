@@ -78,8 +78,8 @@ instance Pos CExtDecl where
 instance Eq CExtDecl where
   CDeclExt decl1 == CDeclExt decl2 = decl1 == decl2
   CFDefExt fdef1 == CFDefExt fdef2 = fdef1 == fdef2
-  CAsmExt asm1  == CAsmExt asm2    = asm1 == asm2
-
+  CAsmExt asm1   == CAsmExt asm2   = asm1 == asm2
+  _              == _              = False
 instance Attributed CExtDecl where
   attrsOf (CDeclExt decl) = attrsOf decl
   attrsOf (CFDefExt funDef) = attrsOf funDef
@@ -197,8 +197,8 @@ instance Eq CStat where
   (CCont             at1) == (CCont             at2) = at1 == at2
   (CBreak            at1) == (CBreak            at2) = at1 == at2
   (CReturn   _       at1) == (CReturn   _       at2) = at1 == at2
-  (CAsm _             at1) == (CAsm _            at2) = at1 == at2
-
+  (CAsm _            at1) == (CAsm _            at2) = at1 == at2
+  _                       == _                       = False  
 -- | GNU Assembler statement
 --
 -- > CAsmStatement type-qual? asm-expr out-ops in-ops clobbers _
@@ -246,7 +246,7 @@ instance Eq CBlockItem where
   CBlockStmt    stmt1 == CBlockStmt    stmt2 = stmt1 == stmt2
   CBlockDecl    decl1 == CBlockDecl    decl2 = decl1 == decl2
   CNestedFunDef fdef1 == CNestedFunDef fdef2 = fdef1 == fdef2
-
+  _                   == _                   = False
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
 --   declarations and type names.
@@ -340,7 +340,8 @@ instance Eq CStorageSpec where
   (CExtern   at1) == (CExtern   at2) = at1 == at2
   (CTypedef  at1) == (CTypedef  at2) = at1 == at2
   (CThread   at1) == (CThread   at2) = at1 == at2
-
+  _               == _               = False
+  
 -- | C type specifier (K&R A8.2, C99 6.7.2)
 --
 -- Type specifiers are either basic types such as @char@ or @int@, 
@@ -404,7 +405,8 @@ instance Eq CTypeSpec where
   (CTypeDef    _ at1) == (CTypeDef    _ at2) = at1 == at2
   (CTypeOfExpr _ at1) == (CTypeOfExpr _ at2) = at1 == at2
   (CTypeOfType _ at1) == (CTypeOfType _ at2) = at1 == at2
-
+  _                   == _                   = False
+  
 -- | C type qualifiers (K&R A8.2, C99 6.7.3) and function specifiers (C99 6.7.4)
 --
 -- @const@, @volatile@ and @restrict@ type qualifiers and @inline@ function specifier.
@@ -426,8 +428,9 @@ instance Eq CTypeQual where
   (CVolatQual at1) == (CVolatQual at2) = at1 == at2
   (CRestrQual at1) == (CRestrQual at2) = at1 == at2
   (CInlinQual at1) == (CInlinQual at2) = at1 == at2
-  (CAttrQual at1)  == (CAttrQual at2) = at1 == at2
-
+  (CAttrQual at1)  == (CAttrQual at2)  = at1 == at2
+  _                == _                = False
+  
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
 -- @CStruct tag identifier struct-decls c-attrs@ represents a struct or union specifier (depending on @tag@).
@@ -539,7 +542,8 @@ instance Eq CDeclr where
   (CPtrDeclr _ _   at1) == (CPtrDeclr _ _   at2) = at1 == at2
   (CArrDeclr _ _ _ at1) == (CArrDeclr _ _ _ at2) = at1 == at2
   (CFunDeclr _ _ _ at1) == (CFunDeclr _ _ _ at2) = at1 == at2
-
+  _                     == _                     = False
+  
 varDeclr :: CDeclr -> CDeclr
 varDeclr = follow where
   follow vdeclr@(CVarDeclr _ident _asmName _cAttrs _at) = vdeclr
@@ -584,7 +588,8 @@ instance Pos CInit where
 instance Eq CInit where
   (CInitExpr _ at1) == (CInitExpr _ at2) = at1 == at2
   (CInitList _ at1) == (CInitList _ at2) = at1 == at2
-
+  _                 == _                 = False
+  
 -- | Designators
 --
 -- A designator specifies a member of an object, either an element or range of an array,
@@ -606,7 +611,7 @@ instance Eq CDesignator where
   (CArrDesig     _ at1) == (CArrDesig     _ at2) = at1 == at2
   (CMemberDesig  _ at1) == (CMemberDesig  _ at2) = at1 == at2
   (CRangeDesig _ _ at1) == (CRangeDesig _ _ at2) = at1 == at2
-
+  _                     == _                     = False
 
 
 -- | @__attribute__@ annotations
@@ -737,8 +742,8 @@ instance Eq CExpr where
   (CCompoundLit _ _   at1) == (CCompoundLit _ _   at2) = at1 == at2
   (CStatExpr    _     at1) == (CStatExpr    _     at2) = at1 == at2
   (CLabAddrExpr _     at1) == (CLabAddrExpr _     at2) = at1 == at2
-  (CBuiltinExpr builtin1) == (CBuiltinExpr builtin2)   = builtin1 == builtin2
-
+  (CBuiltinExpr builtin1)  == (CBuiltinExpr builtin2)  = builtin1 == builtin2
+  _                        == _                        = False 
 -- | GNU Builtins, which cannot be typed in C99
 data CBuiltin = 
           CBuiltinVaArg CExpr CDecl Attrs            -- ^ @(expr, type)@
@@ -748,8 +753,12 @@ instance Pos CBuiltin where
     posOf (CBuiltinVaArg _ _ at) = posOf at
     posOf (CBuiltinOffsetOf _ _ at) = posOf at
     posOf (CBuiltinTypesCompatible _ _ at) = posOf at
---instance Eq CBuiltin where
-
+instance Eq CBuiltin where
+    (==) (CBuiltinVaArg _ _           at1) (CBuiltinVaArg _ _           at2) = at1 == at2
+    (==) (CBuiltinOffsetOf _ _        at1) (CBuiltinOffsetOf _ _        at2) = at1 == at2
+    (==) (CBuiltinTypesCompatible _ _ at1) (CBuiltinTypesCompatible _ _ at2) = at1 == at2
+    (==) _ _ = False
+    
 -- | C assignment operators (K&R A7.17)
 data CAssignOp = CAssignOp
                | CMulAssOp

@@ -21,10 +21,10 @@
 --  GNU extensions <http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html>.
 -----------------------------------------------------------------------------
 module Language.C.AST.AST (
-  -- * top level nodes
-  CHeader(..),  CExtDecl(..), CFunDef(..), 
-  -- * declarations
-  CDecl(..),
+  -- * C translation units
+  CTranslUnit(..),  CExtDecl(..),
+  -- * Declarations
+  CFunDef(..),  CDecl(..),
   CStructUnion(..),  CStructTag(..), CEnum(..),
   -- * declaration attributes
   CDeclSpec(..), CStorageSpec(..), CTypeSpec(..), CTypeQual(..), CAttr(..),
@@ -51,17 +51,16 @@ import Language.C.AST.Constants
 
 -- | Complete C tranlsation unit (C99 6.9, K&R A10)
 --  
--- Consits of a list of external (i.e. toplevel) declarations.
---
--- /FIXME/: A better name would be 'CTranslUnit'.
-data CHeader = CHeader [CExtDecl]
-                           Attrs
-instance Attributed CHeader where
-  attrsOf (CHeader _ at) = at
-instance Pos CHeader where
-  posOf (CHeader _ at) = posOf at
-instance Eq CHeader where
-  (CHeader _ at1) == (CHeader _ at2) = at1 == at2
+-- A complete C translation unit, for example representing a C header or source file.
+-- It consists of a list of external (i.e. toplevel) declarations.
+data CTranslUnit = CTranslUnit [CExtDecl]
+                               Attrs
+instance Attributed CTranslUnit where
+  attrsOf (CTranslUnit _ at) = at
+instance Pos CTranslUnit where
+  posOf (CTranslUnit _ at) = posOf at
+instance Eq CTranslUnit where
+  (CTranslUnit _ at1) == (CTranslUnit _ at2) = at1 == at2
     
 -- | External C declaration (C99 6.9, K&R A10)
 --
@@ -471,8 +470,8 @@ data CStructTag = CStructTag
 --
 --  * @attrs@ is a list of @__attribute__@ annotations associated with the enumeration specifier
 data CEnum = CEnum (Maybe Ident)
-                   [(Ident,                     -- variant name
-                     Maybe CExpr)]              -- explicit variant value
+                   (Maybe [(Ident,             -- variant name
+                            Maybe CExpr)])     -- explicit variant value
                    [CAttr]                     -- __attribute__s
                    Attrs
 

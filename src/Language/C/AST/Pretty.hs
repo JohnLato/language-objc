@@ -58,11 +58,11 @@ ii :: Doc -> Doc
 ii = nest 4
 
 -- Pretty instances
-instance Pretty CHeader where
-    pretty (CHeader edecls _) = vcat (map pretty edecls)
+instance Pretty CTranslUnit where
+    pretty (CTranslUnit edecls _) = vcat (map pretty edecls)
 
-prettyUsingInclude :: CHeader -> Doc
-prettyUsingInclude cast@(CHeader edecls _) =
+prettyUsingInclude :: CTranslUnit -> Doc
+prettyUsingInclude cast@(CTranslUnit edecls _) =
   includeWarning headerFiles
     $$
   (vcat $ map (either includeHeader pretty) mappedDecls)
@@ -231,8 +231,8 @@ instance Pretty CStructTag where
     pretty CUnionTag  = text "union"
 
 instance Pretty CEnum where
-    pretty (CEnum ident [] cattrs _) = text "enum" <+> attrlistP cattrs <+> maybeP identP ident
-    pretty (CEnum ident vals cattrs _) = vcat [
+    pretty (CEnum ident Nothing cattrs _) = text "enum" <+> attrlistP cattrs <+> maybeP identP ident
+    pretty (CEnum ident (Just vals) cattrs _) = vcat [
         text "enum" <+> attrlistP cattrs <+> maybeP identP ident <+> text "{",
         ii $ sep (punctuate comma (map p vals)),
         text "}"] where

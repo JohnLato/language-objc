@@ -33,7 +33,7 @@ deriving instance Typeable Attrs
 deriving instance Data Attrs
 deriving instance Typeable Position
 deriving instance Data Position
-deriving instance Typeable CHeader
+deriving instance Typeable CTranslUnit
 deriving instance Typeable CExtDecl
 deriving instance Typeable CFunDef
 deriving instance Typeable CStat
@@ -67,7 +67,7 @@ deriving instance Typeable CIntFlag
 deriving instance Typeable CString
 deriving instance Typeable1 Flags
 --
-deriving instance Data CHeader
+deriving instance Data CTranslUnit
 deriving instance Data CExtDecl
 deriving instance Data CFunDef
 deriving instance Data CStat

@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  AST
+-- Module      :  Language.C.AST.AST
 -- Copyright   :  (c) [1999..2007] Manuel M T Chakravarty
 --                (c) 2008 Benedikt Huber        
 -- License     :  BSD-style
@@ -99,7 +99,7 @@ instance Attributed CExtDecl where
 --
 -- * The statement @stmt@ is a compound statement.
 --
--- /TODO/: Merge oldstyle/newstyle declarations
+-- /TODO/: Merge oldstyle and newstyle declarations
 data CFunDef = CFunDef [CDeclSpec]      -- type specifier and qualifier
                        CDeclr           -- declarator
                        [CDecl]          -- optional declaration list
@@ -510,7 +510,7 @@ instance Eq CEnum where
 --    
 --    > CPtrDeclr _ (CArrDeclr (CPtrDeclr _ (CVarDeclr Nothing _ _)) _ _)
 --
--- TODO: Maybe we should merge old-style / new-style representations.
+-- TODO: Maybe we should merge old-style and new-style representations.
 data CDeclr = CVarDeclr (Maybe Ident)           
                         (Maybe CStrLit)         
                         [CAttr]                 
@@ -557,15 +557,24 @@ appendDeclrAttrs newAttrs (CArrDeclr odeclr typeQuals arraySize at)
 appendDeclrAttrs newAttrs (CFunDeclr odeclr parameters cAttrs at) 
     = CFunDeclr odeclr parameters (cAttrs ++ newAttrs) at
           
--- | C initializer (K&R A8.7)
---
+-- | C initialization (K&R A8.7, C99 6.7.8)
+-- 
+-- Initializers are either assignment expressions or initializer lists 
+-- (surrounded in curly braces), whose elements are themselves
+-- initializers, paired with an optional list of designators.
 data CInit = CInitExpr CExpr
                        Attrs            -- ^ assignment expression
            | CInitList CInitList
                        Attrs            -- ^ initialization list (see 'CInitList')
 
--- | Initialization List
+-- | Initializer List
 --
+-- Examples:
+--
+-- > { [0], [3] = 4, [2] = 5, 8 }
+-- > ==> [ ([CArrDesig 0, CArrDesig 3], 4), ([CArrDesig 2], 5), ([], 8) ]
+--
+-- > { .s = { {2,3} , .a = { 1} } }
 type CInitList = [([CDesignator], CInit)]
 
 instance Pos CInit where
@@ -579,7 +588,7 @@ instance Eq CInit where
 -- | Designators
 --
 -- A designator specifies a member of an object, either an element or range of an array,
--- or the named member of a struct/union.
+-- or the named member of a struct \/ union.
 data CDesignator = CArrDesig     CExpr
                                  Attrs  -- ^ array position designator
                  | CMemberDesig  Ident
@@ -731,7 +740,6 @@ instance Eq CExpr where
   (CBuiltinExpr builtin1) == (CBuiltinExpr builtin2)   = builtin1 == builtin2
 
 -- | GNU Builtins, which cannot be typed in C99
--- 
 data CBuiltin = 
           CBuiltinVaArg CExpr CDecl Attrs            -- ^ @(expr, type)@
         | CBuiltinOffsetOf CDecl [CDesignator] Attrs -- ^ @(type, designator-list)@
@@ -740,10 +748,9 @@ instance Pos CBuiltin where
     posOf (CBuiltinVaArg _ _ at) = posOf at
     posOf (CBuiltinOffsetOf _ _ at) = posOf at
     posOf (CBuiltinTypesCompatible _ _ at) = posOf at
-instance Eq CBuiltin where
+--instance Eq CBuiltin where
 
 -- | C assignment operators (K&R A7.17)
---
 data CAssignOp = CAssignOp
                | CMulAssOp
                | CDivAssOp

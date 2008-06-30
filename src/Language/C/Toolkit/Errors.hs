@@ -121,8 +121,7 @@ showError (Error lvl (Position fname row col) (l:ls))  =
   prefix ++ "\n" 
   ++ "  >>> " ++ l ++ "\n"
   ++ (indentMultilineString 2 . unlines) ls
-showError (Error _  _                  []   )   = interr "Errors: showError:\
-                                                        \ Empty error message!"
+showError (Error _  _                  []   )   = interr "Errors: showError: Empty error message!"
 
 errorAtPos         :: Position -> [String] -> a
 errorAtPos pos msg  = (error . showError . makeError ErrorErr pos) msg

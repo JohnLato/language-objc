@@ -19,7 +19,7 @@
 module Language.C.Toolkit.NameSpaceMap (
     NameSpaceMap, nameSpaceMap, 
     defGlobal, 
-    enterNewRange, leaveRange,
+    enterNewScope, leaveScope,
     defLocal, 
     find, 
     nsMapToList)
@@ -72,18 +72,17 @@ defGlobal (NsMap gs lss) ident def
 
 -- | Enter new local scope
 --
--- @ns' = enterNewRange ns@ creates and enters a new local scope.
-enterNewRange                    :: NameSpaceMap a -> NameSpaceMap a
-enterNewRange (NsMap gs lss)  = NsMap gs ([]:lss)
+-- @ns' = enterNewScope ns@ creates and enters a new local scope.
+enterNewScope                    :: NameSpaceMap a -> NameSpaceMap a
+enterNewScope (NsMap gs lss)  = NsMap gs ([]:lss)
 
 -- | Leave innermost local scope 
 --
--- @(ns',defs) = leaveRange ns@ pops leaves the innermost local scope.
+-- @(ns',defs) = leaveScope ns@ pops leaves the innermost local scope.
 --  and returns its definitions
-leaveRange :: NameSpaceMap a -> (NameSpaceMap a, [(Ident, a)])
-leaveRange (NsMap _ [])         = interr "NsMaps.leaveRange: \
-                                             \No local scope!"
-leaveRange (NsMap gs (ls:lss))  = (NsMap gs lss, ls)
+leaveScope :: NameSpaceMap a -> (NameSpaceMap a, [(Ident, a)])
+leaveScope (NsMap _ [])         = interr "NsMaps.leaveScope: No local scope!"
+leaveScope (NsMap gs (ls:lss))  = (NsMap gs lss, ls)
 
 -- | Add local definition 
 --
@@ -124,7 +123,7 @@ find (NsMap gs localDefs) ident
 
 -- | flatten a namespace into a assoc list
 --
---  @nameSpaceToList ns = globalDefs ns ++ (localDefInnermost ns ++ .. ++ localDefsOutermost ns)
--- TODO: global ++ (intermost ++ .. ++ outermost) is strange
+--  @nameSpaceToList ns = globalDefs ns ++ (localDefInnermost ns ++ .. ++ localDefsOutermost ns)@
+-- TODO: order does not reflect lookup order (innermost .. outermost, global)
 nsMapToList :: NameSpaceMap a -> [(Ident, a)]
 nsMapToList (NsMap gs lss)  = Map.toList gs ++ concat lss

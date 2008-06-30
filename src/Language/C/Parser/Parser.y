@@ -108,7 +108,7 @@ import Language.C.Toolkit.Names      (namesStartingFrom)
 import Language.C.Toolkit.Idents     (Ident, internalIdent)
 import Language.C.Toolkit.Attributes (Attrs, newAttrs, newAttrsOnlyPos, attrsOf)
 
-import Language.C.AST.AST       (CHeader(..), CExtDecl(..), CFunDef(..), CStat(..),
+import Language.C.AST.AST       (CTranslUnit(..), CExtDecl(..), CFunDef(..), CStat(..),
                    CBlockItem(..), CDecl(..), CAttr(..), CDeclSpec(..), CStorageSpec(..),
                    CTypeSpec(..), CTypeQual(..), CStructUnion(..),
                    CStructTag(..), CEnum(..), CDeclr(..), varDeclr, CInit(..), CInitList, CAttr(..), appendDeclrAttrs,
@@ -244,9 +244,9 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 
 -- parse a complete C header file
 --
-header :: { CHeader }
+header :: { CTranslUnit }
 header
-  : translation_unit	{% withAttrs $1 $ CHeader (reverse $1) }
+  : translation_unit	{% withAttrs $1 $ CTranslUnit (reverse $1) }
 
 
 -- parse a complete C translation unit (C99 6.9)
@@ -1154,19 +1154,19 @@ struct_identifier_declarator
 enum_specifier :: { CEnum }
 enum_specifier
   : enum attrs_opt '{' enumerator_list '}'
-  	{% withAttrs $1 $ CEnum Nothing   (reverse $4) $2 }
+  	{% withAttrs $1 $ CEnum Nothing   (Just$ reverse $4) $2 }
 
   | enum attrs_opt '{' enumerator_list ',' '}'
-  	{% withAttrs $1 $ CEnum Nothing   (reverse $4) $2 }
+  	{% withAttrs $1 $ CEnum Nothing   (Just$ reverse $4) $2 }
 
   | enum attrs_opt identifier '{' enumerator_list '}'
-  	{% withAttrs $1 $ CEnum (Just $3) (reverse $5) $2 }
+  	{% withAttrs $1 $ CEnum (Just $3) (Just$ reverse $5) $2 }
 
   | enum attrs_opt identifier '{' enumerator_list ',' '}'
-  	{% withAttrs $1 $ CEnum (Just $3) (reverse $5) $2 }
+  	{% withAttrs $1 $ CEnum (Just $3) (Just$ reverse $5) $2 }
 
   | enum attrs_opt identifier
-  	{% withAttrs $1 $ CEnum (Just $3) [] $2           }
+  	{% withAttrs $1 $ CEnum (Just $3) Nothing $2           }
   
 enumerator_list :: { Reversed [(Ident, Maybe CExpr)] }
 enumerator_list
@@ -2220,22 +2220,11 @@ happyError = parseError
 
 -- | @parseC input initialPos@ parses the given preprocessed C-source input and return the AST or a list of error messages along with 
 -- the position of the error.
-parseC :: String -> Position -> Either ([String],Position) CHeader
+parseC :: String -> Position -> Either ([String],Position) CTranslUnit
 parseC input initialPosition = 
   case execParser header input initialPosition builtinTypeNames (namesStartingFrom 0) of
 		Left header -> Right header
 		Right (msg,pos) -> Left (msg,pos)
 
 
-{-  
-parseC :: String -> Position -> PreCST s s' CHeader
-parseC input initialPosition  = do
-  nameSupply <- getNameSupply
-  let ns = names nameSupply
-  case execParser header input
-                  initialPosition (map fst builtinTypeNames) ns of
-    Left header -> return header
-    Right (message, position) -> raiseFatal "Error in C header file."
-                                            position message
--}
 }

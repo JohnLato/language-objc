@@ -1,4 +1,4 @@
-{-# LANGUAGE StandaloneDeriving, DeriveDataTypeable  #-}
+{-# LANGUAGE CPP,StandaloneDeriving, DeriveDataTypeable  #-}
 {-# OPTIONS -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
@@ -11,8 +11,9 @@
 --
 -- SYB for the AST
 --
--- TODO: Attrs needs manual Data instance, as it doesn't export 
---       its constructors.
+-- TODO: Standalone Deriving Data is buggy cross module borders in ghc.
+-- Switch to offline - deriving - this also has the advantage of supplying
+-- Uniplate, Data.Generic etc. instances
 -----------------------------------------------------------------------------
 module Language.C.AST.Generic where
 import Language.C.Toolkit.Idents
@@ -22,7 +23,7 @@ import Language.C.Toolkit.Position
 import Language.C.AST.AST
 import Language.C.AST.Constants
 import Data.Generics
-
+#ifndef __HADDOCK__
 deriving instance Typeable Name
 deriving instance Data Name
 deriving instance Typeable Ident
@@ -99,3 +100,4 @@ deriving instance Data CInteger
 deriving instance Data CString
 deriving instance Data CIntFlag
 deriving instance (Data a) => Data (Flags a)
+#endif HADDOCK

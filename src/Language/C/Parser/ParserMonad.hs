@@ -18,7 +18,7 @@
 --  typedef'ed type identifiers. We also must deal correctly with scope so we
 --  keep a list of sets of identifiers so we can save the outer scope when we
 --  enter an inner scope.
-module Language.C.Toolkit.ParserMonad ( 
+module Language.C.Parser.ParserMonad ( 
   P, 
   execParser,
   failP,

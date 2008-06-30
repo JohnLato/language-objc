@@ -108,7 +108,6 @@ import Language.C.Toolkit.Names      (namesStartingFrom)
 import Language.C.Toolkit.Idents     (Ident, internalIdent)
 import Language.C.Toolkit.Attributes (Attrs, newAttrs, newAttrsOnlyPos, attrsOf)
 
-import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.AST.AST       (CHeader(..), CExtDecl(..), CFunDef(..), CStat(..),
                    CBlockItem(..), CDecl(..), CAttr(..), CDeclSpec(..), CStorageSpec(..),
                    CTypeSpec(..), CTypeQual(..), CStructUnion(..),
@@ -118,8 +117,10 @@ import Language.C.AST.AST       (CHeader(..), CExtDecl(..), CFunDef(..), CStat(.
                    CAsmStmt(..), CAsmOperand(..), CBuiltin(..))
 import Language.C.AST.Builtin   (builtinTypeNames)
 import Language.C.AST.Constants (concatCStrings, CString)
+
+import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
-import Language.C.Toolkit.ParserMonad (P, execParser, getNewName, addTypedef, shadowTypedef,
+import Language.C.Parser.ParserMonad (P, execParser, getNewName, addTypedef, shadowTypedef,
                      enterScope, leaveScope )
 }
 

@@ -56,10 +56,10 @@ import Numeric   (readDec, readOct, readHex)
 import Language.C.Toolkit.Position  (Position(..), Pos(posOf))
 import Language.C.Toolkit.Idents    (lexemeToIdent)
 
-import Language.C.Parser.Tokens
-import Language.C.Toolkit.ParserMonad
-
 import Language.C.AST.Constants
+
+import Language.C.Parser.Tokens
+import Language.C.Parser.ParserMonad
 }
 
 $space = [ \ \t ]                           -- horizontal white space

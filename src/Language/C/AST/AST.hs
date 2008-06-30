@@ -26,21 +26,21 @@ module Language.C.AST.AST (
   -- * Declarations
   CFunDef(..),  CDecl(..),
   CStructUnion(..),  CStructTag(..), CEnum(..),
-  -- * declaration attributes
+  -- * Declaration attributes
   CDeclSpec(..), CStorageSpec(..), CTypeSpec(..), CTypeQual(..), CAttr(..),
-  -- * declarators
+  -- * Declarators
   CDeclr(..), varDeclr, appendDeclrAttrs, 
-  -- * initialization
+  -- * Initialization
   CInit(..), CInitList, CDesignator(..), 
-  -- * statements
+  -- * Statements
   CStat(..), CBlockItem(..),
   CAsmStmt(..), CAsmOperand(..), 
-  -- * expressions
+  -- * Expressions
   CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..), 
   CConst (..), CStrLit(..), liftStrLit, 
   CBuiltin(..),
-  -- * summary nodes
+  -- * Summary nodes
   CObj(..),CTag(..),CDef(..),
 ) where
 import Data.List
@@ -255,7 +255,7 @@ instance Eq CBlockItem where
 --
 -- 1) Toplevel declarations (K&R A8, C99 6.7 declaration)
 --
---   * c99 requires that there is at least one specifier, though this is merely a syntactic restriction
+--   * C99 requires that there is at least one specifier, though this is merely a syntactic restriction
 -- 
 --   * at most one storage class specifier is allowed per declaration
 --
@@ -433,10 +433,11 @@ instance Eq CTypeQual where
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
 -- @CStruct tag identifier struct-decls c-attrs@ represents a struct or union specifier (depending on @tag@).
-
---   * either the @identifier@ or the declaration list @struct-decls@ (or both) are present
---     Example: in @struct foo x;@, the identifier is present, in @struct { } x@ the declaration list, and
---     in @struct foo { int y; } x; @ both of them
+--
+--   * either t@identifier@ or the declaration list @struct-decls@ (or both) have to be present.
+--     Example: in @struct foo x;@, the identifier is present, in @struct { int y; } x@ the declaration list, and
+--     in @struct foo { int y; } x;@ both of them.
+--
 --   * @c-attrs@ is a list of @__attribute__@s associated with the struct or union specifier
 data CStructUnion = CStruct CStructTag
                             (Maybe Ident)
@@ -450,8 +451,7 @@ instance Pos CStructUnion where
 instance Eq CStructUnion where
   (CStruct _ _ _ _ at1) == (CStruct _ _ _ _ at2) = at1 == at2
 
--- (EXPORTED)
---
+-- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CStructUnion'.
 data CStructTag = CStructTag
                 | CUnionTag
                 deriving (Eq)
@@ -462,8 +462,7 @@ data CStructTag = CStructTag
 --
 --  * Either the identifier or the enumerator-list (or both) have to be present.
 --
---  * Empty enumerator lists are not allowed, so if enumerator-list is empty, it is considered
---    to be absent.
+--  * If @enumerator-list@ is present, it has to be non-empty.
 --
 --  * The enumerator list is of the form @(enumeration-constant, enumeration-value?)@, where the latter
 --    is an optional constant integral expression.
@@ -572,12 +571,25 @@ data CInit = CInitExpr CExpr
 
 -- | Initializer List
 --
--- Examples:
+-- The members of an initializer list are of the form @(designator-list,initializer)@.
+-- @designator-list@ is allowed to be empty - in this case the initializer refers to the
+-- ''next'' member of the compound type (see C99 6.7.8).
 --
--- > { [0], [3] = 4, [2] = 5, 8 }
--- > ==> [ ([CArrDesig 0, CArrDesig 3], 4), ([CArrDesig 2], 5), ([], 8) ]
+-- Examples (simplified expressions and identifiers):
 --
--- > { .s = { {2,3} , .a = { 1} } }
+-- > -- { [0], [3] = 4, [2] = 5, 8 } 
+-- > let init1 = ([CArrDesig 0, CArrDesig 3], CInitExpr 4)
+-- >     init2 = ([CArrDesig 2], CInitExpr 5)
+-- >     init3 = ([], CInitExpr 8)
+-- > in  CInitList [init1, init2, init3]
+--
+-- > -- { .s = { {2,3} , .a = { 1 } } }
+-- > let init_1  = [ ([], CInitExpr 1) ]
+-- >     init_23 = zip (repeat []) [CInitExpr 2, CInitExpr 3]
+-- >     init_s_1 = ([], CInitList init_23)
+-- >     init_s_a = ([CMemberDesig "a"], CInitList init_1)
+-- >     init_s  = ((CMemberDesig "s"), CInitList [init_s_1,init_s_a])
+-- > in  CInitList [init_s]
 type CInitList = [([CDesignator], CInit)]
 
 instance Pos CInit where
@@ -842,14 +854,23 @@ instance Attributed CStrLit where
 liftStrLit :: CStrLit -> CConst
 liftStrLit (CStrLit str at) = CStrConst str at
 
+-- | A @CObj@ is either a declaration, a type definition or an enumerator definition.
+--
+-- /TODO/: Stub from the analysis code, maybe remove
 data CObj = TypeCO    CDecl             -- ^ typedef declaration
           | ObjCO     CDecl             -- ^ object or function declaration
           | EnumCO    Ident CEnum       -- ^ enumerator
           | BuiltinCO                   -- ^ builtin object
-
+-- | A @CTag@ is a struct, union or enum declaration 
+--
+-- /TODO/: Stub from the analysis code, maybe remove
 data CTag = StructUnionCT CStructUnion  -- ^ toplevel struct-union declaration
           | EnumCT        CEnum         -- ^ toplevel enum declaration
 
+-- | A @CDef@ is something an identifier can be associated with -
+--   it can either be undefined, an object or and struct/union/enum tag.
+--
+-- /TODO/: Stub from the analysis code, maybe remove
 data CDef = UndefCD                     -- ^ undefined object
           | DontCareCD                  -- ^ don't care object
           | ObjCD      CObj             -- ^ C object

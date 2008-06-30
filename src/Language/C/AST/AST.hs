@@ -21,16 +21,28 @@
 --  GNU extensions <http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html>.
 -----------------------------------------------------------------------------
 module Language.C.AST.AST (
-  CHeader(..), 
-  CExtDecl(..), CFunDef(..), CStat(..), CBlockItem(..),
-  CDecl(..), CDeclSpec(..), CStorageSpec(..), CTypeSpec(..), CAttr(..),
-  CTypeQual(..), CStructUnion(..),  CStructTag(..), CEnum(..),
+  -- * top level nodes
+  CHeader(..),  CExtDecl(..), CFunDef(..), 
+  -- * declarations
+  CDecl(..),
+  CStructUnion(..),  CStructTag(..), CEnum(..),
+  -- * declaration attributes
+  CDeclSpec(..), CStorageSpec(..), CTypeSpec(..), CTypeQual(..), CAttr(..),
+  -- * declarators
   CDeclr(..), varDeclr, appendDeclrAttrs, 
-  CInit(..), CInitList, CDesignator(..), CExpr(..),
+  -- * initialization
+  CInit(..), CInitList, CDesignator(..), 
+  -- * statements
+  CStat(..), CBlockItem(..),
+  CAsmStmt(..), CAsmOperand(..), 
+  -- * expressions
+  CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..), 
   CConst (..), CStrLit(..), liftStrLit, 
-  CAsmStmt(..), CAsmOperand(..), CBuiltin(..) )
-where
+  CBuiltin(..),
+  -- * summary nodes
+  CObj(..),CTag(..),CDef(..),
+) where
 import Data.List
 import Language.C.Toolkit.Position   (Pos(posOf))
 import Language.C.Toolkit.Idents     (Ident)
@@ -814,3 +826,16 @@ instance Attributed CStrLit where
 -- | Lift a string literal to a C constant
 liftStrLit :: CStrLit -> CConst
 liftStrLit (CStrLit str at) = CStrConst str at
+
+data CObj = TypeCO    CDecl             -- ^ typedef declaration
+          | ObjCO     CDecl             -- ^ object or function declaration
+          | EnumCO    Ident CEnum       -- ^ enumerator
+          | BuiltinCO                   -- ^ builtin object
+
+data CTag = StructUnionCT CStructUnion  -- ^ toplevel struct-union declaration
+          | EnumCT        CEnum         -- ^ toplevel enum declaration
+
+data CDef = UndefCD                     -- ^ undefined object
+          | DontCareCD                  -- ^ don't care object
+          | ObjCD      CObj             -- ^ C object
+          | TagCD      CTag             -- ^ C tag

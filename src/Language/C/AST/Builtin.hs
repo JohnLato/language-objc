@@ -17,9 +17,6 @@ module Language.C.AST.Builtin (
 import Language.C.Toolkit.Position (builtinPos)
 import Language.C.Toolkit.Idents (Ident, onlyPosIdent)
 
-import Language.C.AST.Attrs (CObj(BuiltinCO))
-
-
 -- predefined type names
 --
 builtinTypeNames :: [Ident]

@@ -13,4 +13,6 @@ if [ $? -eq 0 ]; then
 fi
 
 # Invoke gcc
-gcc $@
+if [ ! -z $CTEST_NO_GCC ]; then
+    gcc $@
+fi

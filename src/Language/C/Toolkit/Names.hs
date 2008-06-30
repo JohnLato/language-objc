@@ -9,7 +9,7 @@
 -- Unique Names with fast equality
 --
 module Language.C.Toolkit.Names (
-Name(..),namesStartingFrom,nameId,NameMap,
+Name(..),namesStartingFrom,NameMap,
 ) where
 import Data.Ix
 import Data.IntMap (IntMap)

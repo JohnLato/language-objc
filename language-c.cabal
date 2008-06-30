@@ -39,19 +39,18 @@ Library
 
     Hs-Source-Dirs: src
     Exposed-Modules:  
-                      Language.C.Toolkit.UNames 
+                      Language.C.Toolkit.Names 
                       Language.C.Toolkit.Position 
                       Language.C.Toolkit.Errors 
                       Language.C.Toolkit.Attributes 
                       Language.C.Toolkit.Idents 
+                      Language.C.Toolkit.NameSpaceMap 
                       Language.C.Parser.Tokens 
-                      Language.C.Toolkit.ParserMonad 
+                      Language.C.Parser.ParserMonad 
                       Language.C.Parser.Lexer 
-                      Language.C.Toolkit.NameSpaces 
                       Language.C.AST.AST 
                       Language.C.AST.Constants
                       Language.C.AST.Pretty 
-                      Language.C.AST.Attrs 
                       Language.C.AST.Builtin 
                       Language.C.Parser.Parser 
                       Language.C              

@@ -14,5 +14,6 @@ fi
 
 # Invoke gcc
 if [ ! -z $CTEST_NO_GCC ]; then
+    echo gcc $@
     gcc $@
 fi

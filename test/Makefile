@@ -3,8 +3,6 @@
 # TODO: This is a QnD Makefile.
 # It is especially annoying that we have to rebuild the executables every time
 
-$(shell mkdir -p build/autogen/Language/C/Parser build_p)
-
 ifndef HC
 	HC=ghc
 endif
@@ -60,6 +58,8 @@ clean:
 	
 autogen: build/autogen/Language/C/Parser/Lexer.hs build/autogen/Language/C/Parser/Parser.hs
 build/autogen/Language/C/Parser/Lexer.hs: ../src/Language/C/Parser/Lexer.x
+	mkdir -p build/autogen/Language/C/Parser
 	alex -g -o $@ $<
 build/autogen/Language/C/Parser/Parser.hs: ../src/Language/C/Parser/Parser.y
+	mkdir -p build/autogen/Language/C/Parser
 	happy -gca -o $@ $<

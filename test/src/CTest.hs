@@ -27,7 +27,6 @@ import Language.C.Test.CPP
 import Language.C.Test.Environment
 import Language.C.Test.GenericAST
 
-
 main :: IO ()
 main = do
   tmpdir     <- getEnv "TMPDIR"

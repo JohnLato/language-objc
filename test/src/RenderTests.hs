@@ -12,8 +12,8 @@
 -- If JQuery and its tablesorter plugin is available, it is used.
 --
 -- Resources used:
---   res/style.css
---   res/jquery-latest.js res/jquery.tablesorter.js [optional]
+--   ../res/style.css
+--   ../res/jquery-latest.js ../res/jquery.tablesorter.js [optional]
 --
 -- TOOD: Display performance in detailled view too (maybe only if differs significantly from the average performance)
 -- TODO: Sort the tests. The tablesorter javascript doesn't play nice with the browser's back-button
@@ -210,8 +210,8 @@ mkTableWithSummaryRow tableHeader tableRows tableLast =
 
 tablesorterImport :: [String] -> Html
 tablesorterImport tids =
-    (script << "") ! [ thetype "text/javascript", src "res/jquery-latest.js"]
-    +++ (script << "") ! [ thetype "text/javascript", src "res/jquery.tablesorter.js"]
+    (script << "") ! [ thetype "text/javascript", src "../res/jquery-latest.js"]
+    +++ (script << "") ! [ thetype "text/javascript", src "../res/jquery.tablesorter.js"]
     +++ concatHtml (map (addSort . ('#':)) tids)
     where
        -- hard to ride in a beautiful way 
@@ -224,7 +224,7 @@ htmlFile reportTitle thebody = prettyHtml $
   header << 
     (
           (thetitle << reportTitle)
-      +++ (thelink << "") ! [ rel "stylesheet", href "res/style.css", thetype "text/css" ]
+      +++ (thelink << "") ! [ rel "stylesheet", href "../res/style.css", thetype "text/css" ]
       +++ tablesorterImport ["reportTable", "overviewTable"] -- hardcoded
     )
   +++ body thebody

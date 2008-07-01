@@ -32,8 +32,5 @@ if [ ! -d $L_TEST_TMPDIR ]; then
 	
 # If there is a parse.log file in the temporary directory, remove its contents
 elif [ -e "$L_TEST_TMPDIR"/parse.log ]; then
-	# Avoid error because of long parameter list
-	for tmp_file in "$L_TEST_TMPDIR"/*; do
-		rm  $tmp_file
-	done
+    (cd "$L_TEST_TMPDIR" && ls  | xargs rm)
 fi

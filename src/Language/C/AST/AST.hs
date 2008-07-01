@@ -29,7 +29,7 @@ module Language.C.AST.AST (
   -- * Declaration attributes
   CDeclSpec(..), CStorageSpec(..), CTypeSpec(..), CTypeQual(..), CAttr(..),
   -- * Declarators
-  CDeclr(..), varDeclr, appendDeclrAttrs, 
+  CDeclr(..),CDerivedDeclr(..),
   -- * Initialization
   CInit(..), CInitList, CDesignator(..), 
   -- * Statements
@@ -308,7 +308,7 @@ instance Eq CDecl where
 data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or typedef
                | CTypeSpec    CTypeSpec     -- ^ type name
                | CTypeQual    CTypeQual     -- ^ type qualifier
-               deriving (Eq)
+--               deriving (Eq)
 
 instance Pos CDeclSpec where
   posOf (CStorageSpec sspec) = posOf sspec
@@ -323,7 +323,7 @@ data CStorageSpec = CAuto     Attrs     -- ^ automatic storage
                   | CExtern   Attrs     -- ^ external linkage
                   | CTypedef  Attrs     -- ^ a typedef
                   | CThread   Attrs     -- ^ GNUC thread local storage
-
+                  
 instance Pos CStorageSpec where
   posOf (CAuto     at) = posOf at
   posOf (CRegister at) = posOf at
@@ -482,82 +482,83 @@ instance Eq CEnum where
 
 -- | C declarator (K&R A8.5, C99 6.7.5) and abstract declarator (K&R A8.8, C99 6.7.6)
 --
--- The representation of declarators is syntax-oriented. In the following, asm and attribute annotations are
--- left out for simplicity, @[| |]@ denotes concrete to abstract syntax transformation:
+-- A declarator declares a single object, function, or type. It is always associated with
+-- a declaration ('CDecl'), which specifies the declaration's type and the additional storage qualifiers and
+-- attributes, which apply to the declared object.
 --
--- * A pointer declarator @ * tyquals declr @ is represented as @CPtrDeclr [| tyquals |] [| declr |]@
+-- A declarator is of the form @CDeclr name? indirections asm-name? attrs _@, where 
+-- @name@ is the name of the declared object (missing for abstract declarators), 
+-- @declquals@ is a set of additional declaration specifiers,
+-- @asm-name@ is the optional assembler name and attributes is a set of 
+-- attrs is a set of @__attribute__@ annotations for the declared object.
 --
--- * A function declarator @declr ( params )@ is represented as @CFunDeclr [| declr |] [| params |]@
+-- @indirections@ is a set of pointer, array and function declarators, which modify the type of the declared object as
+-- described below. If the /declaration/ specifies the non-derived type @T@, 
+-- and we have @indirections = [D1, D2, ..., Dn]@ than the declared object has type
+-- @(D1 `indirect` (D2 `indirect` ...  (Dn `indirect` T)))@, where
 --
--- * A array declarator @declr [ tyquals expr static? ]@ is represented as @CArrayDeclr [| declr |] [| tyquals |] [| expr |]@
---
--- * A direct declarator @ident@ is represented as @CVarDeclr (Just [| ident |])@ 
---
--- * An abstract declarator's leaf (syntactically this is an empty string) is represented as @CVarDeclr Nothing@
---
--- Additionally we have that
---
---    * Old style parameter lists (a list of identifiers) are represented by @Left idents@
---   
---    * New style parameter lists have the form @Right (declarations, isVariadic)@
---
--- Examples:
---
---  * A function @f@ returning a pointer is represented as 
+--  * @(CPtrDeclr attrs) `indirect` T@ is /attributed pointer to T/
 -- 
---    > CPtrDeclr _ (CFunDeclr (CVarDeclr (Just f) _ _))
+--  * @(CFunDeclr attrs) `indirect` T@ is /attributed function returning T/
 --
---  * An abstract declarator @*(*)[]@ (pointer to array of pointers to ?) is represented as
---    
---    > CPtrDeclr _ (CArrDeclr (CPtrDeclr _ (CVarDeclr Nothing _ _)) _ _)
+--  * @(CArrayDeclr attrs) `indirect` T@ is /attributed array of elemements of type T/
 --
--- TODO: Maybe we should merge old-style and new-style representations.
-data CDeclr = CVarDeclr (Maybe Ident)           
-                        (Maybe CStrLit)         
-                        [CAttr]                 
-                        Attrs                   -- ^ @CVarDeclr ident? asmname? c-attrs@ represents a direct declarator or
-                                                -- abstract declarator leaf (ident absent).
-            | CPtrDeclr [CTypeQual]             
-                        CDeclr                  
-                        Attrs                   -- ^ Pointer declarator @CPtrDeclr tyquals declr@
-            | CArrDeclr CDeclr                  
-                        [CTypeQual]             
-                        (Maybe CExpr)           
-                        Attrs                   -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@ 
-            | CFunDeclr CDeclr                  
-                        (Either [Ident] ([CDecl],Bool)) 
-                        [CAttr]                 
-                        Attrs                   -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@ 
+-- Examples (simplified attributes): 
+--
+--  * /x/ is an int
+--
+-- > int x;  
+-- > CDeclr "x" []
+-- 
+--  * /x/ is a restrict pointer to a const pointer to int
+--
+-- > const int * const * restrict x; 
+-- > CDeclr "x" [CPtrDeclr [restrict], CPtrDeclr [const]]
+--
+--  * /f/ is an function return a constant pointer to int
+--
+-- > int* const f();
+-- > CDeclr "f" [CFunDeclr [],CPtrDeclr [const]]
+--
+--  * /f/ is a constant pointer to a function returning int
+--
+-- > int (* const f)(); ==>
+-- > CDeclr "f" [CPtrDeclr [const], CFunDeclr []]
+data CDeclr = CDeclr (Maybe Ident) [CDerivedDeclr] (Maybe CStrLit) [CAttr] Attrs
 
+-- | Derived declarators, see 'CDeclr'
+--
+-- Indirections are qualified using type-qualifiers and generic attributes, and additionally
+--
+--    * The size of an array is either a constant expression, variable length ('*') or missing; in the last case, the
+--      type of the array is incomplete. The qualifier static is allowed for function arguments only, indicating that
+--      the supplied argument is an array of at least the given size.
+--
+--    * New style parameter lists have the form @Right (declarations, isVariadic)@, old style parameter lists have the
+--      form @Left (parameter-names)@
+data CDerivedDeclr =
+              CPtrDeclr [CTypeQual] Attrs
+              -- ^ Pointer declarator @CPtrDeclr tyquals declr@
+            | CArrDeclr [CTypeQual] (Maybe CExpr) Attrs 
+              -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@ 
+            | CFunDeclr CFunParams [CAttr] Attrs                   
+              -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@ 
+type CFunParams = (Either [Ident] ([CDecl],Bool))
 instance Pos CDeclr where
-  posOf (CVarDeclr _ident _asmName _cAttrs at) = posOf at
-  posOf (CPtrDeclr _typeQuals _innerDeclr at) = posOf at
-  posOf (CArrDeclr _innerDeclr _typeQuals _arraySize at) = posOf at
-  posOf (CFunDeclr _innerDeclr _parameters _cAttrs at) = posOf at
+  posOf (CDeclr _ _ _ _ at) = posOf at
+instance Pos CDerivedDeclr where
+  posOf (CPtrDeclr _typeQuals at) = posOf at
+  posOf (CArrDeclr _typeQuals _arraySize at) = posOf at
+  posOf (CFunDeclr _parameters _cAttrs at) = posOf at
 
 instance Eq CDeclr where
-  (CVarDeclr _ _ _ at1) == (CVarDeclr _ _ _ at2) = at1 == at2
-  (CPtrDeclr _ _   at1) == (CPtrDeclr _ _   at2) = at1 == at2
-  (CArrDeclr _ _ _ at1) == (CArrDeclr _ _ _ at2) = at1 == at2
-  (CFunDeclr _ _ _ at1) == (CFunDeclr _ _ _ at2) = at1 == at2
+  (CDeclr _ _ _ _ at1) == (CDeclr _ _ _ _ at2) = at1 == at2
+instance Eq CDerivedDeclr where
+  (CPtrDeclr _   at1) == (CPtrDeclr _   at2) = at1 == at2
+  (CArrDeclr _ _ at1) == (CArrDeclr _ _ at2) = at1 == at2
+  (CFunDeclr _ _ at1) == (CFunDeclr _ _ at2) = at1 == at2
   _                     == _                     = False
-  
-varDeclr :: CDeclr -> CDeclr
-varDeclr = follow where
-  follow vdeclr@(CVarDeclr _ident _asmName _cAttrs _at) = vdeclr
-  follow (CPtrDeclr _typeQuals odeclr _at) = follow odeclr
-  follow (CArrDeclr odeclr _typeQuals _arraySize _at) = follow odeclr
-  follow (CFunDeclr odeclr _parameters _cAttrs _at) = follow odeclr
 
-appendDeclrAttrs :: [CAttr] -> CDeclr -> CDeclr
-appendDeclrAttrs newAttrs (CVarDeclr ident asmName cAttrs at) 
-    = CVarDeclr ident asmName (cAttrs ++ newAttrs) at
-appendDeclrAttrs newAttrs (CPtrDeclr typeQuals odeclr at)     
-    = CPtrDeclr (typeQuals ++ map CAttrQual newAttrs) odeclr at 
-appendDeclrAttrs newAttrs (CArrDeclr odeclr typeQuals arraySize at) 
-    = CArrDeclr odeclr (typeQuals ++ map CAttrQual newAttrs) arraySize at
-appendDeclrAttrs newAttrs (CFunDeclr odeclr parameters cAttrs at) 
-    = CFunDeclr odeclr parameters (cAttrs ++ newAttrs) at
           
 -- | C initialization (K&R A8.7, C99 6.7.8)
 -- 

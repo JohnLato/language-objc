@@ -242,36 +242,33 @@ instance Pretty CDeclr where
     prettyPrec prec declr = prettyDeclr prec declr 
 
 prettyDeclr :: Int -> CDeclr -> Doc
-prettyDeclr prec declr =
-                            -- text "/* Declarator: " <+> describeDeclr declr <+> text "*/" $$
-                            -- ( $$ text "/* End Declarator */" )
-    let vardeclr = varDeclr declr in
-    ppdeclrs prec declr <+> prettyAsmName vardeclr <+> prettyAttrList vardeclr
+prettyDeclr prec (CDeclr name derivedDeclrs asmname cattrs _) =
+    ppDeclr prec (reverse derivedDeclrs) <+> prettyAsmName asmname <+> attrlistP cattrs
     where
-    -- ident
-    ppdeclrs p (CVarDeclr ident _asm _cattrs _) = maybeP identP ident
+    ppDerivedDeclr (CPtrDeclr quals _) = text "*" <+> hsep (map pretty quals)
+    ppDerivedDeclr (CArrDeclr quals expr _) = brackets (hsep (map pretty quals) <+> maybeP pretty expr)
+    ppDerivedDeclr (CFunDeclr params cattrs _) = parens (attrlistP cattrs) <+> parens (prettyParams params)
+    
+    ppDeclr _ [] = maybeP identP name
     --'*' __attribute__? qualifiers declarator
-    ppdeclrs p (CPtrDeclr quals declr _) =
-        parenPrec p 5 $ text "*" <+> hsep (map pretty quals)
-                        <+> ppdeclrs 5 declr
+    ppDeclr p (CPtrDeclr quals _ : declrs) =
+        parenPrec p 5 $ text "*" <+> hsep (map pretty quals) <+> ppDeclr 5 declrs
+
     -- declarator[ __attribute__? qualifiers expr ]
-    ppdeclrs p (CArrDeclr declr quals expr _) =
-        parenPrec p 5 $ ppdeclrs 6 declr
-                        <> brackets (hsep (map pretty quals) <+> maybeP pretty expr)
+    ppDeclr p (CArrDeclr quals expr _ : declrs) =
+        parenPrec p 6 $ ppDeclr 6 declrs <> brackets (hsep (map pretty quals) <+> maybeP pretty expr)
     -- declarator ( arguments )
     -- or (__attribute__ declarator) (arguments)
-    ppdeclrs p (CFunDeclr declr params cattrs _) =
-        (if not (null cattrs) then parens (attrlistP cattrs <+> ppdeclrs 5 declr) else ppdeclrs 6 declr)
+    ppDeclr p (CFunDeclr params cattrs _ : declrs) =
+        (if not (null cattrs) then parens (attrlistP cattrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
         <> parens (prettyParams params)
-      where
-      prettyParams (Right (decls, isVariadic)) =
-         sep (punctuate comma (map pretty decls))
-         <> (if isVariadic then text "," <+> text "..." else empty)
-      prettyParams (Left oldStyleIds) = 
-         hsep (punctuate comma (map identP oldStyleIds))
-    prettyAsmName (CVarDeclr _ asmName _ _) 
-        = maybe empty (\asmname -> text "__asm__" <> parens (pretty asmname)) asmName
-    prettyAttrList (CVarDeclr _ _ cattrs _) = attrlistP cattrs
+    prettyParams (Right (decls, isVariadic)) =
+     sep (punctuate comma (map pretty decls))
+     <> (if isVariadic then text "," <+> text "..." else empty)
+    prettyParams (Left oldStyleIds) = 
+     hsep (punctuate comma (map identP oldStyleIds))
+    prettyAsmName asmname 
+        = maybe empty (\asmname -> text "__asm__" <> parens (pretty asmname)) asmname
     
 -- initializer :: { CInit }
 -- initializer :- assignment_expression

@@ -1,11 +1,15 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C
--- Copyright   :  (c) [1995..2008] Manuel M. T. Chakravarty, Duncan Coutts, Benedikt Huber
+-- Copyright   :  (c) [1995..2008] 
+--                   Manuel M. T. Chakravarty
+--                   Duncan Coutts
+--                   Betram Felgenhauer
+--                   Benedikt Huber
 -- License     :  BSD-style
 -- Portability :  portable
 --
--- The C99 parser / pretty printer library.
+-- The C99 parser and pretty printer library.
 -----------------------------------------------------------------------------
 module Language.C (
 module Language.C.Toolkit.Position,

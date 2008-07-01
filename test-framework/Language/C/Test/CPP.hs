@@ -37,7 +37,7 @@ runGccPreprocessor gccArgs inFile outFile =
 
 -- | @parseCC tmp-dir [additional-gcc-options] file.c@ returns the AST of the parsed file and of all included header files.
 --   @parseCC tmp-dir _ file.i@ returns the AST of the already preprocessed file @file.i@
-parseCC :: FilePath -> [String] -> FilePath -> IO (Either ([String],Position) CHeader)
+parseCC :: FilePath -> [String] -> FilePath -> IO (Either ([String],Position) CTranslUnit)
 parseCC _ _ cFile | isPreprocessedFile cFile = do
   input <- readFile cFile
   return $ parseC input (Position cFile 1 1)

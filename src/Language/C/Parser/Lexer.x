@@ -51,6 +51,7 @@
 module Language.C.Parser.Lexer (lexC, parseError) where
 
 import Data.Char (isDigit)
+import Control.Monad (liftM)
 import Numeric   (readDec, readOct, readHex)
 
 import Language.C.Toolkit.Position  (Position(..), Pos(posOf))
@@ -133,7 +134,7 @@ $white+         ;
 --   doesn't say how many ints there can be, we allow an unbound number
 --
 \#$space*@int$space*(\"($infname|@charesc)*\"$space*)?(@int$space*)*$eol
-  { \pos len str -> setPos (adjustPos (take len str) pos) >> lexToken }
+  { \pos len str -> setPos (adjustPos (takeChars len str) pos) >> lexToken }
 
 -- #pragma directive (K&R A12.8)
 --
@@ -151,7 +152,7 @@ $white+         ;
 
 -- identifiers and keywords (follows K&R A2.3 and A2.4)
 --
-$letter($letter|$digit)*  { \pos len str -> idkwtok (take len str) pos }
+$letter($letter|$digit)*  { \pos len str -> idkwtok (takeChars len str) pos }
 
 -- constants (follows K&R A2.5) 
 --
@@ -342,66 +343,66 @@ ignoreAttribute = skipTokens 0
 tok :: (Position -> CToken) -> Position -> P CToken
 tok tc pos = return (tc pos)
 
--- special utility for the lexer
-unescapeMultiChars :: String -> [Char]
-unescapeMultiChars cs@(_ : _ : _) = case unescapeChar cs of (c,cs') -> c : unescapeMultiChars cs'
-unescapeMultiChars ('\'' : []) = [] 
-unescapeMultiChars _ = error "Unexpected end of multi-char constant"
-
 adjustPos :: String -> Position -> Position
 adjustPos str (Position fname row _) = Position fname' row' 0
-  where
+    where
     str'            = dropWhite . drop 1 $ str
     (rowStr, str'') = span isDigit str'
     row'      = read rowStr
     str'''      = dropWhite str''
     fnameStr      = takeWhile (/= '"') . drop 1 $ str'''
     fname'      | null str''' || head str''' /= '"' = fname
-        -- try and get more sharing of file name strings
-        | fnameStr == fname     = fname
-        | otherwise       = fnameStr
+     -- try and get more sharing of file name strings
+     | fnameStr == fname     = fname
+     | otherwise       = fnameStr
     --
     dropWhite = dropWhile (\c -> c == ' ' || c == '\t')
+-- special utility for the lexer
+unescapeMultiChars :: String -> [Char]
+unescapeMultiChars cs@(_ : _ : _) = case unescapeChar cs of (c,cs') -> c : unescapeMultiChars cs'
+unescapeMultiChars ('\'' : []) = [] 
+unescapeMultiChars _ = error "Unexpected end of multi-char constant"
 
 {-# INLINE token_ #-}
 -- token that ignores the string
-token_ :: (Position -> CToken) -> Position -> Int -> String -> P CToken
+token_ :: (Position -> CToken) -> Position -> Int -> InputStream -> P CToken
 token_ tok pos _ _ = return (tok pos)
 
 {-# INLINE token_fail #-}
 -- error token
 token_fail :: String -> Position -> 
-              Int -> String -> P CToken
+              Int -> InputStream -> P CToken
 token_fail errmsg pos _ _ =   failP pos [ "Lexical Error !", errmsg ]
 
 
 {-# INLINE token #-}
 -- token that uses the string
 token :: (Position -> a -> CToken) -> (String -> a)
-      -> Position -> Int -> String -> P CToken
-token tok read pos len str = return (tok pos (read $ take len str))
+      -> Position -> Int -> InputStream -> P CToken
+token tok read pos len str = return (tok pos (read $ takeChars len str))
 
 {-# INLINE token_plus #-}
 -- token that may fail
 token_plus :: (Position -> a -> CToken) -> (String -> Either String a)
-      -> Position -> Int -> String -> P CToken
+      -> Position -> Int -> InputStream -> P CToken
 token_plus tok read pos len str = 
-  case read (take len str) of Left err -> failP pos [ "Lexical error ! ", err ]
-                              Right ok -> return $! tok pos ok
+  case read (takeChars len str) of Left err -> failP pos [ "Lexical error ! ", err ]
+                                   Right ok -> return $! tok pos ok
 
 -- -----------------------------------------------------------------------------
 -- The input type
 
 type AlexInput = (Position,   -- current position,
-                  String)     -- current input string
+                  InputStream)     -- current input string
 
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar _ = error "alexInputPrevChar not used"
 
 alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
-alexGetChar (p,[]) = Nothing
-alexGetChar (p,(c:s))  = let p' = alexMove p c in p' `seq`
-                           Just (c, (p', s))
+alexGetChar (p,is) | inputStreamEmpty is = Nothing
+                   | otherwise  = let (c,s) = takeChar is in
+                                  let p' = alexMove p c in p' `seq`
+                                  Just (c, (p', s))
 
 alexMove :: Position -> Char -> Position
 alexMove (Position f l c) '\t' = Position f l     (((c+7) `div` 8)*8+1)
@@ -411,7 +412,7 @@ alexMove (Position f l c) _    = Position f l     (c+1)
 lexicalError :: P a
 lexicalError = do
   pos <- getPos
-  (c:cs) <- getInput
+  (c,cs) <- liftM takeChar getInput
   failP pos
         ["Lexical error !",
          "The character " ++ show c ++ " does not fit here."]

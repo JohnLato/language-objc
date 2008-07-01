@@ -16,16 +16,22 @@ Extra-Source-Files: src/Language/C/Parser/Lexer.x
                     src/Language/C/Parser/Parser.y
 Flag splitBase
     Description: Choose the new smaller, split-up base package.
-
+Flag useByteStrings
+    Description: Use ByteString as InputStream datatype
+    Default: True
 Library
     Extensions: CPP
-    Build-Depends:  base, filepath
+    Build-Depends:  filepath
 
     if flag(splitBase)
         Build-Depends: base >= 3, process, directory, array, containers, pretty
     else
         Build-Depends: base < 3
-
+        
+    if flag(useByteStrings)
+        Build-Depends: bytestring >= 0.9.0
+    else
+        cpp-options: -DNO_BYTESTRING
     Build-Tools:    happy, alex
 
     Hs-Source-Dirs: src
@@ -37,6 +43,7 @@ Library
                       Language.C.Toolkit.Idents 
                       Language.C.Toolkit.NameSpaceMap
                       Language.C.Toolkit 
+                      Language.C.Parser.InputStream
                       Language.C.Parser.Lexer 
                       Language.C.Parser.Parser 
                       Language.C.Parser.ParserMonad 

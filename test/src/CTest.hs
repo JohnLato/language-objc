@@ -62,6 +62,6 @@ exprInput str = "void *x = " ++ str ++ " ;"
 declInput str = str ++ ";"
 parseAndPrint :: Bool -> String -> Position -> IO ()
 parseAndPrint debugFlag str pos = do
-    ast <- either (ioError.userError.show) return (parseC str pos)
+    ast <- either (ioError.userError.show) return (parseC (inputStreamFromString str) pos)
     print $ prettyUsingInclude ast
     when (debugFlag) $ print . pretty . mkGenericCAST $ ast

@@ -33,6 +33,7 @@ import System.Process
 
 import Language.C
 import Language.C.Toolkit.Position
+import Language.C.Parser.InputStream
 
 import Language.C.Test.Environment
 import Language.C.Test.Framework
@@ -113,7 +114,7 @@ runParseTest preFile initialPos = do
   -- parse
   dbgMsg $ "Starting Parse of " ++ preFile ++ "\n"
   ((parse,input),elapsed) <-
-    time $ do input <- liftIO$ readFile preFile
+    time $ do input <- liftIO$ readInputStream preFile
               parse <- parseEval input initialPos
               return (parse,input)
 
@@ -121,10 +122,10 @@ runParseTest preFile initialPos = do
   dbgMsg $ "Parse result : " ++ eitherStatus parse ++ "\n"
   case parse of
     Left err@(errMsgs, pos) -> do
-      report <- reportParseError err input
+      report <- reportParseError err (inputStreamToString input)
       return $ Left $ (unlines (("Parse error in " ++ show pos) : errMsgs), report)
     Right header -> 
-      return $ Right $ (header,PerfMeasure (locsOf input,elapsed))
+      return $ Right $ (header,PerfMeasure (fromIntegral $ countLines input,elapsed))
 
 reportParseError :: ([String],Position) -> String -> TestMonad FilePath
 reportParseError (errMsgs,pos) input = do
@@ -233,7 +234,7 @@ getDeclSrc decls ix = case drop ix decls of
 
 --  make sure parse is evaluated
 -- Rational: If we no wheter the parse result is an error or ok, we already have performed the parse
-parseEval :: String -> Position -> TestMonad (Either ([String],Position) CTranslUnit)
+parseEval :: InputStream -> Position -> TestMonad (Either ([String],Position) CTranslUnit)
 parseEval input initialPos = 
   case parseC input initialPos of 
     Left  err -> return $ Left err
@@ -253,7 +254,4 @@ getContextInfo pos = do
       (pre,ctxLine : post) -> showContext [last pre] ctxLine (take 1 post)
   where
     showContext preCtx ctx postCtx = unlines $ preCtx ++ [ctx, replicate (posColumn pos - 1) ' ' ++ "^^^"] ++ postCtx
-    
-locsOf :: String -> Integer
-locsOf = fromIntegral . length . lines
-                
+                    

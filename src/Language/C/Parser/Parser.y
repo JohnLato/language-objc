@@ -114,7 +114,7 @@ import Language.C.AST.Constants (concatCStrings, CString)
 import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
 import Language.C.Parser.ParserMonad (P, failP, execParser, getNewName, addTypedef, shadowTypedef,
-                     enterScope, leaveScope )
+                     enterScope, leaveScope, InputStream )
 }
 
 %name header header
@@ -2250,11 +2250,8 @@ happyError = parseError
 
 -- | @parseC input initialPos@ parses the given preprocessed C-source input and return the AST or a list of error messages along with 
 -- the position of the error.
-parseC :: String -> Position -> Either ([String],Position) CTranslUnit
+parseC :: InputStream -> Position -> Either ([String],Position) CTranslUnit
 parseC input initialPosition = 
-  case execParser header input initialPosition builtinTypeNames (namesStartingFrom 0) of
-		Left header -> Right header
-		Right (msg,pos) -> Left (msg,pos)
-
+  execParser header input initialPosition builtinTypeNames (namesStartingFrom 0)
 
 }

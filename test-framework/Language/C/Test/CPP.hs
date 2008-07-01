@@ -17,6 +17,7 @@ import System.Exit
 import System.Cmd
 import Language.C.Toolkit.Position
 import Language.C.Parser.Parser (parseC)
+import Language.C.Parser.InputStream
 import Language.C.AST.AST
 import Language.C.Test.Environment
 
@@ -39,7 +40,7 @@ runGccPreprocessor gccArgs inFile outFile =
 --   @parseCC tmp-dir _ file.i@ returns the AST of the already preprocessed file @file.i@
 parseCC :: FilePath -> [String] -> FilePath -> IO (Either ([String],Position) CTranslUnit)
 parseCC _ _ cFile | isPreprocessedFile cFile = do
-  input <- readFile cFile
+  input <- readInputStream cFile
   return $ parseC input (Position cFile 1 1)
 parseCC tmpdir gccArgs cFile = do
   -- preprocess C file
@@ -47,7 +48,7 @@ parseCC tmpdir gccArgs cFile = do
   gccExitcode <- runGccPreprocessor gccArgs cFile preFile
   preDat <- 
     case gccExitcode of
-      ExitSuccess -> readFile preFile
+      ExitSuccess -> readInputStream preFile
       ExitFailure exitCode ->
           ioError $ userError $ "C preprocessor failed: $CPP "++ show gccArgs ++ 
                                 " [" ++ cFile ++ " ==> " ++ preFile ++ "] with exit code"++show exitCode

@@ -34,17 +34,19 @@ module Language.C.Parser.ParserMonad (
   setInput,          -- :: String -> P ()
   getLastToken,      -- :: P CToken
   setLastToken,      -- :: CToken -> P ()
+  module Language.C.Parser.InputStream,
   ) where
 
 import Language.C.Toolkit.Position  (Position(..))
 import Language.C.Toolkit.Errors    (interr)
 import Language.C.Toolkit.Names     (Name)
 import Language.C.Toolkit.Idents    (Ident)
+import Language.C.Parser.Tokens (CToken)
+import Language.C.Parser.InputStream
 
 import Data.Set  (Set)
 import qualified Data.Set as Set (fromList, insert, member, delete)
 
-import Language.C.Parser.Tokens (CToken)
 
 data ParseResult a
   = POk !PState a
@@ -52,7 +54,7 @@ data ParseResult a
 
 data PState = PState { 
         curPos     :: !Position,        -- position at current input location
-        curInput   :: !String,          -- the current input
+        curInput   :: !InputStream,      -- the current input
         prevToken  ::  CToken,          -- the previous token
         namesupply :: ![Name],          -- the name unique supply
         tyidents   :: !(Set Ident),     -- the set of typedef'ed identifiers
@@ -66,12 +68,12 @@ instance Monad P where
   (>>=) = thenP
   fail m = getPos >>= \pos -> failP pos [m]
 
-execParser :: P a -> String -> Position -> [Ident] -> [Name]
-           -> Either a ([String], Position)
+execParser :: P a -> InputStream -> Position -> [Ident] -> [Name]
+           -> Either ([String], Position) a
 execParser (P parser) input pos builtins names =
   case parser initialState of
-    POk _ result -> Left result
-    PFailed message errpos -> Right (message, errpos)
+    PFailed message errpos -> Left (message, errpos)
+    POk _ result -> Right result
   where initialState = PState {
           curPos = pos,
           curInput = input,
@@ -131,10 +133,10 @@ leaveScope = P $ \s@PState{scopes=ss} ->
                        []             -> interr "leaveScope: already in global scope"
                        (tyids:ss') -> POk s{tyidents=tyids, scopes=ss'} ()
 
-getInput :: P String
+getInput :: P InputStream
 getInput = P $ \s@PState{curInput=i} -> POk s i
 
-setInput :: String -> P ()
+setInput :: InputStream -> P ()
 setInput i = P $ \s -> POk s{curInput=i} ()
 
 getLastToken :: P CToken

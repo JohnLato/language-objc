@@ -13,12 +13,14 @@
 -----------------------------------------------------------------------------
 module Language.C (
 module Language.C.Toolkit.Position,
+module Language.C.Parser.InputStream,
 module Language.C.Parser.Parser,
 module Language.C.AST.AST,
 module Language.C.AST.Pretty
 )
 where
 import Language.C.Toolkit.Position
+import Language.C.Parser.InputStream
 import Language.C.Parser.Parser
 import Language.C.AST.AST
 import Language.C.AST.Pretty

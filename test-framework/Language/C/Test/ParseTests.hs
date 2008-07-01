@@ -108,7 +108,7 @@ parseTestTemplate = Test
 
 runParseTest :: FilePath           -- ^ preprocesed file
              -> Position           -- ^ initial position
-             -> TestMonad (Either (String,FilePath) (CHeader,PerfMeasure)) -- ^ either (errMsg,reportFile) (ast,(locs,elapsedTime))
+             -> TestMonad (Either (String,FilePath) (CTranslUnit,PerfMeasure)) -- ^ either (errMsg,reportFile) (ast,(locs,elapsedTime))
 runParseTest preFile initialPos = do
   -- parse
   dbgMsg $ "Starting Parse of " ++ preFile ++ "\n"
@@ -149,7 +149,7 @@ ppTestTemplate = Test
     inputUnit = linesOfCode
   }
 
-runPrettyPrint :: CHeader -> TestMonad ((FilePath, FilePath), PerfMeasure)
+runPrettyPrint :: CTranslUnit -> TestMonad ((FilePath, FilePath), PerfMeasure)
 runPrettyPrint ast = do
     -- pretty print
     dbgMsg "Pretty Print ..."
@@ -183,8 +183,8 @@ equivTestTemplate = Test
     inputUnit = topLevelDeclarations
   }
 
-runEquivTest :: CHeader -> CHeader -> TestMonad (Either (String, Maybe FilePath) PerfMeasure)
-runEquivTest (CHeader decls1 _) (CHeader decls2 _) = do
+runEquivTest :: CTranslUnit -> CTranslUnit -> TestMonad (Either (String, Maybe FilePath) PerfMeasure)
+runEquivTest (CTranslUnit decls1 _) (CTranslUnit decls2 _) = do
   dbgMsg $ "Check AST equivalence\n"
   
   -- get generic asts
@@ -233,7 +233,7 @@ getDeclSrc decls ix = case drop ix decls of
 
 --  make sure parse is evaluated
 -- Rational: If we no wheter the parse result is an error or ok, we already have performed the parse
-parseEval :: String -> Position -> TestMonad (Either ([String],Position) CHeader)
+parseEval :: String -> Position -> TestMonad (Either ([String],Position) CTranslUnit)
 parseEval input initialPos = 
   case parseC input initialPos of 
     Left  err -> return $ Left err

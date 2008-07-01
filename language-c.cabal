@@ -17,23 +17,14 @@ Extra-Source-Files: src/Language/C/Parser/Lexer.x
 Flag splitBase
     Description: Choose the new smaller, split-up base package.
 
-Flag deriveData
-    Description: Derive Typeable and Data instances for the AST, and
-                 add support for generic traversal.
-    Default: True
-
 Library
-
+    Extensions: CPP
     Build-Depends:  base, filepath
 
     if flag(splitBase)
         Build-Depends: base >= 3, process, directory, array, containers, pretty
     else
         Build-Depends: base < 3
-
-    if flag(deriveData)
-        Exposed-Modules: Language.C.AST.Generic
-        Extensions: DeriveDataTypeable, StandaloneDeriving
 
     Build-Tools:    happy, alex
 
@@ -44,13 +35,18 @@ Library
                       Language.C.Toolkit.Errors 
                       Language.C.Toolkit.Attributes 
                       Language.C.Toolkit.Idents 
-                      Language.C.Toolkit.NameSpaceMap 
-                      Language.C.Parser.Tokens 
-                      Language.C.Parser.ParserMonad 
+                      Language.C.Toolkit.NameSpaceMap
+                      Language.C.Toolkit 
                       Language.C.Parser.Lexer 
-                      Language.C.AST.AST 
-                      Language.C.AST.Constants
-                      Language.C.AST.Pretty 
-                      Language.C.AST.Builtin 
                       Language.C.Parser.Parser 
+                      Language.C.Parser.ParserMonad 
+                      Language.C.Parser.Tokens 
+                      Language.C.AST.AST 
+                      Language.C.AST.Builtin
+                      Language.C.AST.Declarations
+                      Language.C.AST.Constants
+                      Language.C.AST.Generic
+                      Language.C.AST.Pretty 
+                      Language.C.AST 
                       Language.C              
+                      

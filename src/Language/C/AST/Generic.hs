@@ -1,19 +1,13 @@
-{-# OPTIONS -fno-warn-orphans  #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  
+-- Module      :  Language.C.AST.Generic
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  needs (StandaloneDeriving, DeriveDataTypeable)
--- Stability   :  alpha
+-- Portability :  portable
+-- Stability   :  experimental
 --
 -- SYB for the AST
---
--- TODO: Standalone Deriving Data is buggy cross module borders in ghc.
--- Therefore, we use Data.Derive at the moment. Unfortunately,
--- the derivation of Data isn't complete - gunofld, toConstr and dataTypeOf is missing.
--- I'll work on a patch soon.
 -----------------------------------------------------------------------------
 module Language.C.AST.Generic where
 import Language.C.Toolkit.Idents
@@ -24,23 +18,23 @@ import Language.C.AST.AST
 import Language.C.AST.Constants
 import Data.Generics
 
-
-instance Data Attrs
+instance Data NodeInfo
     where gfoldl k r (OnlyPos x1) = k (r OnlyPos) x1
-          gfoldl k r (Attrs x1 x2) = k (k (r Attrs) x1) x2
+          gfoldl k r (NodeInfo x1 x2) = k (k (r NodeInfo) x1) x2
           gunfold k z c = case constrIndex c of
                               1 -> k (z OnlyPos)
-                              2 -> k (k (z Attrs))
+                              2 -> k (k (z NodeInfo))
           toConstr (ctor@(OnlyPos x1)) = indexConstr (dataTypeOf ctor) 1
-          toConstr (ctor@(Attrs x1 x2)) = indexConstr (dataTypeOf ctor) 2
+          toConstr (ctor@(NodeInfo x1 x2)) = indexConstr (dataTypeOf ctor) 2
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "Attrs" [con_C1, con_C2]
+                         where ty_T = mkDataType "Language.C.Toolkit.Attributes.NodeInfo" [con_C1,
+                                                                                           con_C2]
                                con_C1 = mkConstr ty_T "OnlyPos" [] Prefix
-                               con_C2 = mkConstr ty_T "Attrs" [] Prefix
+                               con_C2 = mkConstr ty_T "NodeInfo" [] Prefix
 
-typename_Attrs = mkTyCon "Attrs"
-instance Typeable Attrs
-    where typeOf _ = mkTyConApp typename_Attrs []
+typename_NodeInfo = mkTyCon "Language.C.Toolkit.Attributes.NodeInfo"
+instance Typeable NodeInfo
+    where typeOf _ = mkTyConApp typename_NodeInfo []
 
 instance Data Name
     where gfoldl k r (Name x1) = k (r Name) x1
@@ -48,10 +42,10 @@ instance Data Name
                               1 -> k (z Name)
           toConstr (ctor@(Name x1)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "Name" [con_C1]
-                               con_C1 = mkConstr ty_T "Name" [] Prefix
+                         where ty_T = mkDataType "Language.C.Toolkit.Names.Name" [con_C1]
+                               con_C1 = mkConstr ty_T "Name" ["nameId"] Prefix
 
-typename_Name = mkTyCon "Name"
+typename_Name = mkTyCon "Language.C.Toolkit.Names.Name"
 instance Typeable Name
     where typeOf _ = mkTyConApp typename_Name []
 
@@ -61,10 +55,10 @@ instance Data Ident
                               1 -> k (k (k (z Ident)))
           toConstr (ctor@(Ident x1 x2 x3)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "Ident" [con_C1]
+                         where ty_T = mkDataType "Language.C.Toolkit.Idents.Ident" [con_C1]
                                con_C1 = mkConstr ty_T "Ident" [] Prefix
 
-typename_Ident = mkTyCon "Ident"
+typename_Ident = mkTyCon "Language.C.Toolkit.Idents.Ident"
 instance Typeable Ident
     where typeOf _ = mkTyConApp typename_Ident []
 
@@ -78,10 +72,10 @@ instance Data Position
                                    x2
                                    x3)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "Position" [con_C1]
+                         where ty_T = mkDataType "Language.C.Toolkit.Position.Position" [con_C1]
                                con_C1 = mkConstr ty_T "Position" [] Prefix
 
-typename_Position = mkTyCon "Position"
+typename_Position = mkTyCon "Language.C.Toolkit.Position.Position"
 instance Typeable Position
     where typeOf _ = mkTyConApp typename_Position []
 
@@ -94,11 +88,12 @@ instance Data CChar
           toConstr (ctor@(CChar x1 x2)) = indexConstr (dataTypeOf ctor) 1
           toConstr (ctor@(CChars x1 x2)) = indexConstr (dataTypeOf ctor) 2
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CChar" [con_C1, con_C2]
+                         where ty_T = mkDataType "Language.C.AST.Constants.CChar" [con_C1,
+                                                                                   con_C2]
                                con_C1 = mkConstr ty_T "CChar" [] Prefix
                                con_C2 = mkConstr ty_T "CChars" [] Prefix
 
-typename_CChar = mkTyCon "CChar"
+typename_CChar = mkTyCon "Language.C.AST.Constants.CChar"
 instance Typeable CChar
     where typeOf _ = mkTyConApp typename_CChar []
 
@@ -117,13 +112,16 @@ instance Data CIntFlag
           toConstr (ctor@(FlagLongLong)) = indexConstr (dataTypeOf ctor) 3
           toConstr (ctor@(FlagImag)) = indexConstr (dataTypeOf ctor) 4
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CIntFlag" [con_C1, con_C2, con_C3, con_C4]
+                         where ty_T = mkDataType "Language.C.AST.Constants.CIntFlag" [con_C1,
+                                                                                      con_C2,
+                                                                                      con_C3,
+                                                                                      con_C4]
                                con_C1 = mkConstr ty_T "FlagUnsigned" [] Prefix
                                con_C2 = mkConstr ty_T "FlagLong" [] Prefix
                                con_C3 = mkConstr ty_T "FlagLongLong" [] Prefix
                                con_C4 = mkConstr ty_T "FlagImag" [] Prefix
 
-typename_CIntFlag = mkTyCon "CIntFlag"
+typename_CIntFlag = mkTyCon "Language.C.AST.Constants.CIntFlag"
 instance Typeable CIntFlag
     where typeOf _ = mkTyConApp typename_CIntFlag []
 
@@ -133,10 +131,10 @@ instance Data CInteger
                               1 -> k (k (z CInteger))
           toConstr (ctor@(CInteger x1 x2)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CInteger" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.Constants.CInteger" [con_C1]
                                con_C1 = mkConstr ty_T "CInteger" [] Prefix
 
-typename_CInteger = mkTyCon "CInteger"
+typename_CInteger = mkTyCon "Language.C.AST.Constants.CInteger"
 instance Typeable CInteger
     where typeOf _ = mkTyConApp typename_CInteger []
 
@@ -146,10 +144,10 @@ instance Data CFloat
                               1 -> k (z CFloat)
           toConstr (ctor@(CFloat x1)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CFloat" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.Constants.CFloat" [con_C1]
                                con_C1 = mkConstr ty_T "CFloat" [] Prefix
 
-typename_CFloat = mkTyCon "CFloat"
+typename_CFloat = mkTyCon "Language.C.AST.Constants.CFloat"
 instance Typeable CFloat
     where typeOf _ = mkTyConApp typename_CFloat []
 
@@ -159,10 +157,10 @@ instance Data CString
                               1 -> k (k (z CString))
           toConstr (ctor@(CString x1 x2)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CString" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.Constants.CString" [con_C1]
                                con_C1 = mkConstr ty_T "CString" [] Prefix
 
-typename_CString = mkTyCon "CString"
+typename_CString = mkTyCon "Language.C.AST.Constants.CString"
 instance Typeable CString
     where typeOf _ = mkTyConApp typename_CString []
 
@@ -172,10 +170,10 @@ instance (Data t1, Typeable t1) => Data (Flags t1)
                               1 -> k (z Flags)
           toConstr (ctor@(Flags x1)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "Flags" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.Constants.Flags" [con_C1]
                                con_C1 = mkConstr ty_T "Flags" [] Prefix
 
-typename_Flags = mkTyCon "Flags"
+typename_Flags = mkTyCon "Language.C.AST.Constants.Flags"
 instance Typeable1 Flags
     where typeOf1 _ = mkTyConApp typename_Flags []
 instance Typeable a => Typeable (Flags a)
@@ -188,10 +186,10 @@ instance Data CTranslUnit
           toConstr (ctor@(CTranslUnit x1
                                       x2)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CTranslUnit" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CTranslUnit" [con_C1]
                                con_C1 = mkConstr ty_T "CTranslUnit" [] Prefix
 
-typename_CTranslUnit = mkTyCon "CTranslUnit"
+typename_CTranslUnit = mkTyCon "Language.C.AST.AST.CTranslUnit"
 instance Typeable CTranslUnit
     where typeOf _ = mkTyConApp typename_CTranslUnit []
 
@@ -207,12 +205,14 @@ instance Data CExtDecl
           toConstr (ctor@(CFDefExt x1)) = indexConstr (dataTypeOf ctor) 2
           toConstr (ctor@(CAsmExt x1)) = indexConstr (dataTypeOf ctor) 3
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CExtDecl" [con_C1, con_C2, con_C3]
+                         where ty_T = mkDataType "Language.C.AST.AST.CExtDecl" [con_C1,
+                                                                                con_C2,
+                                                                                con_C3]
                                con_C1 = mkConstr ty_T "CDeclExt" [] Prefix
                                con_C2 = mkConstr ty_T "CFDefExt" [] Prefix
                                con_C3 = mkConstr ty_T "CAsmExt" [] Prefix
 
-typename_CExtDecl = mkTyCon "CExtDecl"
+typename_CExtDecl = mkTyCon "Language.C.AST.AST.CExtDecl"
 instance Typeable CExtDecl
     where typeOf _ = mkTyConApp typename_CExtDecl []
 
@@ -230,12 +230,73 @@ instance Data CFunDef
                                   x4
                                   x5)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CFunDef" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CFunDef" [con_C1]
                                con_C1 = mkConstr ty_T "CFunDef" [] Prefix
 
-typename_CFunDef = mkTyCon "CFunDef"
+typename_CFunDef = mkTyCon "Language.C.AST.AST.CFunDef"
 instance Typeable CFunDef
     where typeOf _ = mkTyConApp typename_CFunDef []
+
+instance Data CDecl
+    where gfoldl k r (CDecl x1 x2 x3) = k (k (k (r CDecl) x1) x2) x3
+          gunfold k z c = case constrIndex c of
+                              1 -> k (k (k (z CDecl)))
+          toConstr (ctor@(CDecl x1 x2 x3)) = indexConstr (dataTypeOf ctor) 1
+          dataTypeOf _ = ty_T
+                         where ty_T = mkDataType "Language.C.AST.AST.CDecl" [con_C1]
+                               con_C1 = mkConstr ty_T "CDecl" [] Prefix
+
+typename_CDecl = mkTyCon "Language.C.AST.AST.CDecl"
+instance Typeable CDecl
+    where typeOf _ = mkTyConApp typename_CDecl []
+
+instance Data CDeclr
+    where gfoldl k r (CDeclr x1
+                             x2
+                             x3
+                             x4
+                             x5) = k (k (k (k (k (r CDeclr) x1) x2) x3) x4) x5
+          gunfold k z c = case constrIndex c of
+                              1 -> k (k (k (k (k (z CDeclr)))))
+          toConstr (ctor@(CDeclr x1
+                                 x2
+                                 x3
+                                 x4
+                                 x5)) = indexConstr (dataTypeOf ctor) 1
+          dataTypeOf _ = ty_T
+                         where ty_T = mkDataType "Language.C.AST.AST.CDeclr" [con_C1]
+                               con_C1 = mkConstr ty_T "CDeclr" [] Prefix
+
+typename_CDeclr = mkTyCon "Language.C.AST.AST.CDeclr"
+instance Typeable CDeclr
+    where typeOf _ = mkTyConApp typename_CDeclr []
+
+instance Data CDerivedDeclr
+    where gfoldl k r (CPtrDeclr x1 x2) = k (k (r CPtrDeclr) x1) x2
+          gfoldl k r (CArrDeclr x1 x2 x3) = k (k (k (r CArrDeclr) x1) x2) x3
+          gfoldl k r (CFunDeclr x1 x2 x3) = k (k (k (r CFunDeclr) x1) x2) x3
+          gunfold k z c = case constrIndex c of
+                              1 -> k (k (z CPtrDeclr))
+                              2 -> k (k (k (z CArrDeclr)))
+                              3 -> k (k (k (z CFunDeclr)))
+          toConstr (ctor@(CPtrDeclr x1 x2)) = indexConstr (dataTypeOf ctor) 1
+          toConstr (ctor@(CArrDeclr x1
+                                    x2
+                                    x3)) = indexConstr (dataTypeOf ctor) 2
+          toConstr (ctor@(CFunDeclr x1
+                                    x2
+                                    x3)) = indexConstr (dataTypeOf ctor) 3
+          dataTypeOf _ = ty_T
+                         where ty_T = mkDataType "Language.C.AST.AST.CDerivedDeclr" [con_C1,
+                                                                                     con_C2,
+                                                                                     con_C3]
+                               con_C1 = mkConstr ty_T "CPtrDeclr" [] Prefix
+                               con_C2 = mkConstr ty_T "CArrDeclr" [] Prefix
+                               con_C3 = mkConstr ty_T "CFunDeclr" [] Prefix
+
+typename_CDerivedDeclr = mkTyCon "Language.C.AST.AST.CDerivedDeclr"
+instance Typeable CDerivedDeclr
+    where typeOf _ = mkTyConApp typename_CDerivedDeclr []
 
 instance Data CStat
     where gfoldl k r (CLabel x1
@@ -318,22 +379,22 @@ instance Data CStat
           toConstr (ctor@(CReturn x1 x2)) = indexConstr (dataTypeOf ctor) 15
           toConstr (ctor@(CAsm x1 x2)) = indexConstr (dataTypeOf ctor) 16
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CStat" [con_C1,
-                                                          con_C2,
-                                                          con_C3,
-                                                          con_C4,
-                                                          con_C5,
-                                                          con_C6,
-                                                          con_C7,
-                                                          con_C8,
-                                                          con_C9,
-                                                          con_C10,
-                                                          con_C11,
-                                                          con_C12,
-                                                          con_C13,
-                                                          con_C14,
-                                                          con_C15,
-                                                          con_C16]
+                         where ty_T = mkDataType "Language.C.AST.AST.CStat" [con_C1,
+                                                                             con_C2,
+                                                                             con_C3,
+                                                                             con_C4,
+                                                                             con_C5,
+                                                                             con_C6,
+                                                                             con_C7,
+                                                                             con_C8,
+                                                                             con_C9,
+                                                                             con_C10,
+                                                                             con_C11,
+                                                                             con_C12,
+                                                                             con_C13,
+                                                                             con_C14,
+                                                                             con_C15,
+                                                                             con_C16]
                                con_C1 = mkConstr ty_T "CLabel" [] Prefix
                                con_C2 = mkConstr ty_T "CCase" [] Prefix
                                con_C3 = mkConstr ty_T "CCases" [] Prefix
@@ -351,7 +412,7 @@ instance Data CStat
                                con_C15 = mkConstr ty_T "CReturn" [] Prefix
                                con_C16 = mkConstr ty_T "CAsm" [] Prefix
 
-typename_CStat = mkTyCon "CStat"
+typename_CStat = mkTyCon "Language.C.AST.AST.CStat"
 instance Typeable CStat
     where typeOf _ = mkTyConApp typename_CStat []
 
@@ -371,10 +432,10 @@ instance Data CAsmStmt
                                    x5
                                    x6)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CAsmStmt" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CAsmStmt" [con_C1]
                                con_C1 = mkConstr ty_T "CAsmStmt" [] Prefix
 
-typename_CAsmStmt = mkTyCon "CAsmStmt"
+typename_CAsmStmt = mkTyCon "Language.C.AST.AST.CAsmStmt"
 instance Typeable CAsmStmt
     where typeOf _ = mkTyConApp typename_CAsmStmt []
 
@@ -390,10 +451,10 @@ instance Data CAsmOperand
                                       x3
                                       x4)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CAsmOperand" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CAsmOperand" [con_C1]
                                con_C1 = mkConstr ty_T "CAsmOperand" [] Prefix
 
-typename_CAsmOperand = mkTyCon "CAsmOperand"
+typename_CAsmOperand = mkTyCon "Language.C.AST.AST.CAsmOperand"
 instance Typeable CAsmOperand
     where typeOf _ = mkTyConApp typename_CAsmOperand []
 
@@ -409,27 +470,16 @@ instance Data CBlockItem
           toConstr (ctor@(CBlockDecl x1)) = indexConstr (dataTypeOf ctor) 2
           toConstr (ctor@(CNestedFunDef x1)) = indexConstr (dataTypeOf ctor) 3
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CBlockItem" [con_C1, con_C2, con_C3]
+                         where ty_T = mkDataType "Language.C.AST.AST.CBlockItem" [con_C1,
+                                                                                  con_C2,
+                                                                                  con_C3]
                                con_C1 = mkConstr ty_T "CBlockStmt" [] Prefix
                                con_C2 = mkConstr ty_T "CBlockDecl" [] Prefix
                                con_C3 = mkConstr ty_T "CNestedFunDef" [] Prefix
 
-typename_CBlockItem = mkTyCon "CBlockItem"
+typename_CBlockItem = mkTyCon "Language.C.AST.AST.CBlockItem"
 instance Typeable CBlockItem
     where typeOf _ = mkTyConApp typename_CBlockItem []
-
-instance Data CDecl
-    where gfoldl k r (CDecl x1 x2 x3) = k (k (k (r CDecl) x1) x2) x3
-          gunfold k z c = case constrIndex c of
-                              1 -> k (k (k (z CDecl)))
-          toConstr (ctor@(CDecl x1 x2 x3)) = indexConstr (dataTypeOf ctor) 1
-          dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CDecl" [con_C1]
-                               con_C1 = mkConstr ty_T "CDecl" [] Prefix
-
-typename_CDecl = mkTyCon "CDecl"
-instance Typeable CDecl
-    where typeOf _ = mkTyConApp typename_CDecl []
 
 instance Data CDeclSpec
     where gfoldl k r (CStorageSpec x1) = k (r CStorageSpec) x1
@@ -443,12 +493,14 @@ instance Data CDeclSpec
           toConstr (ctor@(CTypeSpec x1)) = indexConstr (dataTypeOf ctor) 2
           toConstr (ctor@(CTypeQual x1)) = indexConstr (dataTypeOf ctor) 3
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CDeclSpec" [con_C1, con_C2, con_C3]
+                         where ty_T = mkDataType "Language.C.AST.AST.CDeclSpec" [con_C1,
+                                                                                 con_C2,
+                                                                                 con_C3]
                                con_C1 = mkConstr ty_T "CStorageSpec" [] Prefix
                                con_C2 = mkConstr ty_T "CTypeSpec" [] Prefix
                                con_C3 = mkConstr ty_T "CTypeQual" [] Prefix
 
-typename_CDeclSpec = mkTyCon "CDeclSpec"
+typename_CDeclSpec = mkTyCon "Language.C.AST.AST.CDeclSpec"
 instance Typeable CDeclSpec
     where typeOf _ = mkTyConApp typename_CDeclSpec []
 
@@ -473,12 +525,12 @@ instance Data CStorageSpec
           toConstr (ctor@(CTypedef x1)) = indexConstr (dataTypeOf ctor) 5
           toConstr (ctor@(CThread x1)) = indexConstr (dataTypeOf ctor) 6
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CStorageSpec" [con_C1,
-                                                                 con_C2,
-                                                                 con_C3,
-                                                                 con_C4,
-                                                                 con_C5,
-                                                                 con_C6]
+                         where ty_T = mkDataType "Language.C.AST.AST.CStorageSpec" [con_C1,
+                                                                                    con_C2,
+                                                                                    con_C3,
+                                                                                    con_C4,
+                                                                                    con_C5,
+                                                                                    con_C6]
                                con_C1 = mkConstr ty_T "CAuto" [] Prefix
                                con_C2 = mkConstr ty_T "CRegister" [] Prefix
                                con_C3 = mkConstr ty_T "CStatic" [] Prefix
@@ -486,7 +538,7 @@ instance Data CStorageSpec
                                con_C5 = mkConstr ty_T "CTypedef" [] Prefix
                                con_C6 = mkConstr ty_T "CThread" [] Prefix
 
-typename_CStorageSpec = mkTyCon "CStorageSpec"
+typename_CStorageSpec = mkTyCon "Language.C.AST.AST.CStorageSpec"
 instance Typeable CStorageSpec
     where typeOf _ = mkTyConApp typename_CStorageSpec []
 
@@ -544,22 +596,22 @@ instance Data CTypeSpec
           toConstr (ctor@(CTypeOfType x1
                                       x2)) = indexConstr (dataTypeOf ctor) 16
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CTypeSpec" [con_C1,
-                                                              con_C2,
-                                                              con_C3,
-                                                              con_C4,
-                                                              con_C5,
-                                                              con_C6,
-                                                              con_C7,
-                                                              con_C8,
-                                                              con_C9,
-                                                              con_C10,
-                                                              con_C11,
-                                                              con_C12,
-                                                              con_C13,
-                                                              con_C14,
-                                                              con_C15,
-                                                              con_C16]
+                         where ty_T = mkDataType "Language.C.AST.AST.CTypeSpec" [con_C1,
+                                                                                 con_C2,
+                                                                                 con_C3,
+                                                                                 con_C4,
+                                                                                 con_C5,
+                                                                                 con_C6,
+                                                                                 con_C7,
+                                                                                 con_C8,
+                                                                                 con_C9,
+                                                                                 con_C10,
+                                                                                 con_C11,
+                                                                                 con_C12,
+                                                                                 con_C13,
+                                                                                 con_C14,
+                                                                                 con_C15,
+                                                                                 con_C16]
                                con_C1 = mkConstr ty_T "CVoidType" [] Prefix
                                con_C2 = mkConstr ty_T "CCharType" [] Prefix
                                con_C3 = mkConstr ty_T "CShortType" [] Prefix
@@ -577,7 +629,7 @@ instance Data CTypeSpec
                                con_C15 = mkConstr ty_T "CTypeOfExpr" [] Prefix
                                con_C16 = mkConstr ty_T "CTypeOfType" [] Prefix
 
-typename_CTypeSpec = mkTyCon "CTypeSpec"
+typename_CTypeSpec = mkTyCon "Language.C.AST.AST.CTypeSpec"
 instance Typeable CTypeSpec
     where typeOf _ = mkTyConApp typename_CTypeSpec []
 
@@ -599,18 +651,18 @@ instance Data CTypeQual
           toConstr (ctor@(CInlinQual x1)) = indexConstr (dataTypeOf ctor) 4
           toConstr (ctor@(CAttrQual x1)) = indexConstr (dataTypeOf ctor) 5
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CTypeQual" [con_C1,
-                                                              con_C2,
-                                                              con_C3,
-                                                              con_C4,
-                                                              con_C5]
+                         where ty_T = mkDataType "Language.C.AST.AST.CTypeQual" [con_C1,
+                                                                                 con_C2,
+                                                                                 con_C3,
+                                                                                 con_C4,
+                                                                                 con_C5]
                                con_C1 = mkConstr ty_T "CConstQual" [] Prefix
                                con_C2 = mkConstr ty_T "CVolatQual" [] Prefix
                                con_C3 = mkConstr ty_T "CRestrQual" [] Prefix
                                con_C4 = mkConstr ty_T "CInlinQual" [] Prefix
                                con_C5 = mkConstr ty_T "CAttrQual" [] Prefix
 
-typename_CTypeQual = mkTyCon "CTypeQual"
+typename_CTypeQual = mkTyCon "Language.C.AST.AST.CTypeQual"
 instance Typeable CTypeQual
     where typeOf _ = mkTyConApp typename_CTypeQual []
 
@@ -628,10 +680,10 @@ instance Data CStructUnion
                                   x4
                                   x5)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CStructUnion" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CStructUnion" [con_C1]
                                con_C1 = mkConstr ty_T "CStruct" [] Prefix
 
-typename_CStructUnion = mkTyCon "CStructUnion"
+typename_CStructUnion = mkTyCon "Language.C.AST.AST.CStructUnion"
 instance Typeable CStructUnion
     where typeOf _ = mkTyConApp typename_CStructUnion []
 
@@ -644,11 +696,12 @@ instance Data CStructTag
           toConstr (ctor@(CStructTag)) = indexConstr (dataTypeOf ctor) 1
           toConstr (ctor@(CUnionTag)) = indexConstr (dataTypeOf ctor) 2
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CStructTag" [con_C1, con_C2]
+                         where ty_T = mkDataType "Language.C.AST.AST.CStructTag" [con_C1,
+                                                                                  con_C2]
                                con_C1 = mkConstr ty_T "CStructTag" [] Prefix
                                con_C2 = mkConstr ty_T "CUnionTag" [] Prefix
 
-typename_CStructTag = mkTyCon "CStructTag"
+typename_CStructTag = mkTyCon "Language.C.AST.AST.CStructTag"
 instance Typeable CStructTag
     where typeOf _ = mkTyConApp typename_CStructTag []
 
@@ -664,58 +717,12 @@ instance Data CEnum
                                 x3
                                 x4)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CEnum" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CEnum" [con_C1]
                                con_C1 = mkConstr ty_T "CEnum" [] Prefix
 
-typename_CEnum = mkTyCon "CEnum"
+typename_CEnum = mkTyCon "Language.C.AST.AST.CEnum"
 instance Typeable CEnum
     where typeOf _ = mkTyConApp typename_CEnum []
-
-instance Data CDeclr
-    where gfoldl k r (CDeclr x1
-                             x2
-                             x3
-                             x4
-                             x5) = k (k (k (k (k (r CDeclr) x1) x2) x3) x4) x5
-          gunfold k z c = case constrIndex c of
-                              1 -> k (k (k (k (k (z CDeclr)))))
-          toConstr (ctor@(CDeclr x1
-                                 x2
-                                 x3
-                                 x4
-                                 x5)) = indexConstr (dataTypeOf ctor) 1
-          dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CDeclr" [con_C1]
-                               con_C1 = mkConstr ty_T "CDeclr" [] Prefix
-
-typename_CDeclr = mkTyCon "CDeclr"
-instance Typeable CDeclr
-    where typeOf _ = mkTyConApp typename_CDeclr []
-
-instance Data CDerivedDeclr
-    where gfoldl k r (CPtrDeclr x1 x2) = k (k (r CPtrDeclr) x1) x2
-          gfoldl k r (CArrDeclr x1 x2 x3) = k (k (k (r CArrDeclr) x1) x2) x3
-          gfoldl k r (CFunDeclr x1 x2 x3) = k (k (k (r CFunDeclr) x1) x2) x3
-          gunfold k z c = case constrIndex c of
-                              1 -> k (k (z CPtrDeclr))
-                              2 -> k (k (k (z CArrDeclr)))
-                              3 -> k (k (k (z CFunDeclr)))
-          toConstr (ctor@(CPtrDeclr x1 x2)) = indexConstr (dataTypeOf ctor) 1
-          toConstr (ctor@(CArrDeclr x1
-                                    x2
-                                    x3)) = indexConstr (dataTypeOf ctor) 2
-          toConstr (ctor@(CFunDeclr x1
-                                    x2
-                                    x3)) = indexConstr (dataTypeOf ctor) 3
-          dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CDerivedDeclr" [con_C1, con_C2, con_C3]
-                               con_C1 = mkConstr ty_T "CPtrDeclr" [] Prefix
-                               con_C2 = mkConstr ty_T "CArrDeclr" [] Prefix
-                               con_C3 = mkConstr ty_T "CFunDeclr" [] Prefix
-
-typename_CDerivedDeclr = mkTyCon "CDerivedDeclr"
-instance Typeable CDerivedDeclr
-    where typeOf _ = mkTyConApp typename_CDerivedDeclr []
 
 instance Data CInit
     where gfoldl k r (CInitExpr x1 x2) = k (k (r CInitExpr) x1) x2
@@ -726,11 +733,11 @@ instance Data CInit
           toConstr (ctor@(CInitExpr x1 x2)) = indexConstr (dataTypeOf ctor) 1
           toConstr (ctor@(CInitList x1 x2)) = indexConstr (dataTypeOf ctor) 2
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CInit" [con_C1, con_C2]
+                         where ty_T = mkDataType "Language.C.AST.AST.CInit" [con_C1, con_C2]
                                con_C1 = mkConstr ty_T "CInitExpr" [] Prefix
                                con_C2 = mkConstr ty_T "CInitList" [] Prefix
 
-typename_CInit = mkTyCon "CInit"
+typename_CInit = mkTyCon "Language.C.AST.AST.CInit"
 instance Typeable CInit
     where typeOf _ = mkTyConApp typename_CInit []
 
@@ -751,12 +758,14 @@ instance Data CDesignator
                                       x2
                                       x3)) = indexConstr (dataTypeOf ctor) 3
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CDesignator" [con_C1, con_C2, con_C3]
+                         where ty_T = mkDataType "Language.C.AST.AST.CDesignator" [con_C1,
+                                                                                   con_C2,
+                                                                                   con_C3]
                                con_C1 = mkConstr ty_T "CArrDesig" [] Prefix
                                con_C2 = mkConstr ty_T "CMemberDesig" [] Prefix
                                con_C3 = mkConstr ty_T "CRangeDesig" [] Prefix
 
-typename_CDesignator = mkTyCon "CDesignator"
+typename_CDesignator = mkTyCon "Language.C.AST.AST.CDesignator"
 instance Typeable CDesignator
     where typeOf _ = mkTyConApp typename_CDesignator []
 
@@ -766,10 +775,10 @@ instance Data CAttr
                               1 -> k (k (k (z CAttr)))
           toConstr (ctor@(CAttr x1 x2 x3)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CAttr" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CAttr" [con_C1]
                                con_C1 = mkConstr ty_T "CAttr" [] Prefix
 
-typename_CAttr = mkTyCon "CAttr"
+typename_CAttr = mkTyCon "Language.C.AST.AST.CAttr"
 instance Typeable CAttr
     where typeOf _ = mkTyConApp typename_CAttr []
 
@@ -877,27 +886,27 @@ instance Data CExpr
                                        x2)) = indexConstr (dataTypeOf ctor) 20
           toConstr (ctor@(CBuiltinExpr x1)) = indexConstr (dataTypeOf ctor) 21
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CExpr" [con_C1,
-                                                          con_C2,
-                                                          con_C3,
-                                                          con_C4,
-                                                          con_C5,
-                                                          con_C6,
-                                                          con_C7,
-                                                          con_C8,
-                                                          con_C9,
-                                                          con_C10,
-                                                          con_C11,
-                                                          con_C12,
-                                                          con_C13,
-                                                          con_C14,
-                                                          con_C15,
-                                                          con_C16,
-                                                          con_C17,
-                                                          con_C18,
-                                                          con_C19,
-                                                          con_C20,
-                                                          con_C21]
+                         where ty_T = mkDataType "Language.C.AST.AST.CExpr" [con_C1,
+                                                                             con_C2,
+                                                                             con_C3,
+                                                                             con_C4,
+                                                                             con_C5,
+                                                                             con_C6,
+                                                                             con_C7,
+                                                                             con_C8,
+                                                                             con_C9,
+                                                                             con_C10,
+                                                                             con_C11,
+                                                                             con_C12,
+                                                                             con_C13,
+                                                                             con_C14,
+                                                                             con_C15,
+                                                                             con_C16,
+                                                                             con_C17,
+                                                                             con_C18,
+                                                                             con_C19,
+                                                                             con_C20,
+                                                                             con_C21]
                                con_C1 = mkConstr ty_T "CComma" [] Prefix
                                con_C2 = mkConstr ty_T "CAssign" [] Prefix
                                con_C3 = mkConstr ty_T "CCond" [] Prefix
@@ -920,7 +929,7 @@ instance Data CExpr
                                con_C20 = mkConstr ty_T "CLabAddrExpr" [] Prefix
                                con_C21 = mkConstr ty_T "CBuiltinExpr" [] Prefix
 
-typename_CExpr = mkTyCon "CExpr"
+typename_CExpr = mkTyCon "Language.C.AST.AST.CExpr"
 instance Typeable CExpr
     where typeOf _ = mkTyConApp typename_CExpr []
 
@@ -948,12 +957,14 @@ instance Data CBuiltin
                                                   x2
                                                   x3)) = indexConstr (dataTypeOf ctor) 3
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CBuiltin" [con_C1, con_C2, con_C3]
+                         where ty_T = mkDataType "Language.C.AST.AST.CBuiltin" [con_C1,
+                                                                                con_C2,
+                                                                                con_C3]
                                con_C1 = mkConstr ty_T "CBuiltinVaArg" [] Prefix
                                con_C2 = mkConstr ty_T "CBuiltinOffsetOf" [] Prefix
                                con_C3 = mkConstr ty_T "CBuiltinTypesCompatible" [] Prefix
 
-typename_CBuiltin = mkTyCon "CBuiltin"
+typename_CBuiltin = mkTyCon "Language.C.AST.AST.CBuiltin"
 instance Typeable CBuiltin
     where typeOf _ = mkTyConApp typename_CBuiltin []
 
@@ -993,17 +1004,17 @@ instance Data CAssignOp
           toConstr (ctor@(CXorAssOp)) = indexConstr (dataTypeOf ctor) 10
           toConstr (ctor@(COrAssOp)) = indexConstr (dataTypeOf ctor) 11
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CAssignOp" [con_C1,
-                                                              con_C2,
-                                                              con_C3,
-                                                              con_C4,
-                                                              con_C5,
-                                                              con_C6,
-                                                              con_C7,
-                                                              con_C8,
-                                                              con_C9,
-                                                              con_C10,
-                                                              con_C11]
+                         where ty_T = mkDataType "Language.C.AST.AST.CAssignOp" [con_C1,
+                                                                                 con_C2,
+                                                                                 con_C3,
+                                                                                 con_C4,
+                                                                                 con_C5,
+                                                                                 con_C6,
+                                                                                 con_C7,
+                                                                                 con_C8,
+                                                                                 con_C9,
+                                                                                 con_C10,
+                                                                                 con_C11]
                                con_C1 = mkConstr ty_T "CAssignOp" [] Prefix
                                con_C2 = mkConstr ty_T "CMulAssOp" [] Prefix
                                con_C3 = mkConstr ty_T "CDivAssOp" [] Prefix
@@ -1016,7 +1027,7 @@ instance Data CAssignOp
                                con_C10 = mkConstr ty_T "CXorAssOp" [] Prefix
                                con_C11 = mkConstr ty_T "COrAssOp" [] Prefix
 
-typename_CAssignOp = mkTyCon "CAssignOp"
+typename_CAssignOp = mkTyCon "Language.C.AST.AST.CAssignOp"
 instance Typeable CAssignOp
     where typeOf _ = mkTyConApp typename_CAssignOp []
 
@@ -1077,24 +1088,24 @@ instance Data CBinaryOp
           toConstr (ctor@(CLndOp)) = indexConstr (dataTypeOf ctor) 17
           toConstr (ctor@(CLorOp)) = indexConstr (dataTypeOf ctor) 18
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CBinaryOp" [con_C1,
-                                                              con_C2,
-                                                              con_C3,
-                                                              con_C4,
-                                                              con_C5,
-                                                              con_C6,
-                                                              con_C7,
-                                                              con_C8,
-                                                              con_C9,
-                                                              con_C10,
-                                                              con_C11,
-                                                              con_C12,
-                                                              con_C13,
-                                                              con_C14,
-                                                              con_C15,
-                                                              con_C16,
-                                                              con_C17,
-                                                              con_C18]
+                         where ty_T = mkDataType "Language.C.AST.AST.CBinaryOp" [con_C1,
+                                                                                 con_C2,
+                                                                                 con_C3,
+                                                                                 con_C4,
+                                                                                 con_C5,
+                                                                                 con_C6,
+                                                                                 con_C7,
+                                                                                 con_C8,
+                                                                                 con_C9,
+                                                                                 con_C10,
+                                                                                 con_C11,
+                                                                                 con_C12,
+                                                                                 con_C13,
+                                                                                 con_C14,
+                                                                                 con_C15,
+                                                                                 con_C16,
+                                                                                 con_C17,
+                                                                                 con_C18]
                                con_C1 = mkConstr ty_T "CMulOp" [] Prefix
                                con_C2 = mkConstr ty_T "CDivOp" [] Prefix
                                con_C3 = mkConstr ty_T "CRmdOp" [] Prefix
@@ -1114,7 +1125,7 @@ instance Data CBinaryOp
                                con_C17 = mkConstr ty_T "CLndOp" [] Prefix
                                con_C18 = mkConstr ty_T "CLorOp" [] Prefix
 
-typename_CBinaryOp = mkTyCon "CBinaryOp"
+typename_CBinaryOp = mkTyCon "Language.C.AST.AST.CBinaryOp"
 instance Typeable CBinaryOp
     where typeOf _ = mkTyConApp typename_CBinaryOp []
 
@@ -1151,16 +1162,16 @@ instance Data CUnaryOp
           toConstr (ctor@(CCompOp)) = indexConstr (dataTypeOf ctor) 9
           toConstr (ctor@(CNegOp)) = indexConstr (dataTypeOf ctor) 10
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CUnaryOp" [con_C1,
-                                                             con_C2,
-                                                             con_C3,
-                                                             con_C4,
-                                                             con_C5,
-                                                             con_C6,
-                                                             con_C7,
-                                                             con_C8,
-                                                             con_C9,
-                                                             con_C10]
+                         where ty_T = mkDataType "Language.C.AST.AST.CUnaryOp" [con_C1,
+                                                                                con_C2,
+                                                                                con_C3,
+                                                                                con_C4,
+                                                                                con_C5,
+                                                                                con_C6,
+                                                                                con_C7,
+                                                                                con_C8,
+                                                                                con_C9,
+                                                                                con_C10]
                                con_C1 = mkConstr ty_T "CPreIncOp" [] Prefix
                                con_C2 = mkConstr ty_T "CPreDecOp" [] Prefix
                                con_C3 = mkConstr ty_T "CPostIncOp" [] Prefix
@@ -1172,7 +1183,7 @@ instance Data CUnaryOp
                                con_C9 = mkConstr ty_T "CCompOp" [] Prefix
                                con_C10 = mkConstr ty_T "CNegOp" [] Prefix
 
-typename_CUnaryOp = mkTyCon "CUnaryOp"
+typename_CUnaryOp = mkTyCon "Language.C.AST.AST.CUnaryOp"
 instance Typeable CUnaryOp
     where typeOf _ = mkTyConApp typename_CUnaryOp []
 
@@ -1193,13 +1204,16 @@ instance Data CConst
                                       x2)) = indexConstr (dataTypeOf ctor) 3
           toConstr (ctor@(CStrConst x1 x2)) = indexConstr (dataTypeOf ctor) 4
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CConst" [con_C1, con_C2, con_C3, con_C4]
+                         where ty_T = mkDataType "Language.C.AST.AST.CConst" [con_C1,
+                                                                              con_C2,
+                                                                              con_C3,
+                                                                              con_C4]
                                con_C1 = mkConstr ty_T "CIntConst" [] Prefix
                                con_C2 = mkConstr ty_T "CCharConst" [] Prefix
                                con_C3 = mkConstr ty_T "CFloatConst" [] Prefix
                                con_C4 = mkConstr ty_T "CStrConst" [] Prefix
 
-typename_CConst = mkTyCon "CConst"
+typename_CConst = mkTyCon "Language.C.AST.AST.CConst"
 instance Typeable CConst
     where typeOf _ = mkTyConApp typename_CConst []
 
@@ -1209,10 +1223,10 @@ instance Data CStrLit
                               1 -> k (k (z CStrLit))
           toConstr (ctor@(CStrLit x1 x2)) = indexConstr (dataTypeOf ctor) 1
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CStrLit" [con_C1]
+                         where ty_T = mkDataType "Language.C.AST.AST.CStrLit" [con_C1]
                                con_C1 = mkConstr ty_T "CStrLit" [] Prefix
 
-typename_CStrLit = mkTyCon "CStrLit"
+typename_CStrLit = mkTyCon "Language.C.AST.AST.CStrLit"
 instance Typeable CStrLit
     where typeOf _ = mkTyConApp typename_CStrLit []
 
@@ -1231,13 +1245,16 @@ instance Data CObj
           toConstr (ctor@(EnumCO x1 x2)) = indexConstr (dataTypeOf ctor) 3
           toConstr (ctor@(BuiltinCO)) = indexConstr (dataTypeOf ctor) 4
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CObj" [con_C1, con_C2, con_C3, con_C4]
+                         where ty_T = mkDataType "Language.C.AST.AST.CObj" [con_C1,
+                                                                            con_C2,
+                                                                            con_C3,
+                                                                            con_C4]
                                con_C1 = mkConstr ty_T "TypeCO" [] Prefix
                                con_C2 = mkConstr ty_T "ObjCO" [] Prefix
                                con_C3 = mkConstr ty_T "EnumCO" [] Prefix
                                con_C4 = mkConstr ty_T "BuiltinCO" [] Prefix
 
-typename_CObj = mkTyCon "CObj"
+typename_CObj = mkTyCon "Language.C.AST.AST.CObj"
 instance Typeable CObj
     where typeOf _ = mkTyConApp typename_CObj []
 
@@ -1250,11 +1267,11 @@ instance Data CTag
           toConstr (ctor@(StructUnionCT x1)) = indexConstr (dataTypeOf ctor) 1
           toConstr (ctor@(EnumCT x1)) = indexConstr (dataTypeOf ctor) 2
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CTag" [con_C1, con_C2]
+                         where ty_T = mkDataType "Language.C.AST.AST.CTag" [con_C1, con_C2]
                                con_C1 = mkConstr ty_T "StructUnionCT" [] Prefix
                                con_C2 = mkConstr ty_T "EnumCT" [] Prefix
 
-typename_CTag = mkTyCon "CTag"
+typename_CTag = mkTyCon "Language.C.AST.AST.CTag"
 instance Typeable CTag
     where typeOf _ = mkTyConApp typename_CTag []
 
@@ -1273,92 +1290,15 @@ instance Data CDef
           toConstr (ctor@(ObjCD x1)) = indexConstr (dataTypeOf ctor) 3
           toConstr (ctor@(TagCD x1)) = indexConstr (dataTypeOf ctor) 4
           dataTypeOf _ = ty_T
-                         where ty_T = mkDataType "CDef" [con_C1, con_C2, con_C3, con_C4]
+                         where ty_T = mkDataType "Language.C.AST.AST.CDef" [con_C1,
+                                                                            con_C2,
+                                                                            con_C3,
+                                                                            con_C4]
                                con_C1 = mkConstr ty_T "UndefCD" [] Prefix
                                con_C2 = mkConstr ty_T "DontCareCD" [] Prefix
                                con_C3 = mkConstr ty_T "ObjCD" [] Prefix
                                con_C4 = mkConstr ty_T "TagCD" [] Prefix
 
-typename_CDef = mkTyCon "CDef"
+typename_CDef = mkTyCon "Language.C.AST.AST.CDef"
 instance Typeable CDef
     where typeOf _ = mkTyConApp typename_CDef []
-{-
-deriving instance Typeable Name
-deriving instance Data Name
-deriving instance Typeable Ident
-deriving instance Data Ident
-
-deriving instance Typeable Attrs
-deriving instance Data Attrs
-deriving instance Typeable Position
-deriving instance Data Position
-deriving instance Typeable CTranslUnit
-deriving instance Typeable CExtDecl
-deriving instance Typeable CFunDef
-deriving instance Typeable CStat
-deriving instance Typeable CBlockItem
-deriving instance Typeable CDecl
-deriving instance Typeable CDeclSpec
-deriving instance Typeable CStorageSpec
-deriving instance Typeable CTypeSpec
-deriving instance Typeable CTypeQual
-deriving instance Typeable CStructUnion
-deriving instance Typeable CStructTag
-deriving instance Typeable CEnum
-deriving instance Typeable CDeclr
-deriving instance Typeable CDerivedDeclr
-deriving instance Typeable CInit
-deriving instance Typeable CDesignator
-deriving instance Typeable CExpr
-deriving instance Typeable CAssignOp
-deriving instance Typeable CBinaryOp
-deriving instance Typeable CUnaryOp
-deriving instance Typeable CConst
-deriving instance Typeable CStrLit
-deriving instance Typeable CAsmStmt
-deriving instance Typeable CAsmOperand
-deriving instance Typeable CAttr
-
-deriving instance Typeable CBuiltin
-deriving instance Typeable CChar
-deriving instance Typeable CFloat
-deriving instance Typeable CInteger
-deriving instance Typeable CIntFlag
-deriving instance Typeable CString
-deriving instance Typeable1 Flags
---
-deriving instance Data CTranslUnit
-deriving instance Data CExtDecl
-deriving instance Data CFunDef
-deriving instance Data CStat
-deriving instance Data CBlockItem
-deriving instance Data CDecl
-deriving instance Data CDeclSpec
-deriving instance Data CStorageSpec
-deriving instance Data CTypeSpec
-deriving instance Data CTypeQual
-deriving instance Data CStructUnion
-deriving instance Data CStructTag
-deriving instance Data CEnum
-deriving instance Data CDeclr
-deriving instance Data CDerivedDeclr
-deriving instance Data CInit
-deriving instance Data CDesignator
-deriving instance Data CExpr
-deriving instance Data CAssignOp
-deriving instance Data CBinaryOp
-deriving instance Data CUnaryOp
-deriving instance Data CConst
-deriving instance Data CStrLit
-deriving instance Data CAsmStmt
-deriving instance Data CAsmOperand
-deriving instance Data CAttr
-deriving instance Data CBuiltin
-
-deriving instance Data CChar
-deriving instance Data CFloat
-deriving instance Data CInteger
-deriving instance Data CString
-deriving instance Data CIntFlag
-deriving instance (Data a) => Data (Flags a)
--}

@@ -8,58 +8,58 @@
 -- Maintainer  :  -
 -- Portability :  portable
 --
+-----------------------------------------------------------------------------
 module Language.C.Toolkit.Attributes (
-   Attrs(..), newAttrsOnlyPos, newAttrs,
-   Attributed(attrsOf), eqOfAttrsOf, posOfAttrsOf,
+   NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
+   CNode(nodeInfo), eqByName,  
 ) where
 
-import Language.C.Toolkit.Position   (Position, Pos(posOf))
+import Language.C.Toolkit.Position   (Position, Pos(posOf), nopos)
 import Language.C.Toolkit.Errors     (interr)
 import Language.C.Toolkit.Names      (Name)
 
 -- | Parsed entity attribute
-data Attrs = OnlyPos Position           -- only pos (for internal stuff only)
-           | Attrs   Position Name      -- pos and unique name
+data NodeInfo = OnlyPos   Position           -- only pos (for internal stuff only)
+              | NodeInfo Position Name      -- pos and unique name
            deriving (Show)
 
 -- get the position associated with an attribute
-instance Pos Attrs where
+instance Pos NodeInfo where
   posOf (OnlyPos pos  ) = pos
-  posOf (Attrs   pos _) = pos
+  posOf (NodeInfo   pos _) = pos
 
 -- name equality of attributes, used to define (name) equality of objects
-instance Eq Attrs where
-  (Attrs   _ id1) == (Attrs   _ id2) = id1 == id2
+instance Eq NodeInfo where
+  (NodeInfo   _ id1) == (NodeInfo   _ id2) = id1 == id2
   _               == _               = 
     interr "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 -- attribute ordering
-instance Ord Attrs where
-  (Attrs   _ id1) <= (Attrs   _ id2) = id1 <= id2
+instance Ord NodeInfo where
+  (NodeInfo   _ id1) <= (NodeInfo   _ id2) = id1 <= id2
   _               <= _               = 
     interr "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 -- | a class for convenient access to the attributes of an attributed object
-class Attributed a where
-  attrsOf :: a -> Attrs
+class CNode a where
+  nodeInfo :: a -> NodeInfo
 
 -- | equality by name
-eqOfAttrsOf           :: Attributed a => a -> a -> Bool
-eqOfAttrsOf obj1 obj2  = (attrsOf obj1) == (attrsOf obj2)
-
--- | position of an attributed object
-posOfAttrsOf :: Attributed a => a -> Position
-posOfAttrsOf  = posOf . attrsOf
+eqByName           :: CNode a => a -> a -> Bool
+eqByName obj1 obj2  = (nodeInfo obj1) == (nodeInfo obj2)
 
 
 -- attribute identifier creation
 -- -----------------------------
 
+noNodeInfo :: NodeInfo
+noNodeInfo = OnlyPos nopos
+
 -- | Given only a source position, create a new attribute identifier
-newAttrsOnlyPos     :: Position -> Attrs
-newAttrsOnlyPos pos  = OnlyPos pos
+mkNodeInfoOnlyPos :: Position -> NodeInfo
+mkNodeInfoOnlyPos pos  = OnlyPos pos
 
 -- | Given a source position and a unique name, create a new attribute
 -- identifier
-newAttrs          :: Position -> Name -> Attrs
-newAttrs pos name  = Attrs pos name
+mkNodeInfo :: Position -> Name -> NodeInfo
+mkNodeInfo pos name  = NodeInfo pos name

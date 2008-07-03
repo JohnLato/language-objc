@@ -28,24 +28,23 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Toolkit.Idents (
-    Ident(..), 
-    lexemeToIdent, internalIdent,onlyPosIdent, identToLexeme, 
-    getIdentAttrs,dumpIdent)
+    Ident(..), lexemeToIdent, internalIdent,onlyPosIdent, identToLexeme, 
+    getIdentNodeInfo,dumpIdent)
 where
 
 import Data.Char
 import Language.C.Toolkit.Position   (Position, Pos(posOf), nopos)
 import Language.C.Toolkit.Names      (Name)
 import Language.C.Toolkit.Errors     (interr)
-import Language.C.Toolkit.Attributes (Attrs, newAttrsOnlyPos, newAttrs,
-                   Attributed(attrsOf), posOfAttrsOf)
+import Language.C.Toolkit.Attributes (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,
+                   CNode(nodeInfo))
 
 
 -- simple identifier representation (EXPORTED)
 --
 data Ident = Ident String       -- lexeme
  {-# UNBOXED #-}   !Int         -- hash to speed up equality check
-                   Attrs        -- attributes of this ident. incl. position
+                   NodeInfo        -- attributes of this ident. incl. position
 
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the
@@ -66,13 +65,13 @@ instance Show Ident where
 
 -- identifiers are attributed
 --
-instance Attributed Ident where
-  attrsOf (Ident _ _ at) = at
+instance CNode Ident where
+  nodeInfo (Ident _ _ at) = at
 
 -- identifiers have a canonical position
 --
 instance Pos Ident where
-  posOf = posOfAttrsOf
+  posOf = posOf . nodeInfo
 
 -- to speed up the equality test we compute some hash-like value for each
 -- identifiers lexeme and store it in the identifiers representation
@@ -115,19 +114,19 @@ bits28 = 2^(28::Int)
 -- * for reasons of simplicity the complete lexeme is hashed (with `quad')
 --
 lexemeToIdent            :: Position -> String -> Name -> Ident
-lexemeToIdent pos s name  = Ident s (quad s) (newAttrs pos name)
+lexemeToIdent pos s name  = Ident s (quad s) (mkNodeInfo pos name)
 
 -- generate an internal identifier (has no position and cannot be asccociated
 -- with attributes) (EXPORTED)
 --
 internalIdent   :: String -> Ident
-internalIdent s  = Ident s (quad s) (newAttrsOnlyPos nopos)
+internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos nopos)
 
 -- generate a `only pos' identifier (may not be used to index attribute
 -- tables, but has a position value) (EXPORTED)
 --
 onlyPosIdent       :: Position -> String -> Ident
-onlyPosIdent pos s  = Ident s (quad s) (newAttrsOnlyPos pos)
+onlyPosIdent pos s  = Ident s (quad s) (mkNodeInfoOnlyPos pos)
 
 -- given an abstract identifier, yield its lexeme (EXPORTED)
 --
@@ -136,8 +135,8 @@ identToLexeme (Ident s _ _)  = s
 
 -- get the attribute identifier associated with the given identifier (EXPORTED)
 --
-getIdentAttrs                  :: Ident -> Attrs
-getIdentAttrs (Ident _ _ as)  = as
+getIdentNodeInfo :: Ident -> NodeInfo
+getIdentNodeInfo (Ident _ _ as)  = as
 
 -- dump the lexeme and its positions into a string for debugging purposes
 -- (EXPORTED)

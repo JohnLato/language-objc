@@ -36,7 +36,7 @@ import Data.Char
 import Language.C.Toolkit.Position   (Position, Pos(posOf), nopos)
 import Language.C.Toolkit.Names      (Name)
 import Language.C.Toolkit.Errors     (interr)
-import Language.C.Toolkit.Attributes (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,
+import Language.C.Toolkit.Node (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,
                    CNode(nodeInfo))
 
 

@@ -99,7 +99,7 @@ import qualified Data.List as List
 import Language.C.Toolkit.Position   (Position, Pos(..), nopos)
 import Language.C.Toolkit.Names      (namesStartingFrom)
 import Language.C.Toolkit.Idents     (Ident, internalIdent)
-import Language.C.Toolkit.Attributes (NodeInfo, mkNodeInfo, mkNodeInfoOnlyPos)
+import Language.C.Toolkit.Node (NodeInfo, mkNodeInfo, mkNodeInfoOnlyPos)
 
 import Language.C.AST.AST       (CTranslUnit(..), CExtDecl(..), CFunDef(..), CStat(..),
                    CBlockItem(..), CDecl(..), CAttr(..), CDeclSpec(..), CStorageSpec(..),

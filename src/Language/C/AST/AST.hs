@@ -46,7 +46,7 @@ module Language.C.AST.AST (
 import Data.List
 import Language.C.Toolkit.Position   (Pos(posOf))
 import Language.C.Toolkit.Idents     (Ident)
-import Language.C.Toolkit.Attributes (NodeInfo,CNode(..))
+import Language.C.Toolkit.Node (NodeInfo,CNode(..))
 import Language.C.AST.Constants
 
 -- | Complete C tranlsation unit (C99 6.9, K&R A10)

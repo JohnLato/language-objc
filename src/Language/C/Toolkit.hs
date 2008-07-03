@@ -16,7 +16,7 @@ module Language.C.Toolkit (
      module Language.C.Toolkit.Position,
 )
 where
-import Language.C.Toolkit.Attributes
+import Language.C.Toolkit.Node
 import Language.C.Toolkit.Errors
 import Language.C.Toolkit.Idents
 import Language.C.Toolkit.Names

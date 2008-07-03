@@ -11,7 +11,7 @@
 -----------------------------------------------------------------------------
 module Language.C.AST.Generic where
 import Language.C.Toolkit.Idents
-import Language.C.Toolkit.Attributes
+import Language.C.Toolkit.Node
 import Language.C.Toolkit.Names
 import Language.C.Toolkit.Position
 import Language.C.AST.AST

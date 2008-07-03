@@ -8,8 +8,9 @@
 -- Maintainer  :  -
 -- Portability :  portable
 --
+-- source position and unqiue name
 -----------------------------------------------------------------------------
-module Language.C.Toolkit.Attributes (
+module Language.C.Toolkit.Node (
    NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
    CNode(nodeInfo), eqByName,  
 ) where

@@ -331,8 +331,9 @@ idkwtok cs = \pos -> do
     else return (CTokIdent   pos ident)
 
 ignoreAttribute :: P ()
-ignoreAttribute = skipTokens 0
-  where skipTokens n = do
+ignoreAttribute = skipTokens (0::Int)
+  where skipTokens :: Int -> P ()
+        skipTokens n = do
           tok <- lexToken
           case tok of
             CTokRParen _ | n == 1    -> return ()

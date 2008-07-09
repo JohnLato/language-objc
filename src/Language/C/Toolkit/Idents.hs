@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Toolkit.Idents
@@ -6,8 +7,6 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
---
--- Compiler Toolkit: identifiers
 --
 --  This module provides an abstract notion of identifiers.
 --
@@ -18,34 +17,31 @@
 --    the identifiers. Instead, it provides a fast ordering when identifiers
 --    are used as keys in a `Data.Map'.
 --
---  * Attributes may be associated to identifiers, except with `OnlyPos'
---    identifiers, which have a position as their only attribute (they do not
---    carry an attribute identifier, which can be used to index attribute
---    tables). 
+--  * Identifiers shall be associated with a unique name, unless they are `internal'
 --
 --- TODO ----------------------------------------------------------------------
 --
 --  * Hashing is not 8bit clean.
 --
-module Language.C.Toolkit.Idents (
-    Ident(..), lexemeToIdent, internalIdent,onlyPosIdent, identToLexeme, 
+module Language.C.Toolkit.Ident (
+    Ident(..), mkIdent, internalIdent, isInternalIdent, identToLexeme, 
     getIdentNodeInfo,dumpIdent)
 where
 
 import Data.Char
-import Language.C.Toolkit.Position   (Position, Pos(posOf), nopos)
+import Language.C.Toolkit.Position   (Position, nopos, Pos(..))
 import Language.C.Toolkit.Names      (Name)
-import Language.C.Toolkit.Errors     (interr)
-import Language.C.Toolkit.Node (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,
-                   CNode(nodeInfo))
-
+import Language.C.Toolkit.Errors     (internalErr)
+import Language.C.Toolkit.Node (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,CNode(..), nodePos)
+import Data.Generics
 
 -- simple identifier representation (EXPORTED)
 --
 data Ident = Ident String       -- lexeme
- {-# UNBOXED #-}   !Int         -- hash to speed up equality check
+                   {-# UNBOXED #-}   !Int         -- hash to speed up equality check
                    NodeInfo        -- attributes of this ident. incl. position
-
+             deriving (Data,Typeable)
+    
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the
 -- equality test, by comparing the lexemes only if the two numbers are equal
@@ -67,12 +63,8 @@ instance Show Ident where
 --
 instance CNode Ident where
   nodeInfo (Ident _ _ at) = at
-
--- identifiers have a canonical position
---
 instance Pos Ident where
-  posOf = posOf . nodeInfo
-
+  posOf = nodePos . nodeInfo
 -- to speed up the equality test we compute some hash-like value for each
 -- identifiers lexeme and store it in the identifiers representation
 
@@ -113,33 +105,25 @@ bits28 = 2^(28::Int)
 --
 -- * for reasons of simplicity the complete lexeme is hashed (with `quad')
 --
-lexemeToIdent            :: Position -> String -> Name -> Ident
-lexemeToIdent pos s name  = Ident s (quad s) (mkNodeInfo pos name)
+mkIdent            :: Position -> String -> Name -> Ident
+mkIdent pos s name  = Ident s (quad s) (mkNodeInfo pos name)
 
--- generate an internal identifier (has no position and cannot be asccociated
--- with attributes) (EXPORTED)
---
+-- | generate an internal identifier (has internal position and no unique name)
 internalIdent   :: String -> Ident
-internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos nopos)
+internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos internalPos)
 
--- generate a `only pos' identifier (may not be used to index attribute
--- tables, but has a position value) (EXPORTED)
---
-onlyPosIdent       :: Position -> String -> Ident
-onlyPosIdent pos s  = Ident s (quad s) (mkNodeInfoOnlyPos pos)
+-- | return true if the given identifier is internal
+isInternalIdent :: Ident -> Bool
+isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (nodePos nodeInfo) 
 
--- given an abstract identifier, yield its lexeme (EXPORTED)
---
-identToLexeme               :: Ident -> String
-identToLexeme (Ident s _ _)  = s
+-- | get the string of an identifier
+identToString               :: Ident -> String
+identToString (Ident s _ _)  = s
 
--- get the attribute identifier associated with the given identifier (EXPORTED)
---
+-- | get the node associated with the given identifier
 getIdentNodeInfo :: Ident -> NodeInfo
 getIdentNodeInfo (Ident _ _ as)  = as
 
--- dump the lexeme and its positions into a string for debugging purposes
--- (EXPORTED)
---
+-- | dump the lexeme and its positions into a string for debugging purposes
 dumpIdent     :: Ident -> String
 dumpIdent ide  = identToLexeme ide ++ " at " ++ show (posOf ide) 

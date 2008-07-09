@@ -1,7 +1,7 @@
 {-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Toolkit.Errors
+-- Module      :  Language.C.Common.Error
 -- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
 --                    2008 Benedikt Huber
 -- License     :  BSD-style
@@ -13,7 +13,7 @@ module Language.C.Common.Error (
   -- * handling of internal errors
   internalErr, todo,
   -- * errors in the parsed program
-  ErrorLevel(..), CError(..), makeError, showError
+  ErrorLevel(..), Error(..), makeError, showError
 ) where
 
 import Language.C.Common.Position (Position(..), isInternalPos)
@@ -21,6 +21,7 @@ import Language.C.Common.Position (Position(..), isInternalPos)
 
 -- internal errors
 -- ---------------
+internalErrPrefix :: String
 internalErrPrefix = unlines [ "Language.C : Internal Error" ,
                               "This is propably a bug, and should be reported at "++     
                               "http://www.sivity.net/projects/language.c/newticket"]
@@ -48,11 +49,11 @@ data ErrorLevel = LevelWarning
                 | LevelFatal
               deriving (Eq, Ord)
 
--- | create a `CError' with the given level, position and error lines
+-- | create a `Error' with the given level, position and error lines
 makeError :: ErrorLevel -> Position -> [String] -> Error
 makeError  = Error
 
-data CError = CError { errorLevel :: ErrorLevel, 
+data Error = Error { errorLevel :: ErrorLevel, 
                        errorPos   :: Position,
                        errorLines :: [String] }
 
@@ -98,9 +99,9 @@ showError (Error lvl (Position fname row col) (l:ls))  =
              ++ ") [" 
              ++ showErrorLvl lvl
              ++ "] "
-    showErrorLvl WarningErr = "WARNING"
-    showErrorLvl ErrorErr   = "ERROR"
-    showErrorLvl FatalErr   = "FATAL"
+    showErrorLvl LevelWarning = "WARNING"
+    showErrorLvl LevelError   = "ERROR"
+    showErrorLvl LevelFatal   = "FATAL"
   in
   prefix ++ "\n" 
   ++ "  >>> " ++ l ++ "\n"

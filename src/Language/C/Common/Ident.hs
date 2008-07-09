@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Toolkit.Idents
+-- Module      :  Language.C.Common.Idents
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
@@ -23,16 +23,16 @@
 --
 --  * Hashing is not 8bit clean.
 --
-module Language.C.Toolkit.Ident (
-    Ident(..), mkIdent, internalIdent, isInternalIdent, identToLexeme, 
+module Language.C.Common.Ident (
+    Ident(..), mkIdent, internalIdent, isInternalIdent, identToString, 
     getIdentNodeInfo,dumpIdent)
 where
 
 import Data.Char
-import Language.C.Toolkit.Position   (Position, nopos, Pos(..))
-import Language.C.Toolkit.Names      (Name)
-import Language.C.Toolkit.Errors     (internalErr)
-import Language.C.Toolkit.Node (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,CNode(..), nodePos)
+import Language.C.Common.Position   (Position, nopos, Pos(..), internalPos, isInternalPos)
+import Language.C.Common.Name     (Name)
+import Language.C.Common.Error     (internalErr)
+import Language.C.Common.Node (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,CNode(..), nodePos)
 import Data.Generics
 
 -- simple identifier representation (EXPORTED)
@@ -57,7 +57,7 @@ instance Ord Ident where
 -- for displaying identifiers
 --
 instance Show Ident where
-  showsPrec _ ide = showString ("`" ++ identToLexeme ide ++ "'")
+  showsPrec _ ide = showString ("`" ++ identToString ide ++ "'")
 
 -- identifiers are attributed
 --
@@ -114,7 +114,7 @@ internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos internalPos)
 
 -- | return true if the given identifier is internal
 isInternalIdent :: Ident -> Bool
-isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (nodePos nodeInfo) 
+isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (nodePos nodeinfo) 
 
 -- | get the string of an identifier
 identToString               :: Ident -> String
@@ -126,4 +126,4 @@ getIdentNodeInfo (Ident _ _ as)  = as
 
 -- | dump the lexeme and its positions into a string for debugging purposes
 dumpIdent     :: Ident -> String
-dumpIdent ide  = identToLexeme ide ++ " at " ++ show (posOf ide) 
+dumpIdent ide  = identToString ide ++ " at " ++ show (posOf ide) 

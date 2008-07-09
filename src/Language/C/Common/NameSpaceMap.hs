@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Toolkit.NameSpaceMap
+-- Module      :  Language.C.Common.NameSpaceMap
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
@@ -16,7 +16,7 @@
 --    have several local scopes. Definitions in inner scopes hide definitions
 --    of the same identifier in outer scopes.
 --
-module Language.C.Toolkit.NameSpaceMap (
+module Language.C.Common.NameSpaceMap (
     NameSpaceMap, nameSpaceMap, 
     defGlobal, 
     enterNewScope, leaveScope,
@@ -27,12 +27,12 @@ where
 
 import qualified Data.Map as Map (empty, insert, lookup, toList)
 import Data.Map   (Map)
-import Language.C.Toolkit.Idents     (Ident)
-import Language.C.Toolkit.Errors     (interr)
+import Language.C.Common.Idents     (Ident)
+import Language.C.Common.Error     (internalErr)
 
+{-
 
--- | @NameSpaceMap a@ is a Map from identifiers to @a@, which manages
--- global and local name spaces.
+-}
 
 -- DevDocs:
 --
@@ -52,6 +52,9 @@ import Language.C.Toolkit.Errors     (interr)
 --   relatively low number of local definitions together with frequent lookup
 --   of the most recently defined local identifiers
 --
+
+-- | @NameSpaceMap a@ is a Map from identifiers to @a@, which manages
+-- global and local name spaces.
 data NameSpaceMap a = NsMap (Map Ident a)  -- defs in global scope
                              [[(Ident, a)]]       -- stack of local scopes
 
@@ -81,7 +84,7 @@ enterNewScope (NsMap gs lss)  = NsMap gs ([]:lss)
 -- @(ns',defs) = leaveScope ns@ pops leaves the innermost local scope.
 --  and returns its definitions
 leaveScope :: NameSpaceMap a -> (NameSpaceMap a, [(Ident, a)])
-leaveScope (NsMap _ [])         = interr "NsMaps.leaveScope: No local scope!"
+leaveScope (NsMap _ [])         = internalErr "NsMaps.leaveScope: No local scope!"
 leaveScope (NsMap gs (ls:lss))  = (NsMap gs lss, ls)
 
 -- | Add local definition 

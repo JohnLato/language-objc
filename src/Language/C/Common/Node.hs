@@ -1,7 +1,7 @@
-{-# OPTIONS  #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Toolkit.Attributes
+-- Module      :  Language.C.Common.Attributes
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber (stripped radically)
 -- License     :  BSD-style
@@ -10,41 +10,38 @@
 --
 -- source position and unqiue name
 -----------------------------------------------------------------------------
-module Language.C.Toolkit.Node (
+module Language.C.Common.Node (
    NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
-   CNode(nodeInfo), eqByName,  
+   CNode(nodeInfo), eqByName, nodePos,
 ) where
-
-import Language.C.Toolkit.Position   (Position, Pos(posOf), nopos)
-import Language.C.Toolkit.Errors     (interr)
-import Language.C.Toolkit.Names      (Name)
+import Language.C.Common.Position   (Position, nopos)
+import Language.C.Common.Error     (internalErr)
+import Language.C.Common.Name     (Name)
+import Data.Generics
 
 -- | Parsed entity attribute
 data NodeInfo = OnlyPos   Position           -- only pos (for internal stuff only)
               | NodeInfo Position Name      -- pos and unique name
-           deriving (Show)
-
--- get the position associated with an attribute
-instance Pos NodeInfo where
-  posOf (OnlyPos pos  ) = pos
-  posOf (NodeInfo   pos _) = pos
+           deriving (Show,Read,Data,Typeable)
 
 -- name equality of attributes, used to define (name) equality of objects
 instance Eq NodeInfo where
   (NodeInfo   _ id1) == (NodeInfo   _ id2) = id1 == id2
   _               == _               = 
-    interr "Attributes: Attempt to compare `OnlyPos' attributes!"
+    internalErr "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 -- attribute ordering
 instance Ord NodeInfo where
   (NodeInfo   _ id1) <= (NodeInfo   _ id2) = id1 <= id2
   _               <= _               = 
-    interr "Attributes: Attempt to compare `OnlyPos' attributes!"
+    internalErr "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 -- | a class for convenient access to the attributes of an attributed object
 class CNode a where
   nodeInfo :: a -> NodeInfo
-
+nodePos :: NodeInfo -> Position
+nodePos ni = case ni of (OnlyPos pos  ) -> pos; (NodeInfo   pos _) -> pos
+  
 -- | equality by name
 eqByName           :: CNode a => a -> a -> Bool
 eqByName obj1 obj2  = (nodeInfo obj1) == (nodeInfo obj2)

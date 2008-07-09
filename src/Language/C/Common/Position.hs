@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, PatternGuards #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Common.Position
@@ -36,7 +36,20 @@ instance Show Position where
     | isBuiltinPos pos = "<builtin>"
     | isInternalPos pos = "<internal>"
     | otherwise = show (fname, row, col)
-
+instance Read Position where
+    readsPrec p s = case s of
+                       '<' : _  -> readInternal s
+                       _        -> map (\((file,row,pos),r) -> (Position file row pos,r)) . readsPrec p $ s 
+readInternal :: ReadS Position
+readInternal s | (Just rest) <- readString "<no file>" s = [(nopos,rest)]
+               | (Just rest) <- readString "<builtin>" s = [(builtinPos,rest)]
+               | (Just rest) <- readString "<internal>" s = [(internalPos,rest)]
+               | otherwise                             = []  
+    where readString [] r = return r
+          readString (c:cs) (c':cs') | c == c'    = readString cs cs'
+                                     | otherwise = Nothing
+          readString (_:_) [] = Nothing
+                                   
 -- | get the source file of the specified position. Fails unless @isSourcePos pos@.
 posFile :: Position -> String
 posFile (Position fname _ _) = fname

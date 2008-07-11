@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 --  Parser for C translation units, which have already been run through the C
---  preprocessor.  
+--  preprocessor. It is recommended to use the strict flag.
 --
 --  The parser recognizes all of ISO C 99 and most GNU C extensions.
 --
@@ -18,7 +18,17 @@
 --
 --    http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf
 --
---  Relevant sections:
+-- GNU extensions are documented in the gcc parser
+--    
+--    http://gcc.gnu.org/viewcvs/trunk/gcc/c-parser.c
+--
+-- and on: http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html
+--
+------------------------------------------------------------------
+{
+module Language.C.Parser.Parser (parseC) where
+
+-- Relevant C99 sections:
 --
 -- 6.5 Expressions .1 - .17 and 6.6 (almost literally)
 --  Supported GNU extensions:
@@ -47,16 +57,6 @@
 --     - allow extension keyword before external declaration
 --     - asm definitions
 --
--- GNU extensions are documented in the gcc parser
---    
---    http://gcc.gnu.org/viewcvs/trunk/gcc/c-parser.c
---
--- and on: http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html
---
-------------------------------------------------------------------
-{
-module Language.C.Parser.Parser (parseC) where
-
 --  Since some of the grammar productions are quite difficult to read,
 --  (especially those involved with the decleration syntax) we document them
 --  with an extended syntax that allows a more consise representation:
@@ -96,20 +96,14 @@ module Language.C.Parser.Parser (parseC) where
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 
-import Language.C.Toolkit.Position   (Position, Pos(..), nopos)
-import Language.C.Toolkit.Names      (namesStartingFrom)
-import Language.C.Toolkit.Idents     (Ident, internalIdent)
-import Language.C.Toolkit.Node (NodeInfo, mkNodeInfo, mkNodeInfoOnlyPos)
+import Language.C.Common.Position   (Position,  nopos, Pos(..))
+import Language.C.Common.Name     (namesStartingFrom)
+import Language.C.Common.Ident     (Ident, internalIdent)
+import Language.C.Common.Node (NodeInfo, mkNodeInfo, mkNodeInfoOnlyPos)
 
-import Language.C.AST.AST       (CTranslUnit(..), CExtDecl(..), CFunDef(..), CStat(..),
-                   CBlockItem(..), CDecl(..), CAttr(..), CDeclSpec(..), CStorageSpec(..),
-                   CTypeSpec(..), CTypeQual(..), CStructUnion(..),
-                   CStructTag(..), CEnum(..), CDeclr(..), CDerivedDeclr(..), CInit(..), CInitList, CAttr(..),
-                   CDesignator(..), CExpr(..), CAssignOp(..), CBinaryOp(..),
-                   CUnaryOp(..), CConst (..), CStrLit (..), liftStrLit, 
-                   CAsmStmt(..), CAsmOperand(..), CBuiltin(..))
-import Language.C.AST.Builtin   (builtinTypeNames)
-import Language.C.AST.Constants (concatCStrings, CString)
+import Language.C.Parser.AST
+import Language.C.Parser.Builtin   (builtinTypeNames)
+import Language.C.Common.Constants (concatCStrings, CString)
 
 import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
@@ -1185,7 +1179,7 @@ type_qualifier
   : const		{% withNodeInfo $1 $ CConstQual }
   | volatile		{% withNodeInfo $1 $ CVolatQual }
   | restrict		{% withNodeInfo $1 $ CRestrQual }
-  | inline		{% withNodeInfo $1 $ CInlinQual }
+  | inline		{% withNodeInfo $1 $ CInlineQual }
 
 -- a list containing at least one type_qualifier (const, volatile, restrict, inline)
 --    and additionally CAttrs

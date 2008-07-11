@@ -13,9 +13,9 @@
 -----------------------------------------------------------------------------
 module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where 
 
-import Language.C.Toolkit.Position  (Position(..), Pos(posOf))
-import Language.C.Toolkit.Idents    (Ident, identToLexeme)
-import Language.C.AST.Constants     (CChar, CInteger, CFloat, CString)
+import Language.C.Common.Position  (Position, Pos(..))
+import Language.C.Common.Ident    (Ident, identToString)
+import Language.C.Common.Constants     (CChar, CInteger, CFloat, CString)
 
 -- token definition
 -- ----------------
@@ -238,7 +238,7 @@ instance Pos CToken where
   posOf (CTokIdent    pos _) = pos
   posOf (CTokTyIdent  pos _) = pos
   posOf (CTokGnuC   _ pos  ) = pos
-
+  posOf CTokEof = error "tokenPos: Eof"
 instance Show CToken where
   showsPrec _ (CTokLParen   _  ) = showString "("
   showsPrec _ (CTokRParen   _  ) = showString ")"
@@ -331,8 +331,8 @@ instance Show CToken where
   showsPrec _ (CTokILit     _ i) = shows i
   showsPrec _ (CTokFLit     _ f) = shows f
   showsPrec _ (CTokSLit     _ s) = shows s
-  showsPrec _ (CTokIdent    _ i) = (showString . identToLexeme) i
-  showsPrec _ (CTokTyIdent  _ i) = (showString . identToLexeme) i
+  showsPrec _ (CTokIdent    _ i) = (showString . identToString) i
+  showsPrec _ (CTokTyIdent  _ i) = (showString . identToString) i
   showsPrec _ (CTokGnuC GnuCAttrTok _) = showString "__attribute__"
   showsPrec _ (CTokGnuC GnuCExtTok  _) = showString "__extension__"
   showsPrec _ (CTokGnuC GnuCComplexReal _) = showString "__real__"
@@ -340,3 +340,4 @@ instance Show CToken where
   showsPrec _ (CTokGnuC GnuCVaArg    _) = showString "__builtin_va_arg"
   showsPrec _ (CTokGnuC GnuCOffsetof _) = showString "__builtin_offsetof"
   showsPrec _ (CTokGnuC GnuCTyCompat _) = showString "__builtin_types_compatible_p"
+  showsPrec _ CTokEof = error "show CToken : CTokEof"

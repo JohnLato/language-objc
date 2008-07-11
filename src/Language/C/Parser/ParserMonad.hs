@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Toolkit.ParserMonad
+-- Module      :  Language.C.Common.ParserMonad
 -- Copyright   :  (c) [1999..2004] Manuel M T Chakravarty
 --                (c) 2005-2007 Duncan Coutts
 -- License     :  BSD-style
@@ -37,10 +37,10 @@ module Language.C.Parser.ParserMonad (
   module Language.C.Parser.InputStream,
   ) where
 
-import Language.C.Toolkit.Position  (Position(..))
-import Language.C.Toolkit.Errors    (interr)
-import Language.C.Toolkit.Names     (Name)
-import Language.C.Toolkit.Idents    (Ident)
+import Language.C.Common.Position  (Position(..))
+import Language.C.Common.Error    (internalErr)
+import Language.C.Common.Name    (Name)
+import Language.C.Common.Ident    (Ident)
 import Language.C.Parser.Tokens (CToken)
 import Language.C.Parser.InputStream
 
@@ -77,7 +77,7 @@ execParser (P parser) input pos builtins names =
   where initialState = PState {
           curPos = pos,
           curInput = input,
-          prevToken = interr "CLexer.execParser: Touched undefined token!",
+          prevToken = internalErr "CLexer.execParser: Touched undefined token!",
           namesupply = names,
           tyidents = Set.fromList builtins,
           scopes   = []
@@ -130,7 +130,7 @@ enterScope = P $ \s@PState{tyidents=tyids,scopes=ss} ->
 leaveScope :: P ()
 leaveScope = P $ \s@PState{scopes=ss} ->
                      case ss of
-                       []             -> interr "leaveScope: already in global scope"
+                       []             -> internalErr "leaveScope: already in global scope"
                        (tyids:ss') -> POk s{tyidents=tyids, scopes=ss'} ()
 
 getInput :: P InputStream

@@ -1,6 +1,7 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.AST.AST
+-- Module      :  Language.C.Parser.AST
 -- Copyright   :  (c) [1999..2007] Manuel M T Chakravarty
 --                (c) 2008 Benedikt Huber        
 -- License     :  BSD-style
@@ -20,7 +21,7 @@
 --  of C99 <http://www.open-std.org/JTC1/SC22/WG14/www/docs/n1256.pdf> and several 
 --  GNU extensions <http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html>.
 -----------------------------------------------------------------------------
-module Language.C.AST.AST (
+module Language.C.Parser.AST (
   -- * C translation units
   CTranslUnit(..),  CExtDecl(..),
   -- * Declarations
@@ -38,50 +39,29 @@ module Language.C.AST.AST (
   -- * Expressions
   CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..), 
-  CConst (..), CStrLit(..), liftStrLit, 
   CBuiltin(..),
-  -- * Summary nodes
-  CObj(..),CTag(..),CDef(..),
+  -- * constants
+  CConst(..),CStrLit(..),cstringOfLit,liftStrLit,
 ) where
 import Data.List
-import Language.C.Toolkit.Position   (Pos(posOf))
-import Language.C.Toolkit.Idents     (Ident)
-import Language.C.Toolkit.Node (NodeInfo,CNode(..))
-import Language.C.AST.Constants
+import Language.C.Common
+import Language.C.Common.Constants
+import Language.C.Common.Ops
+import Data.Generics
 
 -- | Complete C tranlsation unit (C99 6.9, K&R A10)
 --  
 -- A complete C translation unit, for example representing a C header or source file.
 -- It consists of a list of external (i.e. toplevel) declarations.
 data CTranslUnit = CTranslUnit [CExtDecl] NodeInfo
-instance CNode CTranslUnit where
-  nodeInfo (CTranslUnit _ at) = at
-instance Pos CTranslUnit where
-  posOf (CTranslUnit _ at) = posOf at
-instance Eq CTranslUnit where
-  (CTranslUnit _ at1) == (CTranslUnit _ at2) = at1 == at2
-    
+                   deriving (Data,Typeable {-! CNode !-})
 -- | External C declaration (C99 6.9, K&R A10)
 --
 -- Either a toplevel declaration, function definition or external assembler.
 data CExtDecl = CDeclExt CDecl
               | CFDefExt CFunDef
               | CAsmExt  CStrLit
-
-instance Pos CExtDecl where
-  posOf (CDeclExt decl) = posOf decl
-  posOf (CFDefExt fdef) = posOf fdef
-  posOf (CAsmExt asm)  = posOf asm
-
-instance Eq CExtDecl where
-  CDeclExt decl1 == CDeclExt decl2 = decl1 == decl2
-  CFDefExt fdef1 == CFDefExt fdef2 = fdef1 == fdef2
-  CAsmExt asm1   == CAsmExt asm2   = asm1 == asm2
-  _              == _              = False
-instance CNode CExtDecl where
-  nodeInfo (CDeclExt decl) = nodeInfo decl
-  nodeInfo (CFDefExt funDef) = nodeInfo funDef
-  nodeInfo (CAsmExt asm) = nodeInfo asm
+              deriving (Data,Typeable {-! CNode !-})
 
 -- | C function definition (C99 6.9.1, K&R A10.1)
 --
@@ -96,19 +76,12 @@ instance CNode CExtDecl where
 -- * The optional declaration list @decllist@ is for old-style function declarations.
 --
 -- * The statement @stmt@ is a compound statement.
---
--- /TODO/: Merge oldstyle and newstyle declarations
 data CFunDef = CFunDef [CDeclSpec]      -- type specifier and qualifier
                        CDeclr           -- declarator
                        [CDecl]          -- optional declaration list
                        CStat            -- compound statement
                        NodeInfo
-instance Pos CFunDef where
-  posOf (CFunDef _declspecs _declr _oldstyleparams _stat at) = posOf at
-instance Eq CFunDef where
-  CFunDef _ _ _ _ at1 == CFunDef _ _ _ _ at2 = at1 == at2
-instance CNode CFunDef where
-  nodeInfo (CFunDef _ _ _ _ at) = at
+               deriving (Data,Typeable {-! CNode !-})
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
 --   declarations and type names.
@@ -157,12 +130,7 @@ data CDecl = CDecl [CDeclSpec]          -- type specifier and qualifier, __attri
                      Maybe CInit,       -- optional initialize
                      Maybe CExpr)]      -- optional size (const expr)
                    NodeInfo
-instance CNode CDecl where
-  nodeInfo (CDecl _ _ at) = at
-instance Pos CDecl where
-  posOf (CDecl _ _ at) = posOf at
-instance Eq CDecl where
-  (CDecl _ _ at1) == (CDecl _ _ at2) = at1 == at2
+             deriving (Data,Typeable {-! CNode !-})
 
 -- | C declarator (K&R A8.5, C99 6.7.5) and abstract declarator (K&R A8.8, C99 6.7.6)
 --
@@ -209,6 +177,7 @@ instance Eq CDecl where
 -- > int (* const f)(); ==>
 -- > CDeclr "f" [CPtrDeclr [const], CFunDeclr []]
 data CDeclr = CDeclr (Maybe Ident) [CDerivedDeclr] (Maybe CStrLit) [CAttr] NodeInfo
+              deriving (Data,Typeable {-! CNode !-})
 
 -- | Derived declarators, see 'CDeclr'
 --
@@ -225,111 +194,39 @@ data CDerivedDeclr =
               -- ^ Pointer declarator @CPtrDeclr tyquals declr@
             | CArrDeclr [CTypeQual] (Maybe CExpr) NodeInfo 
               -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@ 
-            | CFunDeclr CFunParams [CAttr] NodeInfo
+            | CFunDeclr (Either [Ident] ([CDecl],Bool)) [CAttr] NodeInfo
               -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@ 
-type CFunParams = (Either [Ident] ([CDecl],Bool))
-instance Pos CDeclr where
-  posOf (CDeclr _ _ _ _ at) = posOf at
-instance Pos CDerivedDeclr where
-  posOf (CPtrDeclr _typeQuals at) = posOf at
-  posOf (CArrDeclr _typeQuals _arraySize at) = posOf at
-  posOf (CFunDeclr _parameters _cAttrs at) = posOf at
-
-instance Eq CDeclr where
-  (CDeclr _ _ _ _ at1) == (CDeclr _ _ _ _ at2) = at1 == at2
-instance Eq CDerivedDeclr where
-  (CPtrDeclr _   at1) == (CPtrDeclr _   at2) = at1 == at2
-  (CArrDeclr _ _ at1) == (CArrDeclr _ _ at2) = at1 == at2
-  (CFunDeclr _ _ at1) == (CFunDeclr _ _ at2) = at1 == at2
-  _                     == _                     = False
-
+            deriving (Data,Typeable {-! CNode !-})
 -- | C statement (K&R A9, C99 6.8)
 --
-data CStat = CLabel    Ident            -- label                        
-                       CStat            
-                       [CAttr]          
-                       NodeInfo            -- ^ An (attributed) label followed by a statement
-           | CCase     CExpr            -- constant expression
-                       CStat            
-                       NodeInfo            -- ^ A statement of the form @case expr : stmt@
-           | CCases    CExpr            
-                       CExpr            
-                       CStat
-                       NodeInfo            -- ^ A case range of the form @case lower ... upper : stmt@
-           | CDefault  CStat            
-                       NodeInfo            -- ^ The default case @default : stmt@
-           | CExpr     (Maybe CExpr)    
-                        NodeInfo           -- ^ A simple statement, that is in C: evaluating an expression with side-effects
-                                        --   and discarding the result.
-           | CCompound [Ident]          
-                       [CBlockItem]     
-                        NodeInfo           -- ^ compound statement @CCompound localLabels blockItems at@
-           | CIf       CExpr            
-                       CStat            
-                (Maybe CStat)    
-                       NodeInfo            -- ^ conditional statement @CIf ifExpr thenStmt maybeElseStmt at@
-           | CSwitch   CExpr            
-                       CStat
-                       NodeInfo            -- ^ switch statement @CSwitch selectorExpr switchStmt@, where @switchStmt@ usually includes
-                                        -- /case/, /break/ and /default/ statements
-           | CWhile    CExpr
-                       CStat
-                       Bool         
-                       NodeInfo            -- ^ while or do-while statement @CWhile guard stmt isDoWhile at@
+data CStat = CLabel  Ident CStat [CAttr] NodeInfo  -- ^ An (attributed) label followed by a statement
+           | CCase CExpr CStat NodeInfo            -- ^ A statement of the form @case expr : stmt@
+           | CCases CExpr CExpr CStat NodeInfo     -- ^ A case range of the form @case lower ... upper : stmt@
+           | CDefault CStat NodeInfo               -- ^ The default case @default : stmt@
+           | CExpr (Maybe CExpr) NodeInfo           
+           -- ^ A simple statement, that is in C: evaluating an expression with side-effects
+           --   and discarding the result.
+           | CCompound [Ident] [CBlockItem] NodeInfo    -- ^ compound statement @CCompound localLabels blockItems at@
+           | CIf CExpr CStat (Maybe CStat) NodeInfo     -- ^ conditional statement @CIf ifExpr thenStmt maybeElseStmt at@
+           | CSwitch CExpr CStat NodeInfo               
+           -- ^ switch statement @CSwitch selectorExpr switchStmt@, where @switchStmt@ usually includes
+           -- /case/, /break/ and /default/ statements
+           | CWhile CExpr CStat Bool NodeInfo      -- ^ while or do-while statement @CWhile guard stmt isDoWhile at@
            | CFor      (Either (Maybe CExpr) CDecl)
-                           (Maybe CExpr)
-                           (Maybe CExpr)
+                       (Maybe CExpr)
+                       (Maybe CExpr)
                        CStat
-                       NodeInfo            -- ^ for statement @CFor init expr-2 expr-3 stmt@, where @init@ is either a declaration or
-                                        -- initializing expression
-           | CGoto     Ident            -- 
-                       NodeInfo            -- ^ goto statement @CGoto label@
-           | CGotoPtr  CExpr            
-                       NodeInfo            -- ^ computed goto @CGotoPtr labelExpr@
-           | CCont     NodeInfo            -- ^ continue statement
-           | CBreak    NodeInfo            -- ^ break statement
-           | CReturn   (Maybe CExpr)
-                       NodeInfo            -- ^ return statement @CReturn returnExpr@
-           | CAsm      CAsmStmt         
-                       NodeInfo            -- ^ assembly statement 
+                       NodeInfo            
+           -- ^ for statement @CFor init expr-2 expr-3 stmt@, where @init@ is either a declaration or
+           -- initializing expression
+           | CGoto Ident NodeInfo            -- ^ goto statement @CGoto label@
+           | CGotoPtr CExpr NodeInfo         -- ^ computed goto @CGotoPtr labelExpr@
+           | CCont NodeInfo                  -- ^ continue statement
+           | CBreak    NodeInfo              -- ^ break statement
+           | CReturn (Maybe CExpr)NodeInfo   -- ^ return statement @CReturn returnExpr@
+           | CAsm CAsmStmt NodeInfo          -- ^ assembly statement 
+           deriving (Data,Typeable {-! CNode !-})
 
-
-instance Pos CStat where
-  posOf (CLabel    _ _ _   at) = posOf at
-  posOf (CCase     _ _     at) = posOf at
-  posOf (CCases    _ _ _   at) = posOf at
-  posOf (CDefault  _       at) = posOf at
-  posOf (CExpr     _       at) = posOf at
-  posOf (CCompound _ _     at) = posOf at
-  posOf (CIf       _ _ _   at) = posOf at
-  posOf (CSwitch   _ _     at) = posOf at
-  posOf (CWhile    _ _ _   at) = posOf at
-  posOf (CFor      _ _ _ _ at) = posOf at
-  posOf (CGoto     _       at) = posOf at
-  posOf (CGotoPtr     _    at) = posOf at
-  posOf (CCont             at) = posOf at
-  posOf (CBreak            at) = posOf at
-  posOf (CReturn   _       at) = posOf at
-  posOf (CAsm _            at) = posOf at
-
-instance Eq CStat where
-  (CLabel    _ _ _   at1) == (CLabel    _ _ _   at2) = at1 == at2
-  (CCase     _ _     at1) == (CCase     _ _     at2) = at1 == at2
-  (CCases    _ _ _   at1) == (CCases    _ _ _   at2) = at1 == at2
-  (CDefault  _       at1) == (CDefault  _       at2) = at1 == at2
-  (CExpr     _       at1) == (CExpr     _       at2) = at1 == at2
-  (CCompound _ _     at1) == (CCompound _ _     at2) = at1 == at2
-  (CIf       _ _ _   at1) == (CIf       _ _ _   at2) = at1 == at2
-  (CSwitch   _ _     at1) == (CSwitch   _ _     at2) = at1 == at2
-  (CWhile    _ _ _   at1) == (CWhile    _ _ _   at2) = at1 == at2
-  (CFor      _ _ _ _ at1) == (CFor      _ _ _ _ at2) = at1 == at2
-  (CGoto     _       at1) == (CGoto     _       at2) = at1 == at2
-  (CGotoPtr  _       at1) == (CGotoPtr  _       at2) = at1 == at2
-  (CCont             at1) == (CCont             at2) = at1 == at2
-  (CBreak            at1) == (CBreak            at2) = at1 == at2
-  (CReturn   _       at1) == (CReturn   _       at2) = at1 == at2
-  (CAsm _            at1) == (CAsm _            at2) = at1 == at2
-  _                       == _                       = False  
 -- | GNU Assembler statement
 --
 -- > CAsmStatement type-qual? asm-expr out-ops in-ops clobbers _
@@ -346,9 +243,7 @@ data CAsmStmt
                    [CAsmOperand]   -- input operands
                    [CStrLit]       -- Clobbers
                     NodeInfo
-instance Pos CAsmStmt where
-    posOf (CAsmStmt _ _ _ _ _ at) = posOf at
-    
+    deriving (Data,Typeable {-! CNode !-})    
 -- | Assembler operand
 --
 -- @CAsmOperand argName? constraintExpr arg@ specifies an operand for an assembler
@@ -356,10 +251,8 @@ instance Pos CAsmStmt where
 data CAsmOperand = CAsmOperand (Maybe Ident)   -- argument name
                                 CStrLit        -- constraint expr
                                 CExpr          -- argument
-                                NodeInfo
-instance Pos CAsmOperand where
-    posOf (CAsmOperand _ _ _ at) = posOf at                            
-
+                                NodeInfo 
+                   deriving (Data,Typeable {-! CNode !-})                                
 -- | C99 Block items
 --
 --  Things that may appear in compound statements: either statements, declarations 
@@ -367,19 +260,7 @@ instance Pos CAsmOperand where
 data CBlockItem = CBlockStmt    CStat           -- ^ A statement
                 | CBlockDecl    CDecl           -- ^ A local declaration
                 | CNestedFunDef CFunDef         -- ^ A nested function (GNU C)
-
-instance Pos CBlockItem where
-  posOf (CBlockStmt stmt)  = posOf stmt
-  posOf (CBlockDecl decl)  = posOf decl
-  posOf (CNestedFunDef fdef) = posOf fdef
-
-instance Eq CBlockItem where
-  CBlockStmt    stmt1 == CBlockStmt    stmt2 = stmt1 == stmt2
-  CBlockDecl    decl1 == CBlockDecl    decl2 = decl1 == decl2
-  CNestedFunDef fdef1 == CNestedFunDef fdef2 = fdef1 == fdef2
-  _                   == _                   = False
-
-
+                  deriving (Data,Typeable {-! CNode !-})
 -- | C declaration specifiers and qualifiers
 --
 -- Declaration specifiers include at most one storage-class specifier (C99 6.7.1),
@@ -387,12 +268,7 @@ instance Eq CBlockItem where
 data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or typedef
                | CTypeSpec    CTypeSpec     -- ^ type name
                | CTypeQual    CTypeQual     -- ^ type qualifier
---               deriving (Eq)
-
-instance Pos CDeclSpec where
-  posOf (CStorageSpec sspec) = posOf sspec
-  posOf (CTypeSpec    tspec) = posOf tspec
-  posOf (CTypeQual    tqual) = posOf tqual
+                 deriving (Data,Typeable {-! CNode !-})
 
 -- | C storage class specifier (and typedefs) (K&R A8.1, C99 6.7.1)
 --
@@ -402,24 +278,8 @@ data CStorageSpec = CAuto     NodeInfo     -- ^ automatic storage
                   | CExtern   NodeInfo     -- ^ external linkage
                   | CTypedef  NodeInfo     -- ^ a typedef
                   | CThread   NodeInfo     -- ^ GNUC thread local storage
-                  
-instance Pos CStorageSpec where
-  posOf (CAuto     at) = posOf at
-  posOf (CRegister at) = posOf at
-  posOf (CStatic   at) = posOf at
-  posOf (CExtern   at) = posOf at
-  posOf (CTypedef  at) = posOf at
-  posOf (CThread   at) = posOf at
-
-instance Eq CStorageSpec where
-  (CAuto     at1) == (CAuto     at2) = at1 == at2
-  (CRegister at1) == (CRegister at2) = at1 == at2
-  (CStatic   at1) == (CStatic   at2) = at1 == at2
-  (CExtern   at1) == (CExtern   at2) = at1 == at2
-  (CTypedef  at1) == (CTypedef  at2) = at1 == at2
-  (CThread   at1) == (CThread   at2) = at1 == at2
-  _               == _               = False
-  
+                 deriving (Eq,Ord,Data,Typeable {-! CNode !-})
+                    
 -- | C type specifier (K&R A8.2, C99 6.7.2)
 --
 -- Type specifiers are either basic types such as @char@ or @int@, 
@@ -447,44 +307,8 @@ data CTypeSpec = CVoidType    NodeInfo
                               NodeInfo             -- ^ @typeof(expr)@
                | CTypeOfType  CDecl
                               NodeInfo             -- ^ @typeof(type)@
+               deriving (Data,Typeable {-! CNode !-})
 
-instance Pos CTypeSpec where
-  posOf (CVoidType      at) = posOf at
-  posOf (CCharType      at) = posOf at
-  posOf (CShortType     at) = posOf at
-  posOf (CIntType       at) = posOf at
-  posOf (CLongType      at) = posOf at
-  posOf (CFloatType     at) = posOf at
-  posOf (CDoubleType    at) = posOf at
-  posOf (CSignedType    at) = posOf at
-  posOf (CUnsigType     at) = posOf at
-  posOf (CBoolType      at) = posOf at
-  posOf (CComplexType   at) = posOf at
-  posOf (CSUType     _  at) = posOf at
-  posOf (CEnumType   _  at) = posOf at
-  posOf (CTypeDef    _  at) = posOf at
-  posOf (CTypeOfExpr _  at) = posOf at
-  posOf (CTypeOfType _  at) = posOf at
-
-instance Eq CTypeSpec where
-  (CVoidType     at1) == (CVoidType     at2) = at1 == at2
-  (CCharType     at1) == (CCharType     at2) = at1 == at2
-  (CShortType    at1) == (CShortType    at2) = at1 == at2
-  (CIntType      at1) == (CIntType      at2) = at1 == at2
-  (CLongType     at1) == (CLongType     at2) = at1 == at2
-  (CFloatType    at1) == (CFloatType    at2) = at1 == at2
-  (CDoubleType   at1) == (CDoubleType   at2) = at1 == at2
-  (CSignedType   at1) == (CSignedType   at2) = at1 == at2
-  (CUnsigType    at1) == (CUnsigType    at2) = at1 == at2
-  (CBoolType     at1) == (CBoolType     at2) = at1 == at2
-  (CComplexType  at1) == (CComplexType  at2) = at1 == at2
-  (CSUType     _ at1) == (CSUType     _ at2) = at1 == at2
-  (CEnumType   _ at1) == (CEnumType   _ at2) = at1 == at2
-  (CTypeDef    _ at1) == (CTypeDef    _ at2) = at1 == at2
-  (CTypeOfExpr _ at1) == (CTypeOfExpr _ at2) = at1 == at2
-  (CTypeOfType _ at1) == (CTypeOfType _ at2) = at1 == at2
-  _                   == _                   = False
-  
 -- | C type qualifiers (K&R A8.2, C99 6.7.3) and function specifiers (C99 6.7.4)
 --
 -- @const@, @volatile@ and @restrict@ type qualifiers and @inline@ function specifier.
@@ -492,23 +316,10 @@ instance Eq CTypeSpec where
 data CTypeQual = CConstQual NodeInfo
                | CVolatQual NodeInfo
                | CRestrQual NodeInfo
-               | CInlinQual NodeInfo
+               | CInlineQual NodeInfo
                | CAttrQual  CAttr
+               deriving (Data,Typeable {-! CNode !-})
 
-instance Pos CTypeQual where
- posOf (CConstQual at) = posOf at
- posOf (CVolatQual at) = posOf at
- posOf (CRestrQual at) = posOf at
- posOf (CInlinQual at) = posOf at
- posOf (CAttrQual cattrs) = posOf cattrs
-instance Eq CTypeQual where
-  (CConstQual at1) == (CConstQual at2) = at1 == at2
-  (CVolatQual at1) == (CVolatQual at2) = at1 == at2
-  (CRestrQual at1) == (CRestrQual at2) = at1 == at2
-  (CInlinQual at1) == (CInlinQual at2) = at1 == at2
-  (CAttrQual at1)  == (CAttrQual at2)  = at1 == at2
-  _                == _                = False
-  
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
 -- @CStruct tag identifier struct-decls c-attrs@ represents a struct or union specifier (depending on @tag@).
@@ -523,17 +334,12 @@ data CStructUnion = CStruct CStructTag
                             (Maybe [CDecl])    -- member declarations
                             [CAttr]            -- __attribute__s
                             NodeInfo
-
-instance Pos CStructUnion where
-  posOf (CStruct _ _ _ _ at) = posOf at
-
-instance Eq CStructUnion where
-  (CStruct _ _ _ _ at1) == (CStruct _ _ _ _ at2) = at1 == at2
+                    deriving (Data,Typeable {-! CNode !-})
 
 -- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CStructUnion'.
 data CStructTag = CStructTag
                 | CUnionTag
-                deriving (Eq)
+                deriving (Eq,Data,Typeable)
 
 -- | C enumeration specifier (K&R A8.4, C99 6.7.2.2)
 --
@@ -552,14 +358,7 @@ data CEnum = CEnum (Maybe Ident)
                             Maybe CExpr)])     -- explicit variant value
                    [CAttr]                     -- __attribute__s
                    NodeInfo
-
-instance Pos CEnum where
-  posOf (CEnum _ _ _ at) = posOf at
-
-instance Eq CEnum where
-  (CEnum _ _ _ at1) == (CEnum _ _ _ at2) = at1 == at2
-
-
+             deriving (Data,Typeable {-! CNode !-})
           
 -- | C initialization (K&R A8.7, C99 6.7.8)
 -- 
@@ -570,6 +369,7 @@ data CInit = CInitExpr CExpr
                        NodeInfo            -- ^ assignment expression
            | CInitList CInitList
                        NodeInfo            -- ^ initialization list (see 'CInitList')
+             deriving (Data,Typeable {-! CNode !-})
 
 -- | Initializer List
 --
@@ -593,15 +393,6 @@ data CInit = CInitExpr CExpr
 -- >     init_s  = ((CMemberDesig "s"), CInitList [init_s_1,init_s_a])
 -- > in  CInitList [init_s]
 type CInitList = [([CDesignator], CInit)]
-
-instance Pos CInit where
-  posOf (CInitExpr _ at) = posOf at
-  posOf (CInitList _ at) = posOf at
-
-instance Eq CInit where
-  (CInitExpr _ at1) == (CInitExpr _ at2) = at1 == at2
-  (CInitList _ at1) == (CInitList _ at2) = at1 == at2
-  _                 == _                 = False
   
 -- | Designators
 --
@@ -614,40 +405,14 @@ data CDesignator = CArrDesig     CExpr
                  | CRangeDesig   CExpr  
                                  CExpr
                                  NodeInfo  -- ^ array range designator @CRangeDesig from to _@ (GNU C)
-
-instance Pos CDesignator where
-  posOf (CArrDesig     _ at) = posOf at
-  posOf (CMemberDesig  _ at) = posOf at
-  posOf (CRangeDesig _ _ at) = posOf at
-
-instance Eq CDesignator where
-  (CArrDesig     _ at1) == (CArrDesig     _ at2) = at1 == at2
-  (CMemberDesig  _ at1) == (CMemberDesig  _ at2) = at1 == at2
-  (CRangeDesig _ _ at1) == (CRangeDesig _ _ at2) = at1 == at2
-  _                     == _                     = False
-
+                   deriving (Data,Typeable {-! CNode !-})
 
 -- | @__attribute__@ annotations
 --
 -- Those are of the form @CAttr attribute-name attribute-parameters@, 
 -- and serve as generic properties of some syntax tree elements.
---
--- Some examples:
---
--- * labels can be attributed with /unused/ to indicate that their not used
---
--- * struct definitions can be attributed with /packed/ to tell the compiler to use the most compact representation
---
--- * declarations can be attributed with /deprecated/
---
--- * function declarations can be attributes with /noreturn/ to tell the compiler that the function will never return,
---  
--- * or with /const/ to indicate that it is a pure function
 data CAttr = CAttr Ident [CExpr] NodeInfo
-instance Pos CAttr where
-    posOf (CAttr _ _ at)    = posOf at
-instance Eq CAttr where
-    (CAttr _ _ at1) == (CAttr _ _ at2) = at1 == at2
+             deriving (Data,Typeable {-! CNode !-})
 
 -- | C expression (K&R A7)
 --
@@ -710,170 +475,229 @@ data CExpr = CComma       [CExpr]       -- comma expression list, n >= 2
            | CLabAddrExpr Ident         -- GNUC address of label
                           NodeInfo
            | CBuiltinExpr CBuiltin      -- place holder for GNUC builtin exprs
+           deriving (Data,Typeable {-! CNode !-})
 
-instance Pos CExpr where
-  posOf (CComma       _     at) = posOf at
-  posOf (CAssign      _ _ _ at) = posOf at
-  posOf (CCond        _ _ _ at) = posOf at
-  posOf (CBinary      _ _ _ at) = posOf at
-  posOf (CCast        _ _   at) = posOf at
-  posOf (CUnary       _ _   at) = posOf at
-  posOf (CSizeofExpr  _     at) = posOf at
-  posOf (CSizeofType  _     at) = posOf at
-  posOf (CAlignofExpr _     at) = posOf at
-  posOf (CAlignofType _     at) = posOf at
-  posOf (CComplexReal _     at) = posOf at
-  posOf (CComplexImag _     at) = posOf at
-  posOf (CIndex       _ _   at) = posOf at
-  posOf (CCall        _ _   at) = posOf at
-  posOf (CMember      _ _ _ at) = posOf at
-  posOf (CVar         _     at) = posOf at
-  posOf (CConst       _     at) = posOf at
-  posOf (CCompoundLit _ _   at) = posOf at
-  posOf (CStatExpr    _     at) = posOf at
-  posOf (CLabAddrExpr _     at) = posOf at
-  posOf (CBuiltinExpr       bt) = posOf bt
 
-instance Eq CExpr where
-  (CComma       _     at1) == (CComma       _     at2) = at1 == at2
-  (CAssign      _ _ _ at1) == (CAssign      _ _ _ at2) = at1 == at2
-  (CCond        _ _ _ at1) == (CCond        _ _ _ at2) = at1 == at2
-  (CBinary      _ _ _ at1) == (CBinary      _ _ _ at2) = at1 == at2
-  (CCast        _ _   at1) == (CCast        _ _   at2) = at1 == at2
-  (CUnary       _ _   at1) == (CUnary       _ _   at2) = at1 == at2
-  (CSizeofExpr  _     at1) == (CSizeofExpr  _     at2) = at1 == at2
-  (CSizeofType  _     at1) == (CSizeofType  _     at2) = at1 == at2
-  (CAlignofExpr _     at1) == (CAlignofExpr _     at2) = at1 == at2
-  (CAlignofType _     at1) == (CAlignofType _     at2) = at1 == at2
-  (CComplexReal _     at1) == (CComplexReal _     at2) = at1 == at2
-  (CComplexImag _     at1) == (CComplexImag _     at2) = at1 == at2
-  (CIndex       _ _   at1) == (CIndex       _ _   at2) = at1 == at2
-  (CCall        _ _   at1) == (CCall        _ _   at2) = at1 == at2
-  (CMember      _ _ _ at1) == (CMember      _ _ _ at2) = at1 == at2
-  (CVar         _     at1) == (CVar         _     at2) = at1 == at2
-  (CConst       _     at1) == (CConst       _     at2) = at1 == at2
-  (CCompoundLit _ _   at1) == (CCompoundLit _ _   at2) = at1 == at2
-  (CStatExpr    _     at1) == (CStatExpr    _     at2) = at1 == at2
-  (CLabAddrExpr _     at1) == (CLabAddrExpr _     at2) = at1 == at2
-  (CBuiltinExpr builtin1)  == (CBuiltinExpr builtin2)  = builtin1 == builtin2
-  _                        == _                        = False 
 -- | GNU Builtins, which cannot be typed in C99
 data CBuiltin = 
           CBuiltinVaArg CExpr CDecl NodeInfo            -- ^ @(expr, type)@
         | CBuiltinOffsetOf CDecl [CDesignator] NodeInfo -- ^ @(type, designator-list)@
         | CBuiltinTypesCompatible CDecl CDecl NodeInfo  -- ^ @(type,type)@
-instance Pos CBuiltin where
-    posOf (CBuiltinVaArg _ _ at) = posOf at
-    posOf (CBuiltinOffsetOf _ _ at) = posOf at
-    posOf (CBuiltinTypesCompatible _ _ at) = posOf at
-instance Eq CBuiltin where
-    (==) (CBuiltinVaArg _ _           at1) (CBuiltinVaArg _ _           at2) = at1 == at2
-    (==) (CBuiltinOffsetOf _ _        at1) (CBuiltinOffsetOf _ _        at2) = at1 == at2
-    (==) (CBuiltinTypesCompatible _ _ at1) (CBuiltinTypesCompatible _ _ at2) = at1 == at2
-    (==) _ _ = False
-    
--- | C assignment operators (K&R A7.17)
-data CAssignOp = CAssignOp
-               | CMulAssOp
-               | CDivAssOp
-               | CRmdAssOp              -- ^ remainder and assignment
-               | CAddAssOp
-               | CSubAssOp
-               | CShlAssOp
-               | CShrAssOp
-               | CAndAssOp
-               | CXorAssOp
-               | COrAssOp
-               deriving (Eq)
+        deriving (Data,Typeable {-! CNode !-})
 
--- | C binary operators (K&R A7.6-15)
---
-data CBinaryOp = CMulOp
-               | CDivOp
-               | CRmdOp                 -- ^ remainder of division
-               | CAddOp
-               | CSubOp
-               | CShlOp                 -- ^ shift left
-               | CShrOp                 -- ^ shift right
-               | CLeOp                  -- ^ less
-               | CGrOp                  -- ^ greater
-               | CLeqOp                 -- ^ less or equal
-               | CGeqOp                 -- ^ greater or equal
-               | CEqOp                  -- ^ equal
-               | CNeqOp                 -- ^ not equal
-               | CAndOp                 -- ^ bitwise and
-               | CXorOp                 -- ^ exclusive bitwise or
-               | COrOp                  -- ^ inclusive bitwise or
-               | CLndOp                 -- ^ logical and
-               | CLorOp                 -- ^ logical or
-               deriving (Eq)
 
--- | C unary operator (K&R A7.3-4)
---
-data CUnaryOp = CPreIncOp               -- ^ prefix increment operator
-              | CPreDecOp               -- ^ prefix decrement operator
-              | CPostIncOp              -- ^ postfix increment operator
-              | CPostDecOp              -- ^ postfix decrement operator
-              | CAdrOp                  -- ^ address operator
-              | CIndOp                  -- ^ indirection operator
-              | CPlusOp                 -- ^ prefix plus
-              | CMinOp                  -- ^ prefix minus
-              | CCompOp                 -- ^ one's complement
-              | CNegOp                  -- ^ logical negation
-              deriving (Eq)
 
 -- | C constant (K&R A2.5 & A7.2)
---
--- see 'Language.C.AST.Constants'
 data CConst = CIntConst   CInteger NodeInfo
-            | CCharConst  CChar    NodeInfo
-            | CFloatConst CFloat   NodeInfo
-            | CStrConst   CString  NodeInfo
+            | CCharConst  CChar NodeInfo
+            | CFloatConst CFloat NodeInfo
+            | CStrConst   CString NodeInfo
+            deriving (Data,Typeable {-! CNode !-})
 
-instance Pos CConst where
-  posOf (CIntConst   _ at) = posOf at
-  posOf (CCharConst  _ at) = posOf at
-  posOf (CFloatConst _ at) = posOf at
-  posOf (CStrConst   _ at) = posOf at
-
-instance Eq CConst where
-  (CIntConst   _ at1) == (CIntConst   _ at2) = at1 == at2
-  (CCharConst  _ at1) == (CCharConst  _ at2) = at1 == at2
-  (CFloatConst _ at1) == (CFloatConst _ at2) = at1 == at2
-  (CStrConst   _ at1) == (CStrConst   _ at2) = at1 == at2
-  _                   == _                   = False
-  
 -- | Attributed string literals
 data CStrLit = CStrLit CString NodeInfo
-instance Pos CStrLit where
-    posOf (CStrLit _ at) = posOf at
-instance Eq CStrLit where
-  (==) (CStrLit _ at1) (CStrLit _ at2) = at1 == at2
-instance CNode CStrLit where
-    nodeInfo (CStrLit _ at) = at
+            deriving (Data,Typeable {-! CNode !-})
+
+cstringOfLit :: CStrLit -> CString
+cstringOfLit (CStrLit cstr _) = cstr
 
 -- | Lift a string literal to a C constant
 liftStrLit :: CStrLit -> CConst
 liftStrLit (CStrLit str at) = CStrConst str at
 
--- | A @CObj@ is either a declaration, a type definition or an enumerator definition.
---
--- /TODO/: Stub from the analysis code, maybe remove
-data CObj = TypeCO    CDecl             -- ^ typedef declaration
-          | ObjCO     CDecl             -- ^ object or function declaration
-          | EnumCO    Ident CEnum       -- ^ enumerator
-          | BuiltinCO                   -- ^ builtin object
--- | A @CTag@ is a struct, union or enum declaration 
---
--- /TODO/: Stub from the analysis code, maybe remove
-data CTag = StructUnionCT CStructUnion  -- ^ toplevel struct-union declaration
-          | EnumCT        CEnum         -- ^ toplevel enum declaration
 
--- | A @CDef@ is something an identifier can be associated with -
---   it can either be undefined, an object or and struct/union/enum tag.
---
--- /TODO/: Stub from the analysis code, maybe remove
-data CDef = UndefCD                     -- ^ undefined object
-          | DontCareCD                  -- ^ don't care object
-          | ObjCD      CObj             -- ^ C object
-          | TagCD      CTag             -- ^ C tag
+
+--------------------------------------------------------
+-- DERIVES GENERATED CODE
+-- DO NOT MODIFY BELOW THIS LINE
+-- CHECKSUM: 37319874
+
+instance CNode CTranslUnit
+    where nodeInfo (CTranslUnit _ nodeinfo) = nodeinfo
+instance Pos CTranslUnit
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CExtDecl
+    where nodeInfo (CDeclExt d) = nodeInfo d
+          nodeInfo (CFDefExt d) = nodeInfo d
+          nodeInfo (CAsmExt d) = nodeInfo d
+instance Pos CExtDecl
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CFunDef
+    where nodeInfo (CFunDef _ _ _ _ nodeinfo) = nodeinfo
+instance Pos CFunDef
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CDecl
+    where nodeInfo (CDecl _ _ nodeinfo) = nodeinfo
+instance Pos CDecl
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CDeclr
+    where nodeInfo (CDeclr _ _ _ _ nodeinfo) = nodeinfo
+instance Pos CDeclr
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CDerivedDeclr
+    where nodeInfo (CPtrDeclr _ nodeinfo) = nodeinfo
+          nodeInfo (CArrDeclr _ _ nodeinfo) = nodeinfo
+          nodeInfo (CFunDeclr _ _ nodeinfo) = nodeinfo
+instance Pos CDerivedDeclr
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CStat
+    where nodeInfo (CLabel _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CCase _ _ nodeinfo) = nodeinfo
+          nodeInfo (CCases _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CDefault _ nodeinfo) = nodeinfo
+          nodeInfo (CExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CCompound _ _ nodeinfo) = nodeinfo
+          nodeInfo (CIf _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CSwitch _ _ nodeinfo) = nodeinfo
+          nodeInfo (CWhile _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CFor _ _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CGoto _ nodeinfo) = nodeinfo
+          nodeInfo (CGotoPtr _ nodeinfo) = nodeinfo
+          nodeInfo (CCont nodeinfo) = nodeinfo
+          nodeInfo (CBreak nodeinfo) = nodeinfo
+          nodeInfo (CReturn _ nodeinfo) = nodeinfo
+          nodeInfo (CAsm _ nodeinfo) = nodeinfo
+instance Pos CStat
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CAsmStmt
+    where nodeInfo (CAsmStmt _ _ _ _ _ nodeinfo) = nodeinfo
+instance Pos CAsmStmt
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CAsmOperand
+    where nodeInfo (CAsmOperand _ _ _ nodeinfo) = nodeinfo
+instance Pos CAsmOperand
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CBlockItem
+    where nodeInfo (CBlockStmt d) = nodeInfo d
+          nodeInfo (CBlockDecl d) = nodeInfo d
+          nodeInfo (CNestedFunDef d) = nodeInfo d
+instance Pos CBlockItem
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CDeclSpec
+    where nodeInfo (CStorageSpec d) = nodeInfo d
+          nodeInfo (CTypeSpec d) = nodeInfo d
+          nodeInfo (CTypeQual d) = nodeInfo d
+instance Pos CDeclSpec
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CStorageSpec
+    where nodeInfo (CAuto nodeinfo) = nodeinfo
+          nodeInfo (CRegister nodeinfo) = nodeinfo
+          nodeInfo (CStatic nodeinfo) = nodeinfo
+          nodeInfo (CExtern nodeinfo) = nodeinfo
+          nodeInfo (CTypedef nodeinfo) = nodeinfo
+          nodeInfo (CThread nodeinfo) = nodeinfo
+instance Pos CStorageSpec
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CTypeSpec
+    where nodeInfo (CVoidType nodeinfo) = nodeinfo
+          nodeInfo (CCharType nodeinfo) = nodeinfo
+          nodeInfo (CShortType nodeinfo) = nodeinfo
+          nodeInfo (CIntType nodeinfo) = nodeinfo
+          nodeInfo (CLongType nodeinfo) = nodeinfo
+          nodeInfo (CFloatType nodeinfo) = nodeinfo
+          nodeInfo (CDoubleType nodeinfo) = nodeinfo
+          nodeInfo (CSignedType nodeinfo) = nodeinfo
+          nodeInfo (CUnsigType nodeinfo) = nodeinfo
+          nodeInfo (CBoolType nodeinfo) = nodeinfo
+          nodeInfo (CComplexType nodeinfo) = nodeinfo
+          nodeInfo (CSUType _ nodeinfo) = nodeinfo
+          nodeInfo (CEnumType _ nodeinfo) = nodeinfo
+          nodeInfo (CTypeDef _ nodeinfo) = nodeinfo
+          nodeInfo (CTypeOfExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CTypeOfType _ nodeinfo) = nodeinfo
+instance Pos CTypeSpec
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CTypeQual
+    where nodeInfo (CConstQual nodeinfo) = nodeinfo
+          nodeInfo (CVolatQual nodeinfo) = nodeinfo
+          nodeInfo (CRestrQual nodeinfo) = nodeinfo
+          nodeInfo (CInlineQual nodeinfo) = nodeinfo
+          nodeInfo (CAttrQual d) = nodeInfo d
+instance Pos CTypeQual
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CStructUnion
+    where nodeInfo (CStruct _ _ _ _ nodeinfo) = nodeinfo
+instance Pos CStructUnion
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CEnum
+    where nodeInfo (CEnum _ _ _ nodeinfo) = nodeinfo
+instance Pos CEnum
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CInit
+    where nodeInfo (CInitExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CInitList _ nodeinfo) = nodeinfo
+instance Pos CInit
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CDesignator
+    where nodeInfo (CArrDesig _ nodeinfo) = nodeinfo
+          nodeInfo (CMemberDesig _ nodeinfo) = nodeinfo
+          nodeInfo (CRangeDesig _ _ nodeinfo) = nodeinfo
+instance Pos CDesignator
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CAttr
+    where nodeInfo (CAttr _ _ nodeinfo) = nodeinfo
+instance Pos CAttr
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CExpr
+    where nodeInfo (CComma _ nodeinfo) = nodeinfo
+          nodeInfo (CAssign _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CCond _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CBinary _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CCast _ _ nodeinfo) = nodeinfo
+          nodeInfo (CUnary _ _ nodeinfo) = nodeinfo
+          nodeInfo (CSizeofExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CSizeofType _ nodeinfo) = nodeinfo
+          nodeInfo (CAlignofExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CAlignofType _ nodeinfo) = nodeinfo
+          nodeInfo (CComplexReal _ nodeinfo) = nodeinfo
+          nodeInfo (CComplexImag _ nodeinfo) = nodeinfo
+          nodeInfo (CIndex _ _ nodeinfo) = nodeinfo
+          nodeInfo (CCall _ _ nodeinfo) = nodeinfo
+          nodeInfo (CMember _ _ _ nodeinfo) = nodeinfo
+          nodeInfo (CVar _ nodeinfo) = nodeinfo
+          nodeInfo (CConst _ nodeinfo) = nodeinfo
+          nodeInfo (CCompoundLit _ _ nodeinfo) = nodeinfo
+          nodeInfo (CStatExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CLabAddrExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CBuiltinExpr d) = nodeInfo d
+instance Pos CExpr
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CBuiltin
+    where nodeInfo (CBuiltinVaArg _ _ nodeinfo) = nodeinfo
+          nodeInfo (CBuiltinOffsetOf _ _ nodeinfo) = nodeinfo
+          nodeInfo (CBuiltinTypesCompatible _ _ nodeinfo) = nodeinfo
+instance Pos CBuiltin
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CConst
+    where nodeInfo (CIntConst _ nodeinfo) = nodeinfo
+          nodeInfo (CCharConst _ nodeinfo) = nodeinfo
+          nodeInfo (CFloatConst _ nodeinfo) = nodeinfo
+          nodeInfo (CStrConst _ nodeinfo) = nodeinfo
+instance Pos CConst
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode CStrLit
+    where nodeInfo (CStrLit _ nodeinfo) = nodeinfo
+instance Pos CStrLit
+    where posOf x = nodePos (nodeInfo x)

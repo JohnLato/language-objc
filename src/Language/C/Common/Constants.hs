@@ -22,8 +22,6 @@ module Language.C.Common.Constants (
   cfloat,  CFloat(..), readCFloat,
   -- * C string literals
   cstring, cstring_w, CString(..), getCString, showStringLit, concatCStrings,
-  -- * C constants
-  CConst(..),CStrLit(..),liftStrLit,cstringOfLit,
 )
 where
 import Data.Bits
@@ -250,7 +248,7 @@ head' :: String -> [a] -> a
 head' err []  = error err
 head' _ (x:_) = x
 
--- TODO: Move to Toolkit ?
+-- TODO: Move to seperate file ?
 newtype Flags f = Flags Integer deriving (Eq,Ord,Data,Typeable)
 noFlags :: Flags f
 noFlags = Flags 0
@@ -261,40 +259,5 @@ clearFlag flag (Flags k) = Flags$ k `clearBit` fromEnum flag
 testFlag :: (Enum f) => f -> Flags f -> Bool
 testFlag flag (Flags k)  = k `testBit` fromEnum flag
 
--- | C constant (K&R A2.5 & A7.2)
-data CConst = CIntConst   CInteger NodeInfo
-            | CCharConst  CChar NodeInfo
-            | CFloatConst CFloat NodeInfo
-            | CStrConst   CString NodeInfo
-            deriving (Data,Typeable {-! CNode !-})
-
--- | Attributed string literals
-data CStrLit = CStrLit CString NodeInfo
-            deriving (Data,Typeable {-! CNode !-})
-
-cstringOfLit :: CStrLit -> CString
-cstringOfLit (CStrLit cstr _) = cstr
-
--- | Lift a string literal to a C constant
-liftStrLit :: CStrLit -> CConst
-liftStrLit (CStrLit str at) = CStrConst str at
 
 
-
---------------------------------------------------------
--- DERIVES GENERATED CODE
--- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 1473184346
-
-instance CNode CConst
-    where nodeInfo (CIntConst _ nodeinfo) = nodeinfo
-          nodeInfo (CCharConst _ nodeinfo) = nodeinfo
-          nodeInfo (CFloatConst _ nodeinfo) = nodeinfo
-          nodeInfo (CStrConst _ nodeinfo) = nodeinfo
-instance Pos CConst
-    where posOf x = nodePos (nodeInfo x)
-
-instance CNode CStrLit
-    where nodeInfo (CStrLit _ nodeinfo) = nodeinfo
-instance Pos CStrLit
-    where posOf x = nodePos (nodeInfo x)

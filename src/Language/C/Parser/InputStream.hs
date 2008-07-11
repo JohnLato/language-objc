@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, BangPatterns #-}
 {-# OPTIONS -Wall #-}
 -----------------------------------------------------------------------------
 -- |
@@ -24,17 +24,21 @@ import qualified Data.ByteString.Char8 as BS
 -- Generic InputStream stuff
 readInputStream :: FilePath -> IO InputStream
 inputStreamToString :: InputStream -> String
+{-# INLINE inputStreamToString #-}
 inputStreamFromString :: String -> InputStream
 takeChar :: InputStream -> (Char, InputStream)
+{-# INLINE takeChar #-}
 inputStreamEmpty :: InputStream -> Bool
+{-# INLINE inputStreamEmpty #-}
 takeChars :: Int -> InputStream -> String
+{-# INLINE takeChars #-}
 countLines :: InputStream -> Int
 
 #ifndef NO_BYTESTRING
 type InputStream = ByteString
-takeChar bs = (BS.head bs, BS.tail bs)
+takeChar bs = BS.head bs `seq`  (BS.head bs, BS.tail bs)
 inputStreamEmpty = BS.null
-takeChars n str = BS.unpack$ BS.take n str
+takeChars !n bstr = BS.unpack $ BS.take n bstr --leaks
 readInputStream = BS.readFile
 inputStreamToString = BS.unpack
 inputStreamFromString = BS.pack

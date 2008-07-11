@@ -1,5 +1,5 @@
 -- |
--- Module      :  Language.C.AST.Builtin
+-- Module      :  Language.C.Parser.Builtin
 -- Copyright   :  (c) 2001 Manuel M. T. Chakravarty
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
@@ -10,14 +10,12 @@
 --  Currently, only builtin type names are supported.  The only builtin type
 --  name is `__builtin_va_list', which is a builtin of GNU C.
 --
-module Language.C.AST.Builtin (
+module Language.C.Parser.Builtin (
   builtinTypeNames
 ) where
-
-import Language.C.Toolkit.Position (builtinPos)
-import Language.C.Toolkit.Idents (Ident, onlyPosIdent)
+import Language.C.Common.Ident (Ident, builtinIdent)
 
 -- predefined type names
 --
 builtinTypeNames :: [Ident]
-builtinTypeNames  = [onlyPosIdent builtinPos "__builtin_va_list"]
+builtinTypeNames  = [builtinIdent "__builtin_va_list"]

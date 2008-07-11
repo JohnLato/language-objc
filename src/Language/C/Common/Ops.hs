@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Syntax.Ops
+-- Module      :  Language.C.Common.Ops
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
@@ -9,7 +9,7 @@
 --
 -- unary, binary and asssignment operators
 -----------------------------------------------------------------------------
-module Language.C.Syntax.Ops (
+module Language.C.Common.Ops (
 CAssignOp(..),CBinaryOp(..),CUnaryOp(..)
 )
 where

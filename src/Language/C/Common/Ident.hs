@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Common.Idents
+-- Module      :  Language.C.Common.Ident
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
@@ -24,15 +24,15 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Common.Ident (
-    Ident(..), mkIdent, internalIdent, isInternalIdent, identToString, 
+    Ident(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, 
     getIdentNodeInfo,dumpIdent)
 where
 
 import Data.Char
-import Language.C.Common.Position   (Position, nopos, Pos(..), internalPos, isInternalPos)
-import Language.C.Common.Name     (Name)
-import Language.C.Common.Error     (internalErr)
-import Language.C.Common.Node (NodeInfo, mkNodeInfoOnlyPos, mkNodeInfo,CNode(..), nodePos)
+import Language.C.Common.Position
+import Language.C.Common.Node
+import Language.C.Common.Name   (Name)
+import Language.C.Common.Error  (internalErr)
 import Data.Generics
 
 -- simple identifier representation (EXPORTED)
@@ -112,9 +112,12 @@ mkIdent pos s name  = Ident s (quad s) (mkNodeInfo pos name)
 internalIdent   :: String -> Ident
 internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos internalPos)
 
+builtinIdent   :: String -> Ident
+builtinIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos builtinPos)
+
 -- | return true if the given identifier is internal
 isInternalIdent :: Ident -> Bool
-isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (nodePos nodeinfo) 
+isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (nodePos nodeinfo) || isBuiltinPos (nodePos nodeinfo)
 
 -- | get the string of an identifier
 identToString               :: Ident -> String

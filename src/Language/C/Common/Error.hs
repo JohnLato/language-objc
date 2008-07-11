@@ -13,7 +13,7 @@ module Language.C.Common.Error (
   -- * handling of internal errors
   internalErr, todo,
   -- * errors in the parsed program
-  ErrorLevel(..), Error(..), makeError, showError
+  ErrorLevel(..), CError(..), mkWarning, mkError, showError
 ) where
 
 import Language.C.Common.Position (Position(..), isInternalPos)
@@ -49,23 +49,30 @@ data ErrorLevel = LevelWarning
                 | LevelFatal
               deriving (Eq, Ord)
 
+-- | create a warning
+mkWarning :: Position -> String -> CError
+mkWarning pos msg = mkError LevelWarning pos (lines msg)
+
 -- | create a `Error' with the given level, position and error lines
-makeError :: ErrorLevel -> Position -> [String] -> Error
-makeError  = Error
+mkError :: ErrorLevel -> Position -> [String] -> CError
+mkError  = CError
 
-data Error = Error { errorLevel :: ErrorLevel, 
+data CError = CError { errorLevel :: ErrorLevel, 
                        errorPos   :: Position,
-                       errorLines :: [String] }
+                       errorMsgs :: [String] }
 
-instance Eq Error where
-  (Error lvl1 pos1 _) == (Error lvl2 pos2 _) = lvl1 == lvl2 && pos1 == pos2
+instance Eq CError where
+  (CError lvl1 pos1 _) == (CError lvl2 pos2 _) = lvl1 == lvl2 && pos1 == pos2
   
-instance Ord Error where
-  (Error lvl1 pos1 _) <  (Error lvl2 pos2 _) = pos1 < pos2
+instance Ord CError where
+  (CError lvl1 pos1 _) <  (CError lvl2 pos2 _) = pos1 < pos2
                                                || (pos1 == pos2 && lvl1 < lvl2)
   e1                  <= e2                  = e1 < e2 || e1 == e2
-instance Show Error where
-      
+instance Show CError where
+  show = showError
+
+isWarning :: CError -> Bool
+isWarning = ( == LevelWarning) . errorLevel
 -- | converts an error into a string using a fixed format
 --
 -- * the list of lines of the error message must not be empty
@@ -86,12 +93,12 @@ instance Show Error where
 -- >        ...
 -- >      <line_n>
 --
-showError :: Error -> String
-showError (Error _   pos               (l:ls))  | isInternalPos pos =
+showError :: CError -> String
+showError (CError _   pos (l:ls))  | isInternalPos pos =
   "INTERNAL ERROR!\n" 
   ++ "  >>> " ++ l ++ "\n"
   ++ (indentMultilineString 2 . unlines) ls  
-showError (Error lvl (Position fname row col) (l:ls))  =
+showError (CError lvl (Position fname row col) (l:ls))  =
   let
     prefix = fname ++ ":" ++ show (row::Int) ++ ": "
              ++ "(column " 
@@ -106,7 +113,7 @@ showError (Error lvl (Position fname row col) (l:ls))  =
   prefix ++ "\n" 
   ++ "  >>> " ++ l ++ "\n"
   ++ (indentMultilineString 2 . unlines) ls
-showError (Error _  _                  []   )   = internalErr "Errors: showError: Empty error message!"
+showError (CError _  _                  []   )   = internalErr "Errors: showError: Empty error message!"
 
 
 -- indent the given multiline text by the given number of spaces

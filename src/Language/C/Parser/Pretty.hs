@@ -1,30 +1,29 @@
 {-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.AST.Pretty
+-- Module      :  Language.C.Parser.Pretty
 -- Copyright   :  Copyright (c) 2007 Bertram Felgenhauer
 --                          (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
--- This module provides a pretty printer for the AST ('Language.C.AST.AST').
+-- This module provides a pretty printer for the parse tree ('Language.C.Parser.AST').
 -----------------------------------------------------------------------------
-module Language.C.AST.Pretty (
+module Language.C.Parser.Pretty (
     Pretty (..),
     prettyUsingInclude
 ) where
 import Data.List (partition,nub,isSuffixOf)
 import qualified Data.Set as Set
-import Language.C.AST.AST
-import Language.C.AST.Constants
-import Language.C.Toolkit.Idents
-import Language.C.Toolkit.Position
 import Text.PrettyPrint.HughesPJ
+import Debug.Trace
 
+import Language.C.Common
+import Language.C.Common.Constants
+import Language.C.Parser.AST
 
 -- Pretty class
--- TODO: move
 class Pretty p where
     pretty     :: p -> Doc
     prettyPrec :: Int -> p -> Doc
@@ -42,7 +41,7 @@ mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
 
 -- pretty print identifier
 identP :: Ident -> Doc
-identP = text . identToLexeme
+identP = text . identToString
 
 -- pretty print attribute annotations
 attrlistP :: [CAttr] -> Doc
@@ -214,7 +213,7 @@ instance Pretty CTypeQual where
     pretty (CConstQual _) = text "const"
     pretty (CVolatQual _) = text "volatile"
     pretty (CRestrQual _) = text "__restrict"
-    pretty (CInlinQual _) = text "inline"
+    pretty (CInlineQual _) = text "inline"
     pretty (CAttrQual a)  = attrlistP [a]
 
 instance Pretty CStructUnion where
@@ -238,6 +237,39 @@ instance Pretty CEnum where
         text "}"] where
         p (ident, expr) = identP ident <+> maybeP ((text "=" <+>) . pretty) expr
 
+--  Analyze a declarator and return a human-readable description
+--   See C99 Spec p 115ff.
+-- describeDeclr :: CDeclr -> Doc
+-- describeDeclr declr = 
+--     let declrs = reverse (declrChain declr) in
+--     endDescr (foldl descrDeclr undefined declrs)
+-- 
+--   where 
+--   declrChain declr@(CVarDeclr _ _ _ _) = [declr]
+--   declrChain declr@(CPtrDeclr _ ideclr _)   = declr : declrChain ideclr
+--   declrChain declr@(CArrDeclr ideclr _ _ _) = declr : declrChain ideclr 
+--   declrChain declr@(CFunDeclr ideclr _ _ _)   = declr : declrChain ideclr
+-- 
+--   descrDeclr _ (CVarDeclr ident asm cattrs _) = single False $ \_ ->
+--       maybe (text "<anonymous>") identP ident <+> 
+--       maybeP (\asmname -> parens (text "asm:" <+> pretty asmname)) asm <+>
+--       text "is" <+> (if null cattrs then empty else prettyList (map CAttrQual cattrs) <> comma)
+--   descrDeclr (pre,isPlural) (CPtrDeclr quals declr _) = single isPlural $ \pluralize ->
+--       pre <+> indefArticle isPlural <> prettyList quals <+> pluralize "pointer to" "pointers to"
+--   descrDeclr (pre,isPlural) (CArrDeclr declr quals expr _) = plural isPlural $ \pluralize ->
+--       pre <+> indefArticle' isPlural <> prettyList quals <+> pluralize "array of" "arrays of"
+--   descrDeclr (pre,isPlural) (CFunDeclr declr params cattrs _) = single isPlural $ \pluralize ->
+--       pre <+> indefArticle isPlural <> prettyList (map CAttrQual cattrs) <+> pluralize "function returning" "functions returning"
+--   endDescr (pre, isPlural) =  pre <+> text (if isPlural then "<typed objects>" else "a <typed object>")
+--   single :: Bool -> ( (String -> String -> Doc) -> a ) -> (a, Bool)
+--   single isPlural mkDescr = (mkDescr (pluralize isPlural), isPlural)
+--   plural :: Bool -> ( (String -> String -> Doc) -> a ) -> (a, Bool)
+--   plural isPlural mkDescr = (mkDescr (pluralize isPlural), True)
+--   indefArticle isPlural  = text$ if isPlural then "" else "a "
+--   indefArticle' isPlural = text$ if isPlural then "" else "an " 
+--   pluralize isPlural s p = text (if isPlural then p else s)
+--   prettyList :: (Pretty a) => [a] -> Doc
+--   prettyList = hsep . punctuate comma . map pretty
 instance Pretty CDeclr where
     prettyPrec prec declr = prettyDeclr prec declr 
 

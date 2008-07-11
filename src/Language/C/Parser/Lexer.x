@@ -54,10 +54,10 @@ import Data.Char (isDigit)
 import Control.Monad (liftM)
 import Numeric   (readDec, readOct, readHex)
 
-import Language.C.Toolkit.Position  (Position(..), Pos(posOf))
-import Language.C.Toolkit.Idents    (lexemeToIdent)
+import Language.C.Common.Position  (Position(..),posOf)
+import Language.C.Common.Ident    (mkIdent)
 
-import Language.C.AST.Constants
+import Language.C.Common.Constants
 
 import Language.C.Parser.Tokens
 import Language.C.Parser.ParserMonad
@@ -324,7 +324,7 @@ idkwtok ('_':'_':'b':'u':'i':'l':'t':'i':'n':'_':rest)
 
 idkwtok cs = \pos -> do
   name <- getNewName
-  let ident = lexemeToIdent pos cs name
+  let ident = mkIdent pos cs name
   tyident <- isTypeIdent ident
   if tyident
     then return (CTokTyIdent pos ident)
@@ -355,9 +355,10 @@ adjustPos str (Position fname row _) = Position fname' row' 0
     fname'      | null str''' || head str''' /= '"' = fname
      -- try and get more sharing of file name strings
      | fnameStr == fname     = fname
-     | otherwise       = fnameStr
+     | otherwise             = fnameStr
     --
     dropWhite = dropWhile (\c -> c == ' ' || c == '\t')
+    
 -- special utility for the lexer
 unescapeMultiChars :: String -> [Char]
 unescapeMultiChars cs@(_ : _ : _) = case unescapeChar cs of (c,cs') -> c : unescapeMultiChars cs'
@@ -406,8 +407,10 @@ alexGetChar (p,is) | inputStreamEmpty is = Nothing
                                   Just (c, (p', s))
 
 alexMove :: Position -> Char -> Position
-alexMove (Position f l c) '\t' = Position f l     (((c+7) `div` 8)*8+1)
+alexMove (Position f l c) ' '  = Position f l (c+1)
 alexMove (Position f l c) '\n' = Position f (l+1) 1
+alexMove (Position f l c) '\t' = Position f l (((c+7) `div` 8)*8+1)
+alexMove p                '\r' = p
 alexMove (Position f l c) _    = Position f l     (c+1)
 
 lexicalError :: P a

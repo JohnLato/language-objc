@@ -2,9 +2,9 @@
 -- |
 -- Module      :  GenericAST.hs
 -- Copyright   :  (c) Benedikt Huber Wed May 28 09:18:07 CEST 2008
+-- Stability   : Prototype !!
 --
 -- Generic ASTs
--- FIXME: Prototype !!!
 -- Note that it seems to be clever to use generics here, as long as the AST
 -- isn't set in stone - no need to update when the AST changes.
 -----------------------------------------------------------------------------
@@ -12,11 +12,10 @@ module Language.C.Test.GenericAST where
 import Data.Generics
 import Text.PrettyPrint
 
-import Language.C.Toolkit.Attributes
-import Language.C.Toolkit.Idents
-import Language.C.AST.AST
-import Language.C.AST.Pretty
-import Language.C.AST.Generic ()
+import Language.C.Common.Node
+import Language.C.Common.Ident
+import Language.C.Parser.AST
+import Language.C.Parser.Pretty
 -- | Generic AST
 data GenAST =   GNode Constr [GenAST]
               | GNested [GenAST]
@@ -63,7 +62,7 @@ toGenericAST =
   where    
     mkAstConNode :: (Data a) => a -> GenAST
     mkAstConNode v = GNode (toConstr v) . map simplifyNode . filter ( /= GIgnore)  $ gmapQ toGenericAST v
-    mkAstAttr :: Attrs -> GenAST
+    mkAstAttr :: NodeInfo -> GenAST
     mkAstAttr _ = GIgnore
     mkLeaf :: (a -> GenLeaf) -> (a -> GenAST)
     mkLeaf = (GLeaf .)

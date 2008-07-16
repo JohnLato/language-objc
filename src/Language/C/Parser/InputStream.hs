@@ -35,7 +35,6 @@ inputStreamEmpty :: InputStream -> Bool
 takeChars :: Int -> InputStream -> String
 {-# INLINE takeChars #-}
 countLines :: InputStream -> Int
-
 #ifndef NO_BYTESTRING
 type InputStream = ByteString
 takeChar bs = BS.head bs `seq`  (BS.head bs, BS.tail bs)

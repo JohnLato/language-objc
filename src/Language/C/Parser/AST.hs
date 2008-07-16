@@ -485,8 +485,6 @@ data CBuiltin =
         | CBuiltinTypesCompatible CDecl CDecl NodeInfo  -- ^ @(type,type)@
         deriving (Data,Typeable {-! CNode !-})
 
-
-
 -- | C constant (K&R A2.5 & A7.2)
 data CConst = CIntConst   CInteger NodeInfo
             | CCharConst  CChar NodeInfo

@@ -1,5 +1,5 @@
 Name:           language-c
-Version:        0.2
+Version:        0.2.5
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
 License:        BSD3
@@ -20,8 +20,8 @@ Flag useByteStrings
     Description: Use ByteString as InputStream datatype
     Default: True
 Library
-    Extensions: CPP
-    Build-Depends:  filepath
+    Extensions: CPP, DeriveDataTypeable
+    Build-Depends:  filepath, mtl
 
     if flag(splitBase)
         Build-Depends: base >= 3, process, directory, array, containers, pretty
@@ -36,24 +36,28 @@ Library
 
     Hs-Source-Dirs: src
     Exposed-Modules:  
-                      Language.C.Toolkit.Names 
-                      Language.C.Toolkit.Position 
-                      Language.C.Toolkit.Errors 
-                      Language.C.Toolkit.Attributes 
-                      Language.C.Toolkit.Idents 
-                      Language.C.Toolkit.NameSpaceMap
-                      Language.C.Toolkit 
+                      Language.C.Common.Constants
+                      Language.C.Common.Name 
+                      Language.C.Common.Position 
+                      Language.C.Common.Error 
+                      Language.C.Common.Node 
+                      Language.C.Common.Ops
+                      Language.C.Common.Ident 
+                      Language.C.Common
+                      Language.C.Analysis.NameSpaceMap
+                      Language.C.Analysis.SymbolTable
+                      Language.C.Analysis.TravMonad
+                      Language.C.Analysis.SemRep              
+                      -- Language.C.Analysis.AstAnalysis
+                      -- Language.C.Analysis.TypeAnalysis
+                      Language.C.Parser.AST
+                      Language.C.Parser.Builtin
                       Language.C.Parser.InputStream
                       Language.C.Parser.Lexer 
                       Language.C.Parser.Parser 
                       Language.C.Parser.ParserMonad 
+                      Language.C.Parser.Pretty
                       Language.C.Parser.Tokens 
-                      Language.C.AST.AST 
-                      Language.C.AST.Builtin
-                      Language.C.AST.Declarations
-                      Language.C.AST.Constants
-                      Language.C.AST.Generic
-                      Language.C.AST.Pretty 
-                      Language.C.AST 
                       Language.C              
-                      
+    Other-Modules:    
+                      Language.C.Common.RList

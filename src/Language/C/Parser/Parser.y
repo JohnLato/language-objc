@@ -96,14 +96,10 @@ module Language.C.Parser.Parser (parseC) where
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 
-import Language.C.Common.Position   (Position,  nopos, Pos(..))
-import Language.C.Common.Name     (namesStartingFrom)
-import Language.C.Common.Ident     (Ident, internalIdent)
-import Language.C.Common.Node (NodeInfo, mkNodeInfo, mkNodeInfoOnlyPos)
-
+import Language.C.Common
+import Language.C.Common.RList
 import Language.C.Parser.AST
 import Language.C.Parser.Builtin   (builtinTypeNames)
-import Language.C.Common.Constants (concatCStrings, CString)
 
 import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
@@ -2056,41 +2052,9 @@ attribute_params
 
 {
 
-infixr 5 `snoc`
-
--- Due to the way the grammar is constructed we very often have to build lists
--- in reverse. To make sure we do this consistently and correctly we have a
--- newtype to wrap the reversed style of list:
---
-newtype Reversed a = Reversed a
-
--- sometimes it is neccessary to reverse an unreversed list
+--  sometimes it is neccessary to reverse an unreversed list
 reverseList :: [a] -> Reversed [a]
 reverseList = Reversed . List.reverse
-
-empty :: Reversed [a]
-empty = Reversed []
-
-singleton :: a -> Reversed [a]
-singleton x = Reversed [x]
-
-snoc :: Reversed [a] -> a -> Reversed [a]
-snoc (Reversed xs) x = Reversed (x : xs)
-
-rappend :: Reversed [a] -> [a] -> Reversed [a]
-rappend (Reversed xs) ys = Reversed (List.reverse ys ++ xs)
-
-appendr :: [a] -> Reversed [a] -> Reversed [a]
-appendr xs (Reversed ys) = Reversed (ys ++ List.reverse xs)
-
-rappendr :: Reversed [a] -> Reversed [a] -> Reversed [a]
-rappendr (Reversed xs) (Reversed ys) = Reversed (ys ++ xs)
-
-rmap :: (a -> b) -> Reversed [a] -> Reversed [b]
-rmap f (Reversed xs) = Reversed (map f xs)
-
-reverse :: Reversed [a] -> [a]
-reverse (Reversed xs) = List.reverse xs
 
 -- We occasionally need things to have a location when they don't naturally
 -- have one built in as tokens and most AST elements do.

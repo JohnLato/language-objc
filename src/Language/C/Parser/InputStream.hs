@@ -6,10 +6,12 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  
+-- Stability   :  experimental
+-- Portability :  portable
 --
--- InputStream abstraction to support both ByteString and String
------------------------------------------------------------------------------
+-- Compile time InputStream abstraction for the parser. 
+-- Supports either ByteString or String.
+-------------------------------------------------------------------------------
 module Language.C.Parser.InputStream (
     InputStream, readInputStream,inputStreamToString,inputStreamFromString,
     takeChar,inputStreamEmpty,takeChars,
@@ -38,7 +40,9 @@ countLines :: InputStream -> Int
 type InputStream = ByteString
 takeChar bs = BS.head bs `seq`  (BS.head bs, BS.tail bs)
 inputStreamEmpty = BS.null
+#ifndef __HADDOCK__
 takeChars !n bstr = BS.unpack $ BS.take n bstr --leaks
+#endif
 readInputStream = BS.readFile
 inputStreamToString = BS.unpack
 inputStreamFromString = BS.pack

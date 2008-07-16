@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Common.NameSpaceMap
+-- Module      :  Language.C.Analysis.NameSpaceMap
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
@@ -15,30 +15,35 @@
 --    scopes. A name space map, at any moment, always has a global scope and may
 --    have several local scopes. Definitions in inner scopes hide definitions
 --    of the same identifier in outer scopes.
---
-module Language.C.Common.NameSpaceMap (
-    NameSpaceMap, nameSpaceMap, 
+-- 
+module Language.C.Analysis.NameSpaceMap (
+    -- * name space maps
+    NameSpaceMap, nameSpaceMap, nsMapToList,
+    globalNames,localNames,hasLocalNames,
+    -- * scope modification
     defGlobal, 
     enterNewScope, leaveScope,
     defLocal, 
-    find, 
-    nsMapToList)
+    lookup,lookupOnlyLocal, 
+    )
 where
-
+import Prelude hiding (lookup)
+import qualified Prelude 
 import qualified Data.Map as Map (empty, insert, lookup, toList)
 import Data.Map   (Map)
-import Language.C.Common.Idents     (Ident)
+import Language.C.Common.Ident     (Ident)
 import Language.C.Common.Error     (internalErr)
 
 {-
+C Namespaces and scopes:
+
 
 -}
 
 -- DevDocs:
 --
 -- * the definitions in the global scope are stored in a finite map, because
---   they tend to be a lot and are normally not updated after the global scope
---   is constructed
+--   they tend to be a lot.
 --
 -- * the definitions of the local scopes are stored in a single list, usually
 --   they are not very many and the definitions entered last are the most
@@ -55,12 +60,20 @@ import Language.C.Common.Error     (internalErr)
 
 -- | @NameSpaceMap a@ is a Map from identifiers to @a@, which manages
 -- global and local name spaces.
-data NameSpaceMap a = NsMap (Map Ident a)  -- defs in global scope
-                             [[(Ident, a)]]       -- stack of local scopes
+data NameSpaceMap k v = NsMap (Map k v)  -- defs in global scope
+                              [[(k, v)]] -- stack of local scopes
+globalNames :: (Ord k) => NameSpaceMap k v -> Map k v
+globalNames (NsMap g _) = g
+hasLocalNames :: NameSpaceMap k v -> Bool
+hasLocalNames (NsMap _ l) = not (null l)
+localNames :: (Ord k) => NameSpaceMap k v -> [[(k,v)]]
+localNames (NsMap _ l) = l
 
 -- | create a name space
-nameSpaceMap :: NameSpaceMap a
+nameSpaceMap :: (Ord k) => NameSpaceMap k v
 nameSpaceMap  = NsMap Map.empty []
+
+
 
 -- | Add global definition
 --
@@ -69,21 +82,21 @@ nameSpaceMap  = NsMap Map.empty []
 --   It returns the modified namespace @ns'@. If the identifier is
 --   already declared in the global namespace, the definition is overwritten
 --   and the old definition @oldDef@ is returned.
-defGlobal :: NameSpaceMap a -> Ident -> a -> (NameSpaceMap a, Maybe a)
+defGlobal :: (Ord k) => NameSpaceMap k a -> k -> a -> (NameSpaceMap k a, Maybe a)
 defGlobal (NsMap gs lss) ident def  
     = (NsMap (Map.insert ident def gs) lss, Map.lookup ident gs)
 
 -- | Enter new local scope
 --
 -- @ns' = enterNewScope ns@ creates and enters a new local scope.
-enterNewScope                    :: NameSpaceMap a -> NameSpaceMap a
+enterNewScope :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 enterNewScope (NsMap gs lss)  = NsMap gs ([]:lss)
 
 -- | Leave innermost local scope 
 --
 -- @(ns',defs) = leaveScope ns@ pops leaves the innermost local scope.
 --  and returns its definitions
-leaveScope :: NameSpaceMap a -> (NameSpaceMap a, [(Ident, a)])
+leaveScope :: (Ord k) => NameSpaceMap k a -> (NameSpaceMap k a, [(k, a)])
 leaveScope (NsMap _ [])         = internalErr "NsMaps.leaveScope: No local scope!"
 leaveScope (NsMap gs (ls:lss))  = (NsMap gs lss, ls)
 
@@ -94,39 +107,34 @@ leaveScope (NsMap gs (ls:lss))  = (NsMap gs lss, ls)
 --     and to the global scope otherwise. 
 --   It returns the modified name space @ns'@ and the old  binding of
 --   the identifier @oldDef@, which is overwritten.
-defLocal :: NameSpaceMap a -> Ident -> a -> (NameSpaceMap a, Maybe a)
+defLocal :: (Ord k) => NameSpaceMap k a -> k -> a -> (NameSpaceMap k a, Maybe a)
 defLocal ns@(NsMap _ []) ident def = defGlobal ns ident def
 defLocal (NsMap    gs (ls:lss)) ident def = 
   (NsMap gs (((ident, def):ls):lss),
-   lookupLocal ls)
-  where
-    lookupLocal []                          = Nothing
-    lookupLocal ((ident', localDef):defs) | ident == ident' = Just localDef
-                                        | otherwise = lookupLocal defs
+   Prelude.lookup ident ls)
        
 -- | Search for a definition 
 --
 -- @def = find ns ident@ returns the definition in the innermost scope,
 -- if there is one.
-find                       :: NameSpaceMap a -> Ident -> Maybe a
-find (NsMap gs localDefs) ident  
+lookup :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
+lookup (NsMap gs localDefs) ident  
     = case (lookupLocal localDefs) of
         Nothing  -> Map.lookup ident gs
         Just def -> Just def
   where
     lookupLocal []       = Nothing
-    lookupLocal (ls:lss) = case (lookupLocal' ls) of
+    lookupLocal (ls:lss) = case (Prelude.lookup ident ls) of
                         Nothing  -> lookupLocal lss
                         Just def -> Just def
 
-    lookupLocal' []              = Nothing
-    lookupLocal' ((ident', def):ls)
-            | ident' == ident     = Just def
-            | otherwise     = lookupLocal' ls
-
+lookupOnlyLocal :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
+lookupOnlyLocal (NsMap _gs localDefs) ident  = 
+    case localDefs of
+        (ls : _lss) -> Prelude.lookup ident ls
+        [] -> Nothing
 -- | flatten a namespace into a assoc list
 --
---  @nameSpaceToList ns = globalDefs ns ++ (localDefInnermost ns ++ .. ++ localDefsOutermost ns)@
--- TODO: order does not reflect lookup order (innermost .. outermost, global)
-nsMapToList :: NameSpaceMap a -> [(Ident, a)]
-nsMapToList (NsMap gs lss)  = Map.toList gs ++ concat lss
+--  @nameSpaceToList ns = (localDefInnermost ns ++ .. ++ localDefsOutermost ns) ++ globalDefs ns@
+nsMapToList :: (Ord k) => NameSpaceMap k a -> [(k, a)]
+nsMapToList (NsMap gs lss)  = concat lss ++ Map.toList gs

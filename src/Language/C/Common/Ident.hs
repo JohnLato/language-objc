@@ -8,8 +8,11 @@
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
---  This module provides an abstract notion of identifiers.
---
+-- This module provides the notion of identifiers in C, speed up using hashing.
+-- Identifiers are associated with a 'NodeInfo', i.e. with a unique 'Name' and 
+-- a source code position 'Pos'
+
+-- 
 --  * We speed up the equality test between identifiers by keeping a hash
 --
 --  * The ordering relation on identifiers is also based on the hash and,
@@ -24,7 +27,7 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Common.Ident (
-    Ident(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, 
+    Ident(..), SueRef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, 
     getIdentNodeInfo,dumpIdent)
 where
 
@@ -41,6 +44,10 @@ data Ident = Ident String       -- lexeme
                    {-# UNBOXED #-}   !Int         -- hash to speed up equality check
                    NodeInfo        -- attributes of this ident. incl. position
              deriving (Data,Typeable)
+
+data SueRef =  AnonymousType Name
+             | NamedType Ident
+    deriving (Typeable, Data, Ord, Eq)
     
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the

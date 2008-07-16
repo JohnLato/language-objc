@@ -13,7 +13,9 @@ module Language.C.Common.Error (
   -- * handling of internal errors
   internalErr, todo,
   -- * errors in the parsed program
-  ErrorLevel(..), CError(..), mkWarning, mkError, showError
+  ErrorLevel(..), isWarning,isHardError,
+  CError(..), mkWarning, mkError, showError,
+  
 ) where
 
 import Language.C.Common.Position (Position(..), isInternalPos)
@@ -72,7 +74,10 @@ instance Show CError where
   show = showError
 
 isWarning :: CError -> Bool
-isWarning = ( == LevelWarning) . errorLevel
+isWarning = ( <= LevelWarning) . errorLevel
+isHardError :: CError -> Bool
+isHardError = ( > LevelWarning) . errorLevel
+
 -- | converts an error into a string using a fixed format
 --
 -- * the list of lines of the error message must not be empty

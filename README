@@ -5,9 +5,6 @@ See http://www.sivity.net/projects/language.c/
 
 == Build ==
 
-The following configure flags are available:
- deriveData ... derive Data.Generics and Typeable instances
-
 runhaskell Setup configure
 runhaskell Setup build
 -- or --

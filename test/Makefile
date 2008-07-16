@@ -2,7 +2,8 @@
 #
 # TODO: This is a QnD Makefile.
 # It is especially annoying that we have to rebuild the executables every time
-
+# HAPPY_OPTS=-scg
+HAPPY_OPTS=-sacg
 ifndef HC
 	HC=ghc
 endif
@@ -62,4 +63,4 @@ build/autogen/Language/C/Parser/Lexer.hs: ../src/Language/C/Parser/Lexer.x
 	alex -g -o $@ $<
 build/autogen/Language/C/Parser/Parser.hs: ../src/Language/C/Parser/Parser.y
 	mkdir -p build/autogen/Language/C/Parser
-	happy -gca -o $@ $<
+	happy $(HAPPY_OPTS) -o $@ $<

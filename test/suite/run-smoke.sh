@@ -23,3 +23,7 @@ sh run-test test.c test1.c
 sh run-test test_attr.non_equiv_1.c test_attr.non_equiv_2.c
 unset CTEST_NON_EQUIV
 sh run-test test.c test.c
+
+cd ../decls
+export CTEST_DRIVER=CRoundTrip
+for f in `ls *.c | grep -v non_parse | grep -v equiv`; do sh run-test $f; done;

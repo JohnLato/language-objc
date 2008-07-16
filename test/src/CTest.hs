@@ -22,26 +22,30 @@ main
 import Control.Monad
 import System.Environment (getEnv, getArgs)
 import System.IO
+import Data.Generics
 import Language.C
 import Language.C.Test.CPP
 import Language.C.Test.Environment
 import Language.C.Test.GenericAST
 
+data CTestConfig = CTestConfig { debugFlag :: Bool, parseOnlyFlag :: Bool, semanticAnalysis :: Bool }
 main :: IO ()
 main = do
   tmpdir     <- getEnv "TMPDIR"
-  debugFlag  <- getEnvFlag "DEBUG"
+  dbg       <- getEnvFlag "DEBUG"
+  parseonly <- getEnvFlag "PARSE_ONLY"
+  semantic  <- getEnvFlag "SEMANTIC_ANALYSIS" -- disabled right now
+  let config = CTestConfig dbg parseonly semantic
   args <- getArgs
   -- TODO: getOpt
   case args of
-      ("-e":str:[]) -> parseAndPrint debugFlag (exprInput str) (Position "stdin" 1 1)
-      ("-d":str:[]) -> parseAndPrint debugFlag (declInput str) (Position "stdin" 1 1)
+      ("-e":str:[]) -> parseAndPrint config (exprInput str) (Position "stdin" 1 1)
+      ("-d":str:[]) -> parseAndPrint config (declInput str) (Position "stdin" 1 1)
       otherArgs ->
           case mungeCcArgs args of
             Groked [cFile] gccOpts -> do
               ast <- parseCC tmpdir gccOpts cFile >>= either (ioError.userError.show) return
-              print $ prettyUsingInclude ast
-              when (debugFlag) $ print . pretty . mkGenericCAST $ ast
+              output config ast
             Groked cFiles _ -> usage $ "More than one source file given: " ++ unwords cFiles
             Ignore -> usage $ "Not input files given"
             Unknown reason -> usage $ "Could not process arguments: " ++ reason
@@ -55,12 +59,25 @@ usage msg = hPutStr stderr . unlines $
     "   parses the given C source file and pretty print the AST",
     "Environment Variables: ",
     "   TMPDIR: temporary directory for preprocessing",
-    "   DEBUG:  debug flag"
+    "   DEBUG:  debug flag",
+    "   SEMANTIC_ANALYSIS: perform semantic analysis",
+    "   PARSE_ONLY: do not pretty print"
   ]
 exprInput str = "void *x = " ++ str ++ " ;"
 declInput str = str ++ ";"
-parseAndPrint :: Bool -> String -> Position -> IO ()
-parseAndPrint debugFlag str pos = do
+parseAndPrint :: CTestConfig -> String -> Position -> IO ()
+parseAndPrint config str pos = do
     ast <- either (ioError.userError.show) return (parseC (inputStreamFromString str) pos)
-    print $ prettyUsingInclude ast
-    when (debugFlag) $ print . pretty . mkGenericCAST $ ast
+    output config ast
+output :: CTestConfig -> CTranslUnit -> IO ()
+output config ast = do
+    when (not $ parseOnlyFlag config) $ print $ prettyUsingInclude ast
+    when (debugFlag config) $ print . pretty . mkGenericCAST $ ast
+    when (semanticAnalysis config) $  return ()
+        -- case runTrav_ (translateAST ast) of
+        --     Left errors -> mapM_ print errors
+        --     Right (translunit, ts) -> demoAnalysis translunit
+-- demoAnalysis :: TranslUnit -> IO ()
+-- demoAnalysis tunit@(TranslUnit decls _) =
+--     mapM_ (print . describe Spec) decls
+    

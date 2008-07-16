@@ -32,7 +32,7 @@ import qualified Data.Map as Map
 import Text.PrettyPrint
 
 -- TODO: Refactor the Pretty Class (move out of AST (Maybe to Text.PrettyPrint.Class))
-import Language.C.AST.Pretty (Pretty(..))
+import Language.C.Parser.Pretty (Pretty(..))
 import Language.C.Test.Measures
 
 -- =====================

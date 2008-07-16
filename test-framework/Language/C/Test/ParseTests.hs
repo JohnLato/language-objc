@@ -32,7 +32,7 @@ import System.IO
 import System.Process
 
 import Language.C
-import Language.C.Toolkit.Position
+import Language.C.Common.Position
 import Language.C.Parser.InputStream
 
 import Language.C.Test.Environment

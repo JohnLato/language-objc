@@ -20,7 +20,7 @@ import Control.Monad.State
 import System.FilePath (takeBaseName)
 import Text.PrettyPrint
 
-import Language.C.Common.Position
+import Language.C.Syntax.Position
 import Language.C.Test.Environment
 import Language.C.Test.Framework
 import Language.C.Test.ParseTests

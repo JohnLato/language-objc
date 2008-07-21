@@ -5,9 +5,11 @@
 -- Copyright   :  (c) 2008 Duncan Coutts, Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Portability :  non-portable (Data.Generics)
 --
--- This module provides a wrapper for parsing C-files which haven't been preprocessed yet.
+-- This is a very simple module, usable for quick tests.
+--
+-- It provides a wrapper for parsing C-files which haven't been preprocessed yet.
 -- It is used as if gcc was called, and internally calls cpp (gcc -E) to preprocess the file.
 -- It then outputs the pretty printed AST, replacing declarations from included header 
 -- files with a corresponding #include directive (This isn't always correct, as e.g. #define s 

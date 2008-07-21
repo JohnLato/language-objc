@@ -58,6 +58,8 @@ Library
                       Language.C.Parser.ParserMonad 
                       Language.C.Parser.Pretty
                       Language.C.Parser.Tokens 
+                      Language.C.System.Preprocess
+                      Language.C.System.Gcc                      
                       Language.C              
     Other-Modules:    
                       Language.C.Common.RList

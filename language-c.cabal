@@ -1,5 +1,5 @@
 Name:           language-c
-Version:        0.2.5
+Version:        0.2.6
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
 License:        BSD3
@@ -36,30 +36,35 @@ Library
 
     Hs-Source-Dirs: src
     Exposed-Modules:  
-                      Language.C.Common.Constants
-                      Language.C.Common.Name 
-                      Language.C.Common.Position 
-                      Language.C.Common.Error 
-                      Language.C.Common.Node 
-                      Language.C.Common.Ops
-                      Language.C.Common.Ident 
-                      Language.C.Common
+                      -- provisional
+                      Language.C
+                      Language.C.Syntax
+                      Language.C.InputStream
+                      Language.C.Parser
+                      Language.C.Pretty
+                      Language.C.System.Preprocess
+                      Language.C.System.Gcc                      
+                      -- experimental
+                      Language.C.Analysis
+                      -- implementation
+                      Language.C.Syntax.AST
+                      Language.C.Syntax.Constants
+                      Language.C.Syntax.Name 
+                      Language.C.Syntax.Position 
+                      Language.C.Syntax.Error 
+                      Language.C.Syntax.Node 
+                      Language.C.Syntax.Ops
+                      Language.C.Syntax.Ident 
                       Language.C.Analysis.NameSpaceMap
-                      Language.C.Analysis.SymbolTable
+                      Language.C.Analysis.DefTable
                       Language.C.Analysis.TravMonad
                       Language.C.Analysis.SemRep              
                       -- Language.C.Analysis.AstAnalysis
-                      -- Language.C.Analysis.TypeAnalysis
-                      Language.C.Parser.AST
+                      -- Language.C.Analysis.DeclAnalysis
                       Language.C.Parser.Builtin
-                      Language.C.Parser.InputStream
                       Language.C.Parser.Lexer 
                       Language.C.Parser.Parser 
                       Language.C.Parser.ParserMonad 
-                      Language.C.Parser.Pretty
                       Language.C.Parser.Tokens 
-                      Language.C.System.Preprocess
-                      Language.C.System.Gcc                      
-                      Language.C              
     Other-Modules:    
-                      Language.C.Common.RList
+                      Language.C.Syntax.RList

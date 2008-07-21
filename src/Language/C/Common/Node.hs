@@ -12,7 +12,7 @@
 -----------------------------------------------------------------------------
 module Language.C.Common.Node (
    NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
-   CNode(nodeInfo), eqByName, nodePos,
+   CNode(nodeInfo), eqByName, nodePos, nodeName,
 ) where
 import Language.C.Common.Position   (Position, nopos)
 import Language.C.Common.Error     (internalErr)
@@ -41,7 +41,9 @@ class CNode a where
   nodeInfo :: a -> NodeInfo
 nodePos :: NodeInfo -> Position
 nodePos ni = case ni of (OnlyPos pos  ) -> pos; (NodeInfo   pos _) -> pos
-  
+nodeName :: NodeInfo -> Maybe Name
+nodeName (OnlyPos _) = Nothing
+nodeName (NodeInfo _ name) = Just name
 -- | equality by name
 eqByName           :: CNode a => a -> a -> Bool
 eqByName obj1 obj2  = (nodeInfo obj1) == (nodeInfo obj2)

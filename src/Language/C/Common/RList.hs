@@ -12,14 +12,15 @@
 -- newtype to wrap the reversed style of list:
 -----------------------------------------------------------------------------
 module Language.C.Common.RList (
-    Reversed(..),
+    RList,Reversed(..),
     empty,singleton,snoc,rappend,appendr,rappendr,rmap,reverse,
 )
 where
 import Prelude hiding (reverse)
 import qualified Data.List as List
-newtype Reversed a = Reversed a
 
+newtype Reversed a = Reversed a
+type RList a = Reversed [a]
 empty :: Reversed [a]
 empty = Reversed []
 

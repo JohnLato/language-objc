@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts,
+{-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts,FlexibleInstances,
              PatternSignatures, RankNTypes, ScopedTypeVariables #-} 
 -----------------------------------------------------------------------------
 -- |
@@ -9,52 +9,281 @@
 -- Portability :  non-portable (mtl)
 --
 -- Monad for Traversals of the C AST.
--- mtl based prototype implementation.
+-- 
+-- For the traversal, we maintain a symboltable and need MonadError and unique
+-- name generation facilities.
+-- Furthermore, the user may provide callbacks to handle declarations and definitions.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.TravMonad (
-    Trav, runTrav, runTrav_,
-    TravState, initTravState,
-    -- * lifting symbol table functions
-    updSymbolTable,withSymbolTable,
-    symbolTable,
+    -- * AST traversal monad
+    MonadTrav(..),
+    -- * handling declarations
+    handleTagDef,handleEnumeratorDef,handleTypeDef,
+    handleFunDef,handleVarDecl,handleObjectDef,
+    handleAsmBlock,
     -- * symbol table scope modification
-    getDeclContext,
     enterPrototypeScope,leavePrototypeScope,
     enterFunctionScope,leaveFunctionScope,
     enterBlockScope,leaveBlockScope,
-    -- * user state operations
-    modifyUserState,userState,
-    -- * unique name generation
-    genName,
-    -- * error handling
-    errors,addError,hasHardErrors,
-    throwTravError,throwOnLeft,catchTravError,mapRecoverM,mapRecoverM_,
-    astError,mkAstError,
+    -- * symbol table lookup (delegate)
+    lookupTypeDef, lookupVarDecl, lookupObject, lookupFun,
+    -- * symbol table modification
+    createSUERef,
+    -- * additional error handling facilities
+    hadHardErrors,handleTravError,throwOnLeft,
+    astError,warn,mkAstError,
+    -- * Trav - default MonadTrav implementation
+    Trav(..),
+    runTrav,runTrav_,
+    TravCallbacks(..),noCallbacks,
+    TravState,initTravState,withExtDeclHandler,modifyUserState,userState,
+    -- * helpers
+    mapMaybeM,maybeM,mapSndM,concatMapM,
 )
 where
-import Language.C.Common
-import Language.C.Parser.AST
-import Language.C.Analysis.SymbolTable hiding (enterBlockScope,leaveBlockScope,enterFunctionScope,leaveFunctionScope)
-import qualified Language.C.Analysis.SymbolTable as ST
+import Language.C.Syntax
+import Language.C.Syntax.RList as RList
+import Language.C.Syntax.Error
+import Language.C.Syntax.Name
+import Language.C.Syntax.Position
+
+import Language.C.Analysis.DefTable hiding (enterBlockScope,leaveBlockScope,enterFunctionScope,leaveFunctionScope)
+import qualified Language.C.Analysis.DefTable as ST
+import Language.C.Analysis.SemRep
 
 import Data.Maybe
 import Control.Monad.Error
 import Control.Monad.State
+import Control.Monad.Reader
 
-{- as iavor suggested, we could add an interface to make it possible to switch to other monads
--}
+-- | Traversal monad
+class (Monad m) => MonadTrav m where
+    -- error handling facilities
+    throwTravError :: CError -> m a
+    catchTravError :: m a -> (CError -> m a) -> m a
+    addError       :: CError -> m ()
+    getErrors      :: m [CError]
+    -- symbol table handling
+    getDefTable :: m DefTable
+    withDefTable :: (DefTable -> (a, DefTable)) -> m a
+    -- unique name generation
+    genName :: m Name
+    -- handling declarations and definitions
+    handleDecl :: DeclEvent -> m ()
+    
+-- * handling declarations
+checkRedef :: (MonadTrav m, CNode t, CNode t1) => String -> t -> (DeclarationStatus t1) -> m ()
+checkRedef ctx_string new_decl redecl_status =
+    case redecl_status of
+        NewDecl -> return ()
+        Redeclared oldDef -> redeclaredError (nodeInfo new_decl) (nodeInfo oldDef) $ 
+            ctx_string++" already defined"
+        DifferentKindRedecl oldDef -> redeclaredError (nodeInfo new_decl) (nodeInfo oldDef) $ 
+            ctx_string++" redefined as a different kind of symbol"
+        Shadowed oldDef -> warnShadow (nodeInfo new_decl) (nodeInfo oldDef) $ 
+            "This "++ctx_string++" shadows an outer one"
 
-newtype Trav s a = Trav { unTrav :: StateT (TravState s) (Either CError) a }
+-- | define the given composite type or enumeration in the current namespace
+-- If there is already a definition present, yield an error (redeclaration)
+handleTagDef :: (MonadTrav m) => TagDef -> m ()
+handleTagDef def = do
+    redecl <- withDefTable $ declareTag (sueRef def) def
+    checkRedef "struct/union/enum" def redecl
+    handleDecl (TagEvent def)
+
+handleEnumeratorDef :: (MonadTrav m) => Enumerator -> SUERef -> m ()
+handleEnumeratorDef enumerator@(ident,_) enum_ref = do
+    redecl <- withDefTable (declareScopedObject ident (EnumDef enumerator enum_ref))
+    checkRedef "enumerator" ident redecl
+    return ()
+    
+handleTypeDef :: (MonadTrav m) => Ident -> Type -> m ()
+handleTypeDef ident typ = do
+    let def = TypeDef ident typ
+    redecl <- withDefTable (declareScopedObject ident def)
+    checkRedef "typedef" def redecl
+    handleDecl (DeclEvent def)
+    return ()
+    
+handleAsmBlock :: (MonadTrav m) => AsmBlock -> m ()
+handleAsmBlock asm = handleDecl (AsmEvent asm)
+
+-- | handle variable declarations (external object declarations and function prototypes)
+-- variable declarations are either function prototypes, or external declarations, and not very interesting
+-- on their own. we only put them in the symbol table and call the handle
+handleVarDecl :: (MonadTrav m) => Ident -> VarDecl -> NodeInfo -> m ()
+handleVarDecl ident var_decl node = do
+    let def = Declaration var_decl node
+    redecl <- withDefTable $ \symt -> declareScopedObject ident def symt
+    -- TODO: check compatible type redecl
+    handleDecl (DeclEvent def)
+    
+-- | handle function definitions
+handleFunDef :: (MonadTrav m) => Ident -> FunDef -> m ()
+handleFunDef ident fun_def = do
+    let def = FunctionDef fun_def
+    redecl <- withDefTable $ \symt -> declareScopedObject ident def symt
+    -- TODO: check compatible type and redef
+    handleDecl (DeclEvent def)
+
+-- | handle object defintions (maybe tentative)    
+handleObjectDef :: (MonadTrav m) => Ident -> ObjDef -> m ()
+handleObjectDef ident obj_def = do
+    let def = ObjectDef obj_def
+    redecl <- withDefTable $ \symt -> declareScopedObject ident def symt
+    -- TODO: check compatible types and redef
+    handleDecl (DeclEvent def)
+    
+-- * scope manipulation
+--
+--  * file scope: outside of parameter lists and blocks (outermost)
+--
+--  * function prototype scope
+--
+--  * function scope: labels are visible within the entire function, and declared implicitely
+--
+--  * block scope
+updDefTable :: (MonadTrav m) => (DefTable -> DefTable) -> m ()
+updDefTable f = withDefTable (\st -> ((),f st))
+
+enterPrototypeScope :: (MonadTrav m) => m ()
+enterPrototypeScope = updDefTable (ST.enterBlockScope)
+
+leavePrototypeScope :: (MonadTrav m) => m ()
+leavePrototypeScope = updDefTable (ST.leaveBlockScope)
+
+enterFunctionScope :: (MonadTrav m) => m ()
+enterFunctionScope = updDefTable (ST.enterFunctionScope)
+
+leaveFunctionScope :: (MonadTrav m) => m ()
+leaveFunctionScope = updDefTable (ST.leaveFunctionScope)
+
+enterBlockScope :: (MonadTrav m) => m ()
+enterBlockScope = updDefTable (ST.enterBlockScope)
+
+leaveBlockScope :: (MonadTrav m) => m ()
+leaveBlockScope = updDefTable (ST.leaveBlockScope)
+
+-- * Lookup
+
+-- | lookup a type definition
+-- the 'wrong kind of object' is an internal error here,
+-- because the parser should distinguish typedefs and other
+-- objects
+lookupTypeDef :: (MonadTrav m) => Ident -> m Type
+lookupTypeDef ident 
+    = getDefTable >>= \symt ->
+      case lookupObj ident symt of
+        Nothing             -> astError (nodeInfo ident) "unbound typedef"
+        Just (TypeDef _ ty) -> return ty
+        Just d              -> astError (nodeInfo ident) $ 
+                               "wrong kind of object: excepcted typedef but found: "++(objKindDescr d)
+
+-- | lookup an arbitrary variable declaration (delegates to symboltable)
+lookupVarDecl :: (MonadTrav m) => Ident -> m (Maybe IdentDecl)
+lookupVarDecl ident = liftM (lookupObj ident) getDefTable
+
+-- | lookup an object declaration or definition
+lookupObject :: (MonadTrav m) => Ident -> m (Maybe (Either VarDecl ObjDef))
+lookupObject ident = do
+    old_decl <- lookupVarDecl ident
+    mapMaybeM old_decl $ \obj ->
+       case obj of
+           Declaration vardecl _ | (not . isFunctionType . declType) vardecl -> return (Left vardecl)
+           ObjectDef objdef -> return (Right objdef)
+           bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected an object, but found: " ++ (objKindDescr bad_obj)
+lookupFun :: (MonadTrav m) => Ident -> m (Maybe (Either VarDecl FunDef))
+lookupFun ident = do
+    old_decl <- lookupVarDecl ident
+    mapMaybeM old_decl $ \obj ->
+        case obj of
+           Declaration vardecl _ | (isFunctionType . declType) vardecl -> return (Left vardecl)
+           FunctionDef fundef -> return (Right fundef)
+           bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected a function, but found: " ++ (objKindDescr bad_obj)
+            
+-- * inserting declarations
+
+-- | create a reference to a struct\/union\/enum
+createSUERef :: (MonadTrav m) => Maybe Ident -> m SUERef
+createSUERef (Just ident) = return$ NamedType ident
+createSUERef Nothing = liftM AnonymousType genName 
+
+
+-- | enter an object definition into the object name space
+--
+-- -- if a definition of the same name was already present, it is returned 
+-- defObj         :: Ident -> CObj ->Trav s (DeclarationStatus CObj)
+-- defObj ident obj  = state $ withDefTable (declareObject ident obj)
+-- 
+-- -- | lookup an identifier in the current local and in the global scope
+-- findObj :: Ident -> Trav s (Maybe CObj)
+-- findObj ident = gets (lookupObj ident . symbolTable)
+-- 
+-- defTag         :: SueRef -> CTag ->Trav s (Maybe CTag)
+-- defTag ident obj  = state $ withDefTable (declareTag ident obj)
+-- 
+-- -- | lookup an identifier in the current local and in the global scope
+-- findTag :: Ident -> Trav s (Maybe CTag)
+-- findTag ident = gets (lookupTag ident . symbolTable)
+
+-- * stupid wrappers
+-- * common definitions
+
+-- * error handling facilities
+
+handleTravError :: (MonadTrav m) => m a -> m (Maybe a)
+handleTravError a = liftM Just a `catchTravError` (\e -> addError e >> return Nothing)
+
+-- | check wheter non-recoverable errors occured
+hadHardErrors :: [CError] -> Bool
+hadHardErrors = (not . null . filter isHardError)
+
+-- | raise an error based on an Either argument
+throwOnLeft :: (MonadTrav m) => Either CError a -> m a
+throwOnLeft (Left err) = throwTravError err
+throwOnLeft (Right v) = return v
+
+-- | raise an error caused by a malformed AST
+astError :: (MonadTrav m) => NodeInfo -> String -> m a
+astError node msg = throwTravError $ mkAstError node msg
+
+mkAstError :: NodeInfo -> String -> CError
+mkAstError node msg = mkError LevelError (nodePos node) (lines msg)
+
+redeclaredError :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
+redeclaredError node old_node msg = 
+    throwTravError $
+        mkError LevelError (nodePos node) (lines msg ++ ["The previous declaration was here: "++show (nodePos old_node)])
+warnShadow :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
+warnShadow node old_node msg =
+    warn node $
+        (msg++"The definition shadowed is here: " ++ show (nodePos old_node))
+warn :: (MonadTrav m) => NodeInfo -> String -> m ()
+warn node msg = addError (mkError LevelWarn (nodePos node) (lines msg))
+-- * The Trav datatype
+
+-- | simple MTL-based traversal monad, providing user state and callbacks
+newtype Trav s a 
+    = Trav { unTrav :: (StateT (TravState s) (Either CError)) a }
+
 runTrav :: forall s a. s -> Trav s a -> Either [CError] (a, TravState s)
-runTrav s t = case runStateT (unTrav t) (initTravState s) of
-                Left travErr -> Left [travErr]
-                Right (v, ts) | hasHardErrors ts -> Left (errors ts)
-                              | otherwise    -> Right (v,ts)
-runTrav_ :: Trav () a -> Either [CError] (a, TravState ())
-runTrav_ t = runTrav () t
-
-instance Error CError where
-   strMsg msg = mkError LevelError nopos (lines msg)
+runTrav state traversal = 
+    case runStateT (unTrav action) (initTravState noCallbacks state) of
+        Left trav_err -> Left [trav_err]
+        Right (v, ts) | hadHardErrors (travErrors ts) -> Left (travErrors ts)
+                      | otherwise                     -> Right (v,ts)
+    where
+    action = do
+        withDefTable (declareScopedObject (identOfDecl va_list) va_list)
+        traversal
+    va_list = TypeDef (internalIdent "__builtin_va_list") (DirectType (TyBuiltin TyVaList) noTypeQuals [])
+runTrav_ :: Trav () a -> Either [CError] a
+runTrav_ t = fmap fst $ runTrav () t
+withExtDeclHandler :: Trav s a -> (DeclEvent -> Trav s ()) -> Trav s a
+withExtDeclHandler action handler = do
+    modify $ \st -> let cbs_old = callbacks st 
+                    in st { callbacks = cbs_old { doHandleExtDecl = handler } }
+    action
 
 instance Monad (Trav s) where
     return = Trav . return
@@ -62,125 +291,79 @@ instance Monad (Trav s) where
 instance MonadState (TravState s) (Trav s) where
     get = Trav get
     put = Trav . put
-state :: (TravState s -> (a, TravState s)) -> Trav s a
-state f = Trav . StateT $ \s -> return (f s)
-
+instance Error CError where
+   strMsg msg = mkError LevelError nopos (lines msg)
 instance MonadError CError (Trav s) where
     throwError = Trav . throwError
     catchError a handler = Trav $ (unTrav a) `catchError` (unTrav . handler)
 
+instance MonadTrav (Trav s) where
+    -- error handling facilities
+    throwTravError = throwError
+    catchTravError a handler =  a `catchError` handler
+    addError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` e } 
+    getErrors = gets (RList.reverse . rerrors)
+    -- symbol table handling
+    getDefTable = gets symbolTable
+    withDefTable f = do
+        symt <- gets symbolTable
+        let (r,symt') = f symt 
+        modify $ \ts -> ts { symbolTable = symt' }
+        return r
+    -- unique name generation
+    genName = generateName
+    -- handling declarations and definitions
+    handleDecl d = gets callbacks >>= \cbs -> doHandleExtDecl cbs d
+
+-- | callback record
+data TravCallbacks s  =
+    TravCallbacks {
+        doHandleExtDecl :: DeclEvent -> Trav s ()
+    }
+noCallbacks :: TravCallbacks s
+noCallbacks = TravCallbacks (const (return ()))
 
 data TravState s = TravState { 
-                        symbolTable :: SymbolTable, 
-                        rerrors :: [CError], 
+                        symbolTable :: DefTable, 
+                        rerrors :: RList CError, 
                         nameGenerator :: [Name],
+                        callbacks :: TravCallbacks s,
                         userState :: s 
                     }
-initTravState :: s -> TravState s
-initTravState userst = TravState { 
-                           symbolTable = emptySymbolTable, 
-                           rerrors = [], 
-                           nameGenerator = namesStartingFrom 0,
-                           userState = userst 
-                       }
+travErrors :: TravState s -> [CError]
+travErrors = RList.reverse . rerrors
+initTravState :: (TravCallbacks s) -> s -> TravState s
+initTravState cbs userst = TravState { 
+                            symbolTable = emptyDefTable, 
+                            rerrors = RList.empty, 
+                            nameGenerator = namesStartingFrom 0,
+                            callbacks = cbs,
+                            userState = userst 
+                           }
+initTravState_ :: s -> TravState s
+initTravState_ = initTravState noCallbacks
 
--- Lifting symbol table operations
-updSymbolTable :: (SymbolTable -> SymbolTable) -> TravState s -> TravState s
-updSymbolTable f ts@(TravState { symbolTable = dt }) = ts { symbolTable = f dt }
-withSymbolTable :: (SymbolTable -> (SymbolTable, a)) ->  TravState s -> (a, TravState s)
-withSymbolTable f ts@(TravState { symbolTable = dt }) = let (dt',r) = f dt in (r, ts{ symbolTable = dt' })
-
--- * lifting user state operations
+-- * Trav specific operations
 modifyUserState :: (s -> s) -> Trav s ()
 modifyUserState f = modify $ \ts -> ts { userState = f (userState ts) }
 
--- * Name generation
-genName :: Trav s Name
-genName = state $ \ts -> 
-    let (newName : gen') = nameGenerator ts 
-    in  (newName, ts { nameGenerator = gen'} )
+generateName :: Trav s Name
+generateName = get >>= \ts -> 
+    do let (new_name : gen') = nameGenerator ts 
+       put $ ts { nameGenerator = gen'}
+       return new_name
 
--- * Error handling
-
--- | return the list of errors and warnings
-errors :: TravState s -> [CError]
-errors = reverse . rerrors
--- | add an error or warning
-addError :: CError -> TravState s -> TravState s
-addError e st = st { rerrors = e : (rerrors st) }
--- | check if there where any hard errors
-hasHardErrors :: TravState s -> Bool
-hasHardErrors ts = (not . null . filter isWarning) (rerrors ts)
-
--- | raise an error encountered at the given position
-throwTravError :: Position -> [String] -> Trav s a
-throwTravError pos msgs = throwError (mkError LevelError pos msgs)
-
--- | raise an error based on an Either argument
-throwOnLeft :: Either CError a -> Trav s a
-throwOnLeft (Left err) = throwError err
-throwOnLeft (Right v) = return v
-
--- | raise an error caused by a malformed AST
-astError :: NodeInfo -> String -> Trav s a
-astError node msg = throwError $ mkAstError node msg
-
-mkAstError :: NodeInfo -> String -> CError
-mkAstError node msg = mkError LevelError (nodePos node) (lines msg)
-
--- | catch an error and add it to the list of errors
-catchTravError :: Trav s a -> Trav s (Maybe a)
-catchTravError a = liftM Just a `catchError` (\e -> modify (addError e) >> return Nothing)
-
--- | like mapM, but recover from errors
-mapRecoverM :: (a -> Trav s b) -> [a] -> Trav s [b]
-mapRecoverM f = liftM catMaybes . mapM (catchTravError . f)
--- | like mapM_, but recover from errors
-mapRecoverM_ :: (a -> Trav s ()) -> [a] -> Trav s ()
-mapRecoverM_ f = mapM_ (catchTravError . f)
-
--- * scope manipulation
---  * file scope: outside of parameter lists and blocks (outermost)
---  * function prototype scope
---  * function scope: labels are visible within the entire function, and declared implicitely
---  * block scope
-
-getDeclContext :: Trav s DeclContext
-getDeclContext = gets (ST.declContext . symbolTable)
-
-enterPrototypeScope :: Trav s ()
-enterPrototypeScope = modify $ updSymbolTable (ST.enterBlockScope ProtoCtx)
-
-leavePrototypeScope :: Trav s ()
-leavePrototypeScope = modify $ updSymbolTable (ST.leaveBlockScope)
-
-enterFunctionScope :: Trav s ()
-enterFunctionScope = modify $ updSymbolTable (ST.enterFunctionScope)
-
-leaveFunctionScope :: Trav s ()
-leaveFunctionScope = modify $ updSymbolTable (ST.leaveFunctionScope)
-
-enterBlockScope :: Trav s ()
-enterBlockScope = modify $ updSymbolTable (ST.enterBlockScope BlockCtx)
-
-leaveBlockScope :: Trav s ()
-leaveBlockScope = modify $ updSymbolTable (ST.leaveBlockScope)
-
-
--- | enter an object definition into the object name space
---
--- -- if a definition of the same name was already present, it is returned 
--- defObj         :: Ident -> CObj ->Trav s (DeclarationStatus CObj)
--- defObj ident obj  = state $ withSymbolTable (declareObject ident obj)
--- 
--- -- | lookup an identifier in the current local and in the global scope
--- findObj :: Ident -> Trav s (Maybe CObj)
--- findObj ident = gets (lookupObj ident . symbolTable)
--- 
--- defTag         :: SueRef -> CTag ->Trav s (Maybe CTag)
--- defTag ident obj  = state $ withSymbolTable (declareTag ident obj)
--- 
--- -- | lookup an identifier in the current local and in the global scope
--- findTag :: Ident -> Trav s (Maybe CTag)
--- findTag ident = gets (lookupTag ident . symbolTable)
-
+-- * helpers
+mapMaybeM :: (Monad m) => (Maybe a) -> (a -> m b) -> m (Maybe b)
+mapMaybeM m f = maybe (return Nothing) (liftM Just . f) m
+maybeM :: (Monad m) => (Maybe a) -> (a -> m ()) -> m ()
+maybeM m f = maybe (return ()) f m
+mapSndM :: (Monad m) => (b -> m c) -> (a,b) -> m (a,c)
+mapSndM f (a,b) = liftM ((,) a) (f b)
+concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
+concatMapM f = liftM concat . mapM f
+getNodeName :: NodeInfo -> Name
+getNodeName (NodeInfo _ name) = name
+getNodeName (OnlyPos _) = error "getNodeName: unnamed"
+singleton :: a -> [a]
+singleton x = [x]

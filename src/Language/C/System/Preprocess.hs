@@ -16,7 +16,7 @@ module Language.C.System.Preprocess (
     runPreprocessor,
 )
 where
-import Language.C.Parser.InputStream
+import Language.C.InputStream
 import System.Exit
 import System.Directory
 import System.FilePath

@@ -48,6 +48,9 @@ data Ident = Ident String       -- lexeme
 data SUERef =  AnonymousType Name
              | NamedType Ident
     deriving (Typeable, Data, Ord, Eq)
+instance Show SUERef where
+    show (AnonymousType name) = "$" ++ show name
+    show (NamedType ident) = show ident
     
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the

@@ -212,11 +212,11 @@ data CStat = CLabel  Ident CStat [CAttr] NodeInfo  -- ^ An (attributed) label fo
            -- ^ switch statement @CSwitch selectorExpr switchStmt@, where @switchStmt@ usually includes
            -- /case/, /break/ and /default/ statements
            | CWhile CExpr CStat Bool NodeInfo      -- ^ while or do-while statement @CWhile guard stmt isDoWhile at@
-           | CFor      (Either (Maybe CExpr) CDecl)
-                       (Maybe CExpr)
-                       (Maybe CExpr)
-                       CStat
-                       NodeInfo            
+           | CFor (Either (Maybe CExpr) CDecl)
+                  (Maybe CExpr)
+                  (Maybe CExpr)
+                  CStat
+                  NodeInfo            
            -- ^ for statement @CFor init expr-2 expr-3 stmt@, where @init@ is either a declaration or
            -- initializing expression
            | CGoto Ident NodeInfo            -- ^ goto statement @CGoto label@
@@ -279,7 +279,14 @@ data CStorageSpec = CAuto     NodeInfo     -- ^ automatic storage
                   | CTypedef  NodeInfo     -- ^ a typedef
                   | CThread   NodeInfo     -- ^ GNUC thread local storage
                  deriving (Eq,Ord,Data,Typeable {-! CNode !-})
-                    
+instance Show CStorageSpec where
+    show (CAuto _) = "auto"
+    show (CRegister _) = "register"
+    show (CStatic _) = "static"
+    show (CExtern _) = "extern"
+    show (CTypedef _) = "typedef"
+    show (CThread _) = "thread"
+                        
 -- | C type specifier (K&R A8.2, C99 6.7.2)
 --
 -- Type specifiers are either basic types such as @char@ or @int@, 

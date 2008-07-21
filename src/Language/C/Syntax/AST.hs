@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Parser.AST
+-- Module      :  Language.C.Syntax.AST
 -- Copyright   :  (c) [1999..2007] Manuel M T Chakravarty
 --                (c) 2008 Benedikt Huber        
 -- License     :  BSD-style
@@ -21,7 +21,7 @@
 --  of C99 <http://www.open-std.org/JTC1/SC22/WG14/www/docs/n1256.pdf> and several 
 --  GNU extensions <http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html>.
 -----------------------------------------------------------------------------
-module Language.C.Parser.AST (
+module Language.C.Syntax.AST (
   -- * C translation units
   CTranslUnit(..),  CExtDecl(..),
   -- * Declarations
@@ -44,9 +44,11 @@ module Language.C.Parser.AST (
   CConst(..),CStrLit(..),cstringOfLit,liftStrLit,
 ) where
 import Data.List
-import Language.C.Common
-import Language.C.Common.Constants
-import Language.C.Common.Ops
+import Language.C.Syntax.Constants
+import Language.C.Syntax.Ops
+import Language.C.Syntax.Ident
+import Language.C.Syntax.Node
+import Language.C.Syntax.Position
 import Data.Generics
 
 -- | Complete C tranlsation unit (C99 6.9, K&R A10)

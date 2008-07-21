@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Common.Attributes
+-- Module      :  Language.C.Syntax.Attributes
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber (stripped radically)
 -- License     :  BSD-style
@@ -10,13 +10,13 @@
 --
 -- source position and unqiue name
 -----------------------------------------------------------------------------
-module Language.C.Common.Node (
+module Language.C.Syntax.Node (
    NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
    CNode(nodeInfo), eqByName, nodePos, nodeName,
 ) where
-import Language.C.Common.Position   (Position, nopos)
-import Language.C.Common.Error     (internalErr)
-import Language.C.Common.Name     (Name)
+import Language.C.Syntax.Position   (Position, nopos)
+import Language.C.Syntax.Error     (internalErr)
+import Language.C.Syntax.Name     (Name)
 import Data.Generics
 
 -- | Parsed entity attribute

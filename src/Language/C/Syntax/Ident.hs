@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Common.Ident
+-- Module      :  Language.C.Syntax.Ident
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
@@ -26,16 +26,16 @@
 --
 --  * Hashing is not 8bit clean.
 --
-module Language.C.Common.Ident (
+module Language.C.Syntax.Ident (
     Ident(..), SUERef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, 
     getIdentNodeInfo,dumpIdent)
 where
 
 import Data.Char
-import Language.C.Common.Position
-import Language.C.Common.Node
-import Language.C.Common.Name   (Name)
-import Language.C.Common.Error  (internalErr)
+import Language.C.Syntax.Position
+import Language.C.Syntax.Node
+import Language.C.Syntax.Name   (Name)
+import Language.C.Syntax.Error  (internalErr)
 import Data.Generics
 
 -- simple identifier representation (EXPORTED)

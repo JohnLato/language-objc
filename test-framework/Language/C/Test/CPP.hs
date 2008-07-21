@@ -15,10 +15,7 @@ module Language.C.Test.CPP (
 import System.IO
 import System.Exit
 import System.Cmd
-import Language.C.Common.Position
-import Language.C.Parser.Parser (parseC)
-import Language.C.Parser.InputStream
-import Language.C.Parser.AST
+import Language.C
 import Language.C.Test.Environment
 
 -- | @withTempFile directory filename-template action@ opens a temporary file in @directory@, passes the file handle to @action@,

@@ -32,8 +32,6 @@ import System.IO
 import System.Process
 
 import Language.C
-import Language.C.Common.Position
-import Language.C.Parser.InputStream
 
 import Language.C.Test.Environment
 import Language.C.Test.Framework

@@ -12,10 +12,8 @@ module Language.C.Test.GenericAST where
 import Data.Generics
 import Text.PrettyPrint
 
-import Language.C.Common.Node
-import Language.C.Common.Ident
-import Language.C.Parser.AST
-import Language.C.Parser.Pretty
+import Language.C.Syntax
+import Language.C.Pretty
 -- | Generic AST
 data GenAST =   GNode Constr [GenAST]
               | GNested [GenAST]

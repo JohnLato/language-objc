@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Common.Constants
+-- Module      :  Language.C.Syntax.Constants
 -- Copyright   :  (c) 2007..2008 Duncan Coutts, Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
@@ -10,7 +10,7 @@
 -- This module provides support for representing, checking and exporting c
 -- constants, i.e. integral, float, character and string constants.
 -----------------------------------------------------------------------------
-module Language.C.Common.Constants (
+module Language.C.Syntax.Constants (
   -- * Utilities
   escapeChar, unescapeChar, unescapeString,
   Flags(..), noFlags, setFlag, clearFlag, testFlag,
@@ -27,8 +27,8 @@ where
 import Data.Bits
 import Data.Char
 import Numeric (showOct, showHex, readHex, readOct, readDec)
-import Language.C.Common.Node
-import Language.C.Common.Position
+import Language.C.Syntax.Node
+import Language.C.Syntax.Position
 import Data.Generics
 
 -- | C char constants (abstract)

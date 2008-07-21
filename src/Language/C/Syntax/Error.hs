@@ -1,7 +1,7 @@
 {-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Common.Error
+-- Module      :  Language.C.Syntax.Error
 -- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
 --                    2008 Benedikt Huber
 -- License     :  BSD-style
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- This modules exports some datatypes and auxilliary routines for error handling.
-module Language.C.Common.Error (
+module Language.C.Syntax.Error (
   -- * handling of internal errors
   internalErr, todo,
   -- * errors in the parsed program
@@ -18,7 +18,7 @@ module Language.C.Common.Error (
   
 ) where
 
-import Language.C.Common.Position (Position(..), isInternalPos)
+import Language.C.Syntax.Position (Position(..), isInternalPos)
 
 
 -- internal errors

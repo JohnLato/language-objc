@@ -24,15 +24,15 @@ module Language.C.Analysis.NameSpaceMap (
     defGlobal, 
     enterNewScope, leaveScope,
     defLocal, 
-    lookup,lookupOnlyLocal, 
+    lookupName,lookupGlobal,lookupInnermostScope, 
     )
 where
 import Prelude hiding (lookup)
 import qualified Prelude 
 import qualified Data.Map as Map (empty, insert, lookup, toList)
 import Data.Map   (Map)
-import Language.C.Common.Ident     (Ident)
-import Language.C.Common.Error     (internalErr)
+import Language.C.Syntax.Ident     (Ident)
+import Language.C.Syntax.Error     (internalErr)
 
 {-
 C Namespaces and scopes:
@@ -115,12 +115,12 @@ defLocal (NsMap    gs (ls:lss)) ident def =
        
 -- | Search for a definition 
 --
--- @def = find ns ident@ returns the definition in the innermost scope,
+-- @def = find ns ident@ returns the definition in some scope (inner to outer),
 -- if there is one.
-lookup :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
-lookup (NsMap gs localDefs) ident  
+lookupName :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
+lookupName ns@(NsMap _ localDefs) ident  
     = case (lookupLocal localDefs) of
-        Nothing  -> Map.lookup ident gs
+        Nothing  -> lookupGlobal ns ident
         Just def -> Just def
   where
     lookupLocal []       = Nothing
@@ -128,11 +128,15 @@ lookup (NsMap gs localDefs) ident
                         Nothing  -> lookupLocal lss
                         Just def -> Just def
 
-lookupOnlyLocal :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
-lookupOnlyLocal (NsMap _gs localDefs) ident  = 
+lookupGlobal :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
+lookupGlobal (NsMap gs _) ident = Map.lookup ident gs
+
+lookupInnermostScope :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
+lookupInnermostScope nsm@(NsMap _gs localDefs) ident  = 
     case localDefs of
         (ls : _lss) -> Prelude.lookup ident ls
-        [] -> Nothing
+        [] -> lookupGlobal nsm ident
+        
 -- | flatten a namespace into a assoc list
 --
 --  @nameSpaceToList ns = (localDefInnermost ns ++ .. ++ localDefsOutermost ns) ++ globalDefs ns@

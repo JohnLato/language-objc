@@ -1,7 +1,7 @@
 {-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Analysis.SymbolTable
+-- Module      :  Language.C.Analysis.DefTable
 -- Copyright   :  (c) 2008 Benedikt Huber
 --                  based on code from c2hs
 --                (c) [1999..2001] Manuel M. T. Chakravarty
@@ -10,55 +10,22 @@
 -- Portability :  portable
 --
 -- This module manages symbols in local and global scopes.
---
--- In C, there are 4 categories of identifiers:
---
---  * labels
---
---  * tag names (@(struct|union|enum) tag-name@), where /all/ tag names live in one namespace
---
---  * members of structures and unions
---
---  * identifiers, type-names and enumeration constants
---
--- There are 4 kind of scopes:
---
---  * file scope: outside of parameter lists and blocks
---
---  * function prototype scope
---
---  * function scope: labels are visible within the entire function, and declared implicitely
---
---  * block scope
---
--- While function scope is irrelevant for variable declarations, they might also appear in member declarations.
--- Therefore, there are also 4 kinds of contexts where a variable might be declared:
---
---  * File Scope Context: external declaration \/ definition
---
---  * Block Scope Context: either external or local definition
---
---  * Function prototype scope context
---
---  * Member Declaration context
---
--- See 
---   <http://www.embedded.com/design/206901036>
---   C99 6
 -----------------------------------------------------------------------------
-module Language.C.Analysis.SymbolTable (
-    SymbolTable(..),DeclContext(..),declContext,
-    emptySymbolTable,
+module Language.C.Analysis.DefTable (
+    DefTable(..),
+    emptyDefTable,
     globalDefs,
     enterFunctionScope,leaveFunctionScope,enterBlockScope,leaveBlockScope,
     enterMemberDecl,leaveMemberDecl,
     DeclarationStatus(..),
-    declareObject,declareTag,declareLabel,lookupObj,
+    declareGlobalObject, declareScopedObject,
+    declareTag,declareLabel,lookupObj,
     lookupTag,lookupLabel,lookupObjInner,lookupTagInner,
 )
 where
-import Language.C.Common.Ident
-import Language.C.Common.Name
+import Language.C.Syntax.Ident
+import Language.C.Syntax.Name
+import Language.C.Syntax.Error (todo)
 import Language.C.Analysis.NameSpaceMap
 import Language.C.Analysis.SemRep
 
@@ -66,132 +33,174 @@ import Control.Applicative ((<|>))
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-data SymbolTable = SymbolTable 
+
+{- Name spaces, scopes and contexts [Scopes]
+
+ In C, there are 4 categories of identifiers:
+
+  * labels
+  * tag names (@(struct|union|enum) tag-name@), where /all/ tag names live in one namespace
+  * members of structures and unions
+  * identifiers, type-names and enumeration constants
+
+ There are 4 kind of scopes:
+
+  * file scope: outside of parameter lists and blocks
+  * function prototype scope
+  * function scope: labels are visible within the entire function, and declared implicitely
+  * block scope
+
+ While function scope is irrelevant for variable declarations, they might also appear in member declarations.
+ Therefore, there are also 4 kinds of contexts where a variable might be declared:
+
+  * File Scope Context: external declaration \/ definition
+  * Block Scope Context: either external or local definition
+  * Function prototype scope context
+  * Member Declaration context
+
+ See 
+   <http://www.embedded.com/design/206901036>
+   C99 6
+-}
+data DefTable = DefTable 
     {
-        identDecls   :: NameSpaceMap Ident IdentDef,       -- ^ defined objects
-        tagDecls   :: NameSpaceMap SueRef TagDef,          -- ^ defined struct/union/enum  tags
+        identDecls   :: NameSpaceMap Ident IdentDecl,       -- ^ defined objects
+        tagDecls   :: NameSpaceMap SUERef TagDef,          -- ^ defined struct/union/enum  tags
         labelDefs  :: NameSpaceMap Ident Ident,            -- ^ defined labels
         memberDecls :: NameSpaceMap Ident MemberDecl,      -- ^ member declarations (only local)
-        declContexts :: [DeclContext],                        -- ^ context stack
         refTable   :: NameMap Name                         -- ^ link names with definitions
     }
-emptySymbolTable :: SymbolTable
-emptySymbolTable = SymbolTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap [FileCtx] emptyNameMap
--- | variables can be declared in 4 different situations
---  * in file scope (external declarations)
---  * in function prototype scope
---  * in block scope (local declarations)
---  * in member declarations
-data DeclContext = FileCtx | ProtoCtx | BlockCtx | MemberCtx
-                   deriving (Eq,Ord)
-addContext :: DeclContext -> SymbolTable -> SymbolTable
-addContext ctx symt = symt { declContexts = ctx : (declContexts symt) }
-declContext :: SymbolTable -> DeclContext
-declContext = head . declContexts
+emptyDefTable :: DefTable
+emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap emptyNameMap
     
-globalDefs :: SymbolTable -> GlobalDecls
-globalDefs symt = Map.foldWithKey insertDecl (GlobalDecls e e gtags e e) (globalNames $ identDecls symt)
+globalDefs :: DefTable -> GlobalDecls
+globalDefs symt = Map.foldWithKey insertDecl (GlobalDecls e e gtags e) (globalNames $ identDecls symt)
     where
     e = Map.empty
     gtags =   globalNames (tagDecls symt)
     insertDecl ident def ds =
         case def of
-            TypeDefIdent tyName   -> ds { gTypedefs = Map.insert ident tyName (gTypedefs ds)}
-            EnumIdent _name sueref -> ds { gEnums = Map.insert ident sueref (gEnums ds) }
-            DeclIdent vardecl | isFunctionType (declType vardecl) ->
-                                    ds { gFuns = Map.insert ident (Left vardecl) (gFuns ds) }
-                              | otherwise ->
-                                    ds { gObjs = Map.insert ident (Left vardecl) (gObjs ds) }
-            DefIdent (Left funDef) -> ds { gFuns = Map.insert ident (Right funDef) (gFuns ds) }
-            DefIdent (Right varDef) -> ds { gObjs = Map.insert ident (Right varDef) (gObjs ds) }
+            TypeDef _ tyName     -> ds { gTypedefs = Map.insert ident tyName (gTypedefs ds)}
+            EnumDef _ _sueref     -> ds -- ignored, because the information is present in the enumeration anyway
+            Declaration vardecl _ | isFunctionType (declType vardecl) ->
+                                      ds { gFuns = Map.insert ident (Left vardecl) (gFuns ds) }
+                                  | otherwise ->
+                                      ds { gObjs = Map.insert ident (Left vardecl) (gObjs ds) }
+            FunctionDef funDef   -> ds { gFuns = Map.insert ident (Right funDef) (gFuns ds) }
+            ObjectDef objDef     -> ds { gObjs = Map.insert ident (Right objDef) (gObjs ds) }
             
-    
 leaveScope_ :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 leaveScope_ = fst . leaveScope
 
-enterLocalScope :: SymbolTable -> SymbolTable
+enterLocalScope :: DefTable -> DefTable
 enterLocalScope symt = symt {
         identDecls = enterNewScope (identDecls symt),
         tagDecls = enterNewScope (tagDecls symt)
     }
-leaveLocalScope :: SymbolTable -> SymbolTable
+leaveLocalScope :: DefTable -> DefTable
 leaveLocalScope symt = symt {
                         identDecls = leaveScope_ (identDecls symt),
-                        tagDecls = leaveScope_ (tagDecls symt),
-                        declContexts = tail (declContexts symt)
+                        tagDecls = leaveScope_ (tagDecls symt)
                        }
 -- | Enter function scope (and the corresponding block scope)
-enterFunctionScope :: SymbolTable -> SymbolTable
-enterFunctionScope symt = enterLocalScope . addContext BlockCtx $ 
+enterFunctionScope :: DefTable -> DefTable
+enterFunctionScope symt = enterLocalScope  $ 
                           symt { labelDefs = enterNewScope (labelDefs symt) }
 
--- | Leave function scope, and return the associated SymbolTable.
+-- | Leave function scope, and return the associated DefTable.
 --   Error if not in function scope.
-leaveFunctionScope :: SymbolTable -> SymbolTable
+leaveFunctionScope :: DefTable -> DefTable
 leaveFunctionScope symt = leaveLocalScope $ symt { labelDefs = leaveScope_ (labelDefs symt) }
 
 -- | Enter a block scope
-enterBlockScope :: DeclContext -> SymbolTable -> SymbolTable
-enterBlockScope ctx = enterLocalScope . addContext ctx
+enterBlockScope :: DefTable -> DefTable
+enterBlockScope = enterLocalScope
 
-leaveBlockScope :: SymbolTable -> SymbolTable
+leaveBlockScope :: DefTable -> DefTable
 leaveBlockScope = leaveLocalScope
 
-enterMemberDecl :: SymbolTable -> SymbolTable
-enterMemberDecl symt = addContext MemberCtx $
-                       symt { memberDecls = enterNewScope (memberDecls symt) }
+enterMemberDecl :: DefTable -> DefTable
+enterMemberDecl symt = symt { memberDecls = enterNewScope (memberDecls symt) }
 
-leaveMemberDecl :: SymbolTable -> ([MemberDecl], SymbolTable)
+leaveMemberDecl :: DefTable -> ([MemberDecl], DefTable)
 leaveMemberDecl symt = 
     let (decls',members) = leaveScope (memberDecls symt) 
     in (,) (map snd members)
-           (symt { memberDecls = decls', declContexts = tail (declContexts symt) })
+           (symt { memberDecls = decls' })
 
 -- * declarations
 data DeclarationStatus t =
-      DifferentKindRedecl t
-    | ShadowDecl t
-    | SameScopeRedecl t
-    | OuterScopeRedecl t
-    
--- | declare\/define an object\/function\/typedef
--- * If there already is an object\/function with the same name
---   * in the same scope, which is an enumerator or typedef, overwrite
---     returns (DifferentKindRedecl def)
---   * in the same scope, define \/ overwrite the existing declaration
---     returns (SameScopeRedeclaration def), if the object is already defined in this scope
---   * in an outer scope, and the object has an `extern` specifier, and the outer scope object has different kind
---     returns (DifferentKindRedecl def)
---   * in an outer scope, and the object has an `extern` specifier, define \/ overwrite the existing declaration
---     returns (OuterScopeRedeclaration def), if the object is already defined in some scope
---   * in an outer scope, and the object has no external specifier, shadow the existing declaration
---     return  (ShadowedDeclaration def), if an declaration is shadowed
-declareObject :: Ident -> IdentDef -> SymbolTable -> (SymbolTable, DeclarationStatus IdentDef)
-declareObject = undefined
+      NewDecl
+    | Redeclared t
+    | Shadowed t
+    | DifferentKindRedecl t
+            
+defRedeclStatus :: (t -> t -> Bool) -> t -> Maybe t -> DeclarationStatus t
+defRedeclStatus sameKind def oldDecl
+    = case oldDecl of
+          Just def' | def `sameKind` def' -> Redeclared def'
+                    | otherwise           -> DifferentKindRedecl def'
+          Nothing                         -> NewDecl
+defRedeclStatusLocal :: (Ord k) =>
+                        (t -> t -> Bool) -> k -> t -> Maybe t -> NameSpaceMap k t -> DeclarationStatus t
+defRedeclStatusLocal sameKind ident def oldDecl nsm = 
+    case defRedeclStatus sameKind def oldDecl of 
+        NewDecl -> case lookupName nsm ident of
+                     Just shadowed -> Shadowed shadowed
+                     Nothing       -> NewDecl
+        redecl  -> redecl
+
+-- | declare\/define a global object\/function\/typedef
+--
+--  returns @Redeclared def@ if there is already an object\/function\/typedef
+--  in global scope, or @DifferentKindRedec def@ if the old declaration is of a different kind.
+declareGlobalObject :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
+declareGlobalObject ident def symt
+    = (defRedeclStatus compatibleObjKind def oldDecl, symt { identDecls = decls' })
+    where
+    (decls',oldDecl) = defGlobal (identDecls symt) ident def
+
+-- | declare\/define a object\/function\/typedef with lexical scope
+--
+--  returns @Redeclared def@ or @DifferentKindRedec def@  if there is already an object\/function\/typedef
+--  in the same scope.
+declareScopedObject :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
+declareScopedObject ident def symt
+    = (redeclStatus, symt { identDecls = decls' })
+    where
+    (decls',olddecl) = defLocal (identDecls symt) ident def
+    redeclStatus = defRedeclStatusLocal compatibleObjKind ident def olddecl (identDecls symt)
 
 -- | declare\/define an tag
--- For scoping rules, see 'declareObject'
-declareTag :: SueRef -> SymbolTable -> (SymbolTable, DeclarationStatus SueRef)
-declareTag = undefined
+--
+declareTag :: SUERef -> TagDef -> DefTable -> (DeclarationStatus TagDef, DefTable)
+declareTag sueref tagdef symt
+    =  (redeclStatus, symt { tagDecls = decls'})    
+    where
+    (decls',olddecl) = defLocal (tagDecls symt) sueref tagdef
+    redeclStatus = defRedeclStatusLocal sameTagKind sueref tagdef olddecl (tagDecls symt)
 
 -- | define a label
 -- Return the old label if it is already defined in this function's scope
-declareLabel :: Ident -> SymbolTable -> (SymbolTable, Maybe Ident) 
-declareLabel = undefined
+--
+-- /TODO/: implement
+declareLabel :: Ident -> DefTable -> (DefTable, Maybe Ident) 
+declareLabel = todo "DefTable.declareLabel"
 
 -- | lookup object
-lookupObj :: Ident -> SymbolTable -> Maybe IdentDef
-lookupObj = undefined
+lookupObj :: Ident -> DefTable -> Maybe IdentDecl
+lookupObj ident symt = lookupName (identDecls symt) ident
+    
 -- | lookup tag
-lookupTag :: SueRef -> SymbolTable -> Maybe TagDef
-lookupTag = undefined
--- | lookup label
-lookupLabel :: Ident -> SymbolTable -> Maybe Ident
-lookupLabel = undefined
+lookupTag :: SUERef -> DefTable -> Maybe TagDef
+lookupTag sue_ref symt = lookupName (tagDecls symt) sue_ref
 
--- internal
+-- | lookup label
+lookupLabel :: Ident -> DefTable -> Maybe Ident
+lookupLabel ident symt = lookupName (labelDefs symt) ident
+
 -- | lookup an object in the innermost scope
-lookupObjInner :: Ident -> SymbolTable -> Maybe IdentDef
+lookupObjInner :: Ident -> DefTable -> Maybe IdentDecl
 lookupObjInner = undefined
-lookupTagInner :: SueRef -> SymbolTable -> Maybe TagDef
+lookupTagInner :: SUERef -> DefTable -> Maybe TagDef
 lookupTagInner = undefined

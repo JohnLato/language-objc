@@ -8,88 +8,147 @@
 -- Portability :  non-portable (DeriveDataTypeable)
 --
 -- This module contains definitions for representing C translation units.
--- In contrast to 'Language.C.Parser.AST', the representation tries to express the semantics of
+-- In contrast to 'Language.C.Syntax.AST', the representation tries to express the semantics of
 -- of a translation unit, and links back to the AST via NodeInfo fields.
 --
+-- /Ideas/
+--
+--  1. Pretty Printing anonymous SUE
+-- 
+--    * when pretty printing, use a unique name generator to un-anonymize structs
+--    
+--    * use $ names
+--
+--    * use GNU typeOf extension (together with the next one)
+--
+--    * (maybe): Keep ref counts, if an anonymous struct is only ref'd one, pp it anonymously
+--
+--    * (rather not): Try to merge declarations, s.t. we still can use an anonymous struct
+    
 -- /TODO/: At the moment, we do not analyse function bodies.
 --         This will change in the future of course, when we've implemented more analysis steps
 ---------------------------------------------------------------------------------------------------
 module Language.C.Analysis.SemRep
 where
-import Language.C.Common
-import Language.C.Common.Constants
-import Language.C.Common.Ops
-import Language.C.Parser.AST -- placeholders
+import Language.C.Syntax
+
 import Data.Map (Map)
 import Data.Generics
+import Text.PrettyPrint.HughesPJ
 
 -- tags (namespace sum)
-data TagDef =  CompTag (Either CompTypeDecl CompType)	  -- struct-union declaration/definition
-    	     | EnumTag (Either EnumTypeDecl Enumeration) -- enum declaration/definition
-               deriving (Typeable, Data)
-
+data TagDef =  CompTag CompType	  --definition
+     	     | EnumTag EnumType      -- enum definition
+                deriving (Typeable, Data {-! CNode !-})
+sameTagKind :: TagDef -> TagDef -> Bool
+sameTagKind (CompTag ct1) (CompTag ct2) = compTag ct1 == compTag ct2
+sameTagKind (EnumTag _) (EnumTag _) = True
+sameTagKind _ _ = False
+instance HasSUERef TagDef where
+    sueRef (CompTag ct) = sueRef ct
+    sueRef (EnumTag et) = sueRef et
+    
 -- identifiers, typedefs and enumeration constants (namespace sum)
-data IdentDef = TypeDefIdent TypeName               -- typedef declaration
-	          | DeclIdent VarDecl                   -- object or function declaration
-	          | DefIdent (Either FunDef ObjDef)	    -- object or function definition
-	          | EnumIdent Ident SueRef              -- enumerator
+data IdentDecl =   
+	             Declaration VarDecl NodeInfo -- object or function declaration
+	           | ObjectDef ObjDef           -- object definition
+	           | FunctionDef FunDef         -- function definition
+	           | EnumDef Enumerator SUERef       -- definition of an enumerator
+               | TypeDef Ident Type         -- typedef declaration
                deriving (Typeable, Data)
+identOfDecl :: IdentDecl -> Ident
+identOfDecl ident_decl =
+    case ident_decl of
+        Declaration vd _ -> declIdent vd
+        ObjectDef od -> declIdent od
+        FunctionDef fd  -> declIdent fd
+        EnumDef enumerator _sue_ref -> fst $ enumerator
+        TypeDef ident _ty -> ident
+    where
+    declIdent :: (Decl d) => d -> Ident
+    declIdent = identOfVarName . declName
 
--- global declarations and definitions
+instance CNode IdentDecl where
+    nodeInfo (Declaration _ node) = node
+    nodeInfo (ObjectDef od) = nodeInfo od             
+    nodeInfo (FunctionDef fd) = nodeInfo fd             
+    nodeInfo (EnumDef (ident,_) _) = nodeInfo ident 
+    nodeInfo (TypeDef ident _) = nodeInfo ident          
+objKindDescr :: IdentDecl -> String
+objKindDescr  (Declaration _ _) = "declaration"
+objKindDescr (ObjectDef _) = "object definition"
+objKindDescr (FunctionDef _) = "function definition"
+objKindDescr (EnumDef _ _) = "enumerator definition"
+objKindDescr (TypeDef _ _) = "typedef"
+compatibleObjKind :: IdentDecl -> IdentDecl -> Bool
+compatibleObjKind (TypeDef _ _) (TypeDef _ _) = True
+compatibleObjKind _ (TypeDef _ _) = False
+compatibleObjKind (TypeDef _ _) _ = False
+compatibleObjKind (EnumDef _ _) (EnumDef _ _) = True
+compatibleObjKind (EnumDef _ _) _ = False
+compatibleObjKind _ (EnumDef _ _) = False
+compatibleObjKind _ _ = True
+    
+
+-- * global declarations and definitions
 data GlobalDecls = GlobalDecls {
                      gObjs    :: Map Ident (Either VarDecl ObjDef),
                      gFuns    :: Map Ident (Either VarDecl FunDef),
-                     gTags    :: Map SueRef TagDef,
-                     gTypedefs :: Map Ident TypeName,
-                     gEnums   :: Map Ident SueRef
+                     gTags    :: Map SUERef TagDef,
+                     gTypedefs :: Map Ident Type
                    }
-                   deriving (Typeable, Data)
+-- * Events
 
--- | C translation unit
+-- | declaration events
 --
--- A list of external declarations
-data TranslUnit = TranslUnit [ExtDef] GlobalDecls
-
+-- /PRELIMINARY/ This will change soon, but we have to take a look what makes most sense
+data DeclEvent =
+       TagEvent  TagDef
+       -- ^ file-scope struct\/union\/enum event
+     | DeclEvent IdentDecl
+       -- ^ file-scope declaration or definition
+     | AsmEvent AsmBlock
+       -- ^ assembler block
+      
 -- * declarations and definitions
-
--- | file scope definitions
-data ExtDef = 
-      ExtObjDef ObjDef
-      -- ^ file-scope object definition
-    | ExtFunDef FunDef
-      -- ^ file-scope function definition
-    | ExtAsm AsmBlock
-      -- ^ assembler block
-    | DeclHint IdentDef
-      -- ^ hint where to place declarations
-    deriving (Typeable, Data)
 
 -- | class to reduce namespace clutter for declarations and definitions
 class Decl n where
     declName :: n -> VarName
     declType :: n -> Type
     declAttrs :: n -> DeclAttrs
-
+instance (Decl a, Decl b) => Decl (Either a b) where
+    declName = either declName declName
+    declType = either declType declType
+    declAttrs = either declAttrs declAttrs
 -- | external declarations
-data VarDecl = VarDecl VarName DeclAttrs Type Attributes
+data VarDecl = VarDecl VarName DeclAttrs Type
               deriving (Typeable, Data)
 instance Decl VarDecl where
-    declName  (VarDecl extname declattrs ty _)  = extname
-    declType  (VarDecl name declattrs ty _)  = ty
-    declAttrs (VarDecl name declattrs ty _)  = declattrs
+    declName  (VarDecl extname _ _)  = extname
+    declType  (VarDecl _ _ ty)  = ty
+    declAttrs (VarDecl _ declattrs _)  = declattrs
 isExtDecl :: VarDecl -> Bool
 isExtDecl = hasLinkage . storage . declAttrs
 
 -- | Object Definitions 
+-- A object defintion is of the form @ObjDec vardecl initializer? node@
 data ObjDef = ObjDef VarDecl (Maybe Initializer) NodeInfo
              deriving (Typeable, Data {-! CNode !-})
+instance Decl ObjDef where
+    declName  (ObjDef vd _ _) = declName vd
+    declType  (ObjDef vd _ _) = declType vd
+    declAttrs  (ObjDef vd _ _) = declAttrs vd             
 isTentative :: ObjDef -> Bool
-isTentative (ObjDef decl mInit _) | isExtDecl decl = maybe True (const False) mInit
-                                  | otherwise = False
+isTentative (ObjDef decl init_opt _) | isExtDecl decl = maybe True (const False) init_opt
+                                     | otherwise = False
 -- | Function definitions
 data FunDef = FunDef VarDecl Stmt NodeInfo
              deriving (Typeable, Data {-! CNode !-})
-
+instance Decl FunDef where
+    declName  (FunDef vd _ _) = declName vd
+    declType  (FunDef vd _ _) = declType vd
+    declAttrs  (FunDef vd _ _) = declAttrs vd
              
 -- | Parameter declaration @ParamDecl maybeIdent type attrs node@
 data ParamDecl = ParamDecl VarDecl NodeInfo
@@ -100,23 +159,19 @@ instance Decl ParamDecl where
     declAttrs (ParamDecl ld _) = declAttrs ld
     
 -- | Struct\/Union member declaration 
-data MemberDecl = MemberDecl VarDecl NodeInfo
-                  -- ^ @MemberDecl name type bitfieldsize attrs node@
-                | AnonBitfield Type NodeInfo
-                  -- ^ @AnonBitfield size@
+data MemberDecl = MemberDecl VarDecl (Maybe ConstExpr) NodeInfo
+                  -- ^ @MemberDecl vardecl bitfieldsize node@
+                | AnonBitField Type ConstExpr NodeInfo
+                  -- ^ @AnonBitField typ size@
     deriving (Typeable, Data {-! CNode !-} )
 instance Decl MemberDecl where
-    declName (MemberDecl ld _) = declName ld
+    declName (MemberDecl ld _ _) = declName ld
     declName _ = NoName
-    declType (MemberDecl ld _) = declType ld
-    declType (AnonBitfield ty _) = ty
-    declAttrs (MemberDecl ld _) = declAttrs ld
+    declType (MemberDecl ld _ _) = declType ld
+    declType (AnonBitField ty _ _) = ty
+    declAttrs (MemberDecl ld _ _) = declAttrs ld
     declAttrs _ = DeclAttrs False NoStorage []
     
--- | type names
-data TypeNameDef = TypeNameDef' Ident Type Attributes NodeInfo
-                   deriving (Typeable, Data {-! CNode !-} )
- 
 -- | attributes of a declared object have the form @DeclAttrs isInlineFunction storage linkage attrs@.
 data DeclAttrs = DeclAttrs Bool Storage Attributes
                  -- ^ @DeclAttrs inline storage attrs@
@@ -141,6 +196,7 @@ data Storage  =  NoStorage                  -- ^ no storage
                | Auto                       -- ^ automatic storage
                | Register                   -- ^ register storage
                | Static Linkage ThreadLocal -- ^ static storage, with linkage and thread local specifier (gnu c)
+               | FunLinkage Linkage         -- ^ function, either internal or external linkage
                deriving (Typeable, Data, Show, Eq, Ord)
 type ThreadLocal = Bool
 data Linkage = InternalLinkage | ExternalLinkage
@@ -153,11 +209,11 @@ hasLinkage _ = False
 
 -- | types of c objects
 data Type =
-       DirectType TypeQuals TypeName Attributes
+       DirectType TypeName TypeQuals Attributes
      -- a non-derived type
-     | PtrType TypeQuals Type Attributes
+     | PtrType Type TypeQuals Attributes
      -- ^ pointer type
-     | ArrayType TypeQuals ArraySize Type Attributes
+     | ArrayType Type ArraySize TypeQuals Attributes
      -- ^ array type
      | FunctionType FunType
      -- ^ function type
@@ -175,7 +231,7 @@ data ArraySize =  IncompleteArray
                deriving (Typeable, Data)
 
 -- | Function types @FunType params isVariadic attrs type@
-data FunType = FunType [ParamDecl] Bool Attributes Type
+data FunType = FunType Type [ParamDecl] Bool Attributes 
                deriving (Typeable, Data)
 
 -- | normalized type representation
@@ -185,10 +241,12 @@ data TypeName =
     | TyFloating FloatTypeQuals FloatType
     | TyComp CompTypeDecl
     | TyEnum EnumTypeDecl
-    | TypeNameType TypeDefRef
-    | TypeOfExpr  Expr
+    | TyTypeDef TypeDefRef
+    | TyOfExpr  Expr
+    | TyBuiltin BuiltinType
     deriving (Typeable, Data)
-
+data BuiltinType = TyVaList 
+                   deriving (Typeable, Data)
 data TypeDefRef = TypeDefRef Ident NodeInfo
                deriving (Typeable, Data {-! CNode !-})
 
@@ -220,36 +278,51 @@ data FloatType =
     | TyLDouble
     deriving (Typeable, Data, Eq, Ord, Show)
 
-data CompTypeDecl = CompTypeDecl SueRef CompTag NodeInfo
+-- | accessor class : struct\/union\/enum names
+class HasSUERef a where
+    sueRef  :: a -> SUERef
+    
+-- | accessor class : composite type tags (struct or enum)
+class HasCompTag a where
+    compTag :: a -> CompTag
+    
+data CompTypeDecl = CompTypeDecl SUERef CompTag Attributes NodeInfo
     deriving (Typeable, Data {-! CNode !-})
-data EnumTypeDecl = EnumTypeDecl SueRef NodeInfo
-    deriving (Typeable, Data {-! CNode !-})
-                
+instance HasSUERef  CompTypeDecl where sueRef  (CompTypeDecl ref _ _ _) = ref
+instance HasCompTag CompTypeDecl where compTag (CompTypeDecl _ tag _ _)  = tag
 
-data TypeDecl = CompDef CompType
-              | EnumDef Enumeration                
-              deriving (Typeable, Data)
+data EnumTypeDecl = EnumTypeDecl SUERef Attributes NodeInfo
+    deriving (Typeable, Data {-! CNode !-})
+instance HasSUERef  EnumTypeDecl where sueRef  (EnumTypeDecl ref _ _) = ref
               
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
-data CompType =  CompType SueRef [MemberDecl] Attributes NodeInfo
-               deriving (Typeable, Data {-! CNode !-} )
+data CompType =  CompType SUERef CompTag [MemberDecl] Attributes NodeInfo
+                 deriving (Typeable, Data {-! CNode !-} )
+instance HasSUERef  CompType where sueRef  (CompType ref _ _ _ _) = ref
+instance HasCompTag CompType where compTag (CompType _ tag _ _ _) = tag
 
 -- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CCompType'.
 data CompTag =  StructTag
               | UnionTag
     deriving (Eq,Ord,Typeable,Data)
-
+instance Show CompTag where
+    show StructTag = "struct"
+    show UnionTag  = "union"
 -- | C enumeration specifier (K&R A8.4, C99 6.7.2.2)
 --
-data Enumeration = EnumType SueRef [(Ident,Maybe Expr)] Attributes NodeInfo
+data EnumType = EnumType SUERef [Enumerator] Attributes NodeInfo
                  -- ^ @EnumDef name enumeration-constants(-value)? attrs node@
                  deriving (Typeable, Data {-! CNode !-} )
-          
+instance HasSUERef EnumType where sueRef  (EnumType ref _ _ _) = ref
+type Enumerator = (Ident,Maybe Expr)
+
+type Initializer = CInit
+
 -- | C initialization (K&R A8.7, C99 6.7.8)
 -- 
-data Initializer = InitExpr Expr NodeInfo            -- ^ assignment expression
-                 | InitList InitList NodeInfo         -- ^ initialization list (see 'InitList')
+data Initializer_stub = InitExpr Expr NodeInfo            -- ^ assignment expression
+                      | InitList InitList NodeInfo         -- ^ initialization list (see 'InitList')
                  deriving (Typeable, Data {-! CNode !-} )
 
 -- | Initializer List
@@ -269,10 +342,14 @@ data TypeQuals = TypeQuals { constant :: Bool, volatile :: Bool, restrict :: Boo
     deriving (Typeable, Data)
 noTypeQuals :: TypeQuals
 noTypeQuals = TypeQuals False False False
+mergeTypeQuals :: TypeQuals -> TypeQuals -> TypeQuals
+mergeTypeQuals (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) 
+    = TypeQuals (c1 && c2) (v1 && v2) (r1 && r2)
 
 -- * statements and expressions (/TODO/)
 type Stmt = CStat
 type Expr = CExpr
+type ConstExpr = Expr
 
 -- * names and attributes
 
@@ -280,6 +357,9 @@ type Expr = CExpr
 data VarName =  VarName Ident (Maybe AsmName)
               | NoName
                deriving (Typeable, Data)
+identOfVarName :: VarName -> Ident
+identOfVarName NoName            = error "identOfVarName: NoName"
+identOfVarName (VarName ident _) = ident
 -- | Top level assembler block
 type AsmBlock = StringLit
 
@@ -302,6 +382,8 @@ type AsmName = StringLit
 -- * function declarations can be attributes with /noreturn/ to tell the compiler that the function will never return,
 --  
 -- * or with /const/ to indicate that it is a pure function
+--
+-- /TODO/: ultimatively, we want to parse attributes and represent them in a typed way
 data Attr = Attr Ident [Expr] NodeInfo
             deriving (Typeable, Data {-! CNode !-})
 
@@ -326,7 +408,13 @@ cstringOfLit (StringLit cstr _) = cstr
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 1487437734
+-- CHECKSUM: 169674109
+
+instance CNode TagDef
+    where nodeInfo (CompTag d) = nodeInfo d
+          nodeInfo (EnumTag d) = nodeInfo d
+instance Pos TagDef
+    where posOf x = nodePos (nodeInfo x)
 
 instance CNode ObjDef
     where nodeInfo (ObjDef _ _ nodeinfo) = nodeinfo
@@ -344,14 +432,9 @@ instance Pos ParamDecl
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode MemberDecl
-    where nodeInfo (MemberDecl _ nodeinfo) = nodeinfo
-          nodeInfo (AnonBitfield _ nodeinfo) = nodeinfo
+    where nodeInfo (MemberDecl _ _ nodeinfo) = nodeinfo
+          nodeInfo (AnonBitField _ _ nodeinfo) = nodeinfo
 instance Pos MemberDecl
-    where posOf x = nodePos (nodeInfo x)
-
-instance CNode TypeNameDef
-    where nodeInfo (TypeNameDef' _ _ _ nodeinfo) = nodeinfo
-instance Pos TypeNameDef
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode TypeDefRef
@@ -360,29 +443,29 @@ instance Pos TypeDefRef
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode CompTypeDecl
-    where nodeInfo (CompTypeDecl _ _ nodeinfo) = nodeinfo
+    where nodeInfo (CompTypeDecl _ _ _ nodeinfo) = nodeinfo
 instance Pos CompTypeDecl
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode EnumTypeDecl
-    where nodeInfo (EnumTypeDecl _ nodeinfo) = nodeinfo
+    where nodeInfo (EnumTypeDecl _ _ nodeinfo) = nodeinfo
 instance Pos EnumTypeDecl
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode CompType
-    where nodeInfo (CompType _ _ _ nodeinfo) = nodeinfo
+    where nodeInfo (CompType _ _ _ _ nodeinfo) = nodeinfo
 instance Pos CompType
     where posOf x = nodePos (nodeInfo x)
 
-instance CNode Enumeration
+instance CNode EnumType
     where nodeInfo (EnumType _ _ _ nodeinfo) = nodeinfo
-instance Pos Enumeration
+instance Pos EnumType
     where posOf x = nodePos (nodeInfo x)
 
-instance CNode Initializer
+instance CNode Initializer_stub
     where nodeInfo (InitExpr _ nodeinfo) = nodeinfo
           nodeInfo (InitList _ nodeinfo) = nodeinfo
-instance Pos Initializer
+instance Pos Initializer_stub
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode Designator

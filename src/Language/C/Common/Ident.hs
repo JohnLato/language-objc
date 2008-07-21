@@ -27,7 +27,7 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Common.Ident (
-    Ident(..), SueRef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, 
+    Ident(..), SUERef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, 
     getIdentNodeInfo,dumpIdent)
 where
 
@@ -45,7 +45,7 @@ data Ident = Ident String       -- lexeme
                    NodeInfo        -- attributes of this ident. incl. position
              deriving (Data,Typeable)
 
-data SueRef =  AnonymousType Name
+data SUERef =  AnonymousType Name
              | NamedType Ident
     deriving (Typeable, Data, Ord, Eq)
     

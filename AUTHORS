@@ -1,15 +1,13 @@
+Benedikt Huber          <benedikt.huber@gmail.com>
 Manuel M T Chakravarty  <chak@cse.unsw.edu.au>
 Duncan Coutts           <duncan@haskell.org>
-Benedikt Huber          <benedikt.huber@gmail.com>
-
-With contributions from:
-
 Bertram Felgenhauer     <int-e@gmx.de>
 
-Thanks for comments and suggestions to:
+This project originated from the C parser component of c2hs,
+see AUTHORS.c2hs for additional credits.
+
+Special thanks for their great support, comments and suggestions to:
 
 Duncan Coutts           <duncan@haskell.org>
 Iavor Diatchki          <iavor.diatchki@gmail.com>
-
-This project originated from the C parser component of c2hs.
-For additional credits, see AUTHORS.c2hs.
+Don Steward             <dons@galois.com>

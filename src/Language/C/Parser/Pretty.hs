@@ -60,6 +60,7 @@ ii = nest 4
 instance Pretty CTranslUnit where
     pretty (CTranslUnit edecls _) = vcat (map pretty edecls)
 
+-- | useful for testing, as otherwise the output will always be cluttered with system includes
 prettyUsingInclude :: CTranslUnit -> Doc
 prettyUsingInclude cast@(CTranslUnit edecls _) =
   includeWarning headerFiles
@@ -182,12 +183,7 @@ instance Pretty CDeclSpec where
     pretty (CTypeQual qu) = pretty qu
 
 instance Pretty CStorageSpec where
-    pretty (CAuto _)     = text "auto"
-    pretty (CRegister _) = text "register"
-    pretty (CStatic _)   = text "static"
-    pretty (CExtern _)   = text "extern"
-    pretty (CTypedef _)  = text "typedef"
-    pretty (CThread _)   = text "__thread"
+    pretty sp = text (show sp)
 
 instance Pretty CTypeSpec where
     pretty (CVoidType _)        = text "void"

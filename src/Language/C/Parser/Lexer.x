@@ -54,10 +54,10 @@ import Data.Char (isDigit)
 import Control.Monad (liftM)
 import Numeric   (readDec, readOct, readHex)
 
-import Language.C.Common.Position  (Position(..),posOf)
-import Language.C.Common.Ident    (mkIdent)
+import Language.C.Syntax.Position  (Position(..),posOf)
+import Language.C.Syntax.Ident    (mkIdent)
 
-import Language.C.Common.Constants
+import Language.C.Syntax.Constants
 
 import Language.C.Parser.Tokens
 import Language.C.Parser.ParserMonad

@@ -96,9 +96,9 @@ module Language.C.Parser.Parser (parseC) where
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 
-import Language.C.Common
-import Language.C.Common.RList
-import Language.C.Parser.AST
+import Language.C.Syntax
+import Language.C.Syntax.RList
+import Language.C.Syntax.AST
 import Language.C.Parser.Builtin   (builtinTypeNames)
 
 import Language.C.Parser.Lexer     (lexC, parseError)

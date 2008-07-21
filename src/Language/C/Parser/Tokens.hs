@@ -13,9 +13,9 @@
 -----------------------------------------------------------------------------
 module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where 
 
-import Language.C.Common.Position  (Position, Pos(..))
-import Language.C.Common.Ident    (Ident, identToString)
-import Language.C.Common.Constants     (CChar, CInteger, CFloat, CString)
+import Language.C.Syntax.Position  (Position, Pos(..))
+import Language.C.Syntax.Ident    (Ident, identToString)
+import Language.C.Syntax.Constants     (CChar, CInteger, CFloat, CString)
 
 -- token definition
 -- ----------------

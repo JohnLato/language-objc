@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Common.ParserMonad
+-- Module      :  Language.C.Syntax.ParserMonad
 -- Copyright   :  (c) [1999..2004] Manuel M T Chakravarty
 --                (c) 2005-2007 Duncan Coutts
 -- License     :  BSD-style
@@ -34,15 +34,15 @@ module Language.C.Parser.ParserMonad (
   setInput,          -- :: String -> P ()
   getLastToken,      -- :: P CToken
   setLastToken,      -- :: CToken -> P ()
-  module Language.C.Parser.InputStream,
+  module Language.C.InputStream,
   ) where
 
-import Language.C.Common.Position  (Position(..))
-import Language.C.Common.Error    (internalErr)
-import Language.C.Common.Name    (Name)
-import Language.C.Common.Ident    (Ident)
+import Language.C.Syntax.Position  (Position(..))
+import Language.C.Syntax.Error    (internalErr)
+import Language.C.Syntax.Name    (Name)
+import Language.C.Syntax.Ident    (Ident)
 import Language.C.Parser.Tokens (CToken)
-import Language.C.Parser.InputStream
+import Language.C.InputStream
 
 import Data.Set  (Set)
 import qualified Data.Set as Set (fromList, insert, member, delete)

@@ -2,17 +2,17 @@
 {-# OPTIONS -Wall #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Parser.InputStream
+-- Module      :  Language.C.InputStream
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  experimental
--- Portability :  portable
+-- Stability   :  provisional
+-- Portability :  CPP, BangPatterns
 --
 -- Compile time InputStream abstraction for the parser. 
 -- Supports either ByteString or String.
 -------------------------------------------------------------------------------
-module Language.C.Parser.InputStream (
+module Language.C.InputStream (
     InputStream, readInputStream,inputStreamToString,inputStreamFromString,
     takeChar,inputStreamEmpty,takeChars,
     countLines,

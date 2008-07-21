@@ -46,14 +46,14 @@ todo msg  = error ("Feature not yet implemented:\n"
 -- ------------------------------
 
 -- | Error levels (priorities)
-data ErrorLevel = LevelWarning
+data ErrorLevel = LevelWarn
                 | LevelError
                 | LevelFatal
               deriving (Eq, Ord)
 
 -- | create a warning
 mkWarning :: Position -> String -> CError
-mkWarning pos msg = mkError LevelWarning pos (lines msg)
+mkWarning pos msg = mkError LevelWarn pos (lines msg)
 
 -- | create a `Error' with the given level, position and error lines
 mkError :: ErrorLevel -> Position -> [String] -> CError
@@ -74,9 +74,9 @@ instance Show CError where
   show = showError
 
 isWarning :: CError -> Bool
-isWarning = ( <= LevelWarning) . errorLevel
+isWarning = ( <= LevelWarn) . errorLevel
 isHardError :: CError -> Bool
-isHardError = ( > LevelWarning) . errorLevel
+isHardError = ( > LevelWarn) . errorLevel
 
 -- | converts an error into a string using a fixed format
 --
@@ -111,7 +111,7 @@ showError (CError lvl (Position fname row col) (l:ls))  =
              ++ ") [" 
              ++ showErrorLvl lvl
              ++ "] "
-    showErrorLvl LevelWarning = "WARNING"
+    showErrorLvl LevelWarn = "WARNING"
     showErrorLvl LevelError   = "ERROR"
     showErrorLvl LevelFatal   = "FATAL"
   in

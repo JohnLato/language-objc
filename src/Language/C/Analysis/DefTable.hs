@@ -10,6 +10,10 @@
 -- Portability :  portable
 --
 -- This module manages symbols in local and global scopes.
+--
+-- There are four different kind of identifiers: ordinary identifiers (henceforth
+-- simply called `identifier'), tags (names of struct\/union\/enum types),
+-- labels and structure members.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.DefTable (
     DefTable(..),
@@ -18,9 +22,9 @@ module Language.C.Analysis.DefTable (
     enterFunctionScope,leaveFunctionScope,enterBlockScope,leaveBlockScope,
     enterMemberDecl,leaveMemberDecl,
     DeclarationStatus(..),
-    declareGlobalObject, declareScopedObject,
-    declareTag,declareLabel,lookupObj,
-    lookupTag,lookupLabel,lookupObjInner,lookupTagInner,
+    defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
+    defineTag,defineLabel,lookupIdent,
+    lookupTag,lookupLabel,lookupIdentInner,lookupTagInner,
 )
 where
 import Language.C.Syntax.Ident
@@ -40,7 +44,7 @@ import qualified Data.Map as Map
   * labels
   * tag names (@(struct|union|enum) tag-name@), where /all/ tag names live in one namespace
   * members of structures and unions
-  * identifiers, type-names and enumeration constants
+  * ordinary identifiers, denoting objects, functions, typedefs and enumeration constants
 
  There are 4 kind of scopes:
 
@@ -63,7 +67,7 @@ import qualified Data.Map as Map
 -}
 data DefTable = DefTable 
     {
-        identDecls   :: NameSpaceMap Ident IdentDecl,       -- ^ defined objects
+        identDecls   :: NameSpaceMap Ident IdentDecl,      -- ^ defined `ordinary identifiers'
         tagDecls   :: NameSpaceMap SUERef TagDef,          -- ^ defined struct/union/enum  tags
         labelDefs  :: NameSpaceMap Ident Ident,            -- ^ defined labels
         memberDecls :: NameSpaceMap Ident MemberDecl,      -- ^ member declarations (only local)
@@ -73,10 +77,10 @@ emptyDefTable :: DefTable
 emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap emptyNameMap
     
 globalDefs :: DefTable -> GlobalDecls
-globalDefs symt = Map.foldWithKey insertDecl (GlobalDecls e e e gtags e) (globalNames $ identDecls symt)
+globalDefs deftbl = Map.foldWithKey insertDecl (GlobalDecls e e e gtags e) (globalNames $ identDecls deftbl)
     where
     e = Map.empty
-    gtags =   globalNames (tagDecls symt)
+    gtags =   globalNames (tagDecls deftbl)
     insertDecl ident def ds =
         case def of
             TypeDef tydef         -> ds { gTypedefs = Map.insert ident tydef (gTypedefs ds)}
@@ -92,24 +96,24 @@ leaveScope_ :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 leaveScope_ = fst . leaveScope
 
 enterLocalScope :: DefTable -> DefTable
-enterLocalScope symt = symt {
-        identDecls = enterNewScope (identDecls symt),
-        tagDecls = enterNewScope (tagDecls symt)
+enterLocalScope deftbl = deftbl {
+        identDecls = enterNewScope (identDecls deftbl),
+        tagDecls = enterNewScope (tagDecls deftbl)
     }
 leaveLocalScope :: DefTable -> DefTable
-leaveLocalScope symt = symt {
-                        identDecls = leaveScope_ (identDecls symt),
-                        tagDecls = leaveScope_ (tagDecls symt)
+leaveLocalScope deftbl = deftbl {
+                        identDecls = leaveScope_ (identDecls deftbl),
+                        tagDecls = leaveScope_ (tagDecls deftbl)
                        }
 -- | Enter function scope (and the corresponding block scope)
 enterFunctionScope :: DefTable -> DefTable
-enterFunctionScope symt = enterLocalScope  $ 
-                          symt { labelDefs = enterNewScope (labelDefs symt) }
+enterFunctionScope deftbl = enterLocalScope  $ 
+                          deftbl { labelDefs = enterNewScope (labelDefs deftbl) }
 
 -- | Leave function scope, and return the associated DefTable.
 --   Error if not in function scope.
 leaveFunctionScope :: DefTable -> DefTable
-leaveFunctionScope symt = leaveLocalScope $ symt { labelDefs = leaveScope_ (labelDefs symt) }
+leaveFunctionScope deftbl = leaveLocalScope $ deftbl { labelDefs = leaveScope_ (labelDefs deftbl) }
 
 -- | Enter a block scope
 enterBlockScope :: DefTable -> DefTable
@@ -119,21 +123,22 @@ leaveBlockScope :: DefTable -> DefTable
 leaveBlockScope = leaveLocalScope
 
 enterMemberDecl :: DefTable -> DefTable
-enterMemberDecl symt = symt { memberDecls = enterNewScope (memberDecls symt) }
+enterMemberDecl deftbl = deftbl { memberDecls = enterNewScope (memberDecls deftbl) }
 
 leaveMemberDecl :: DefTable -> ([MemberDecl], DefTable)
-leaveMemberDecl symt = 
-    let (decls',members) = leaveScope (memberDecls symt) 
+leaveMemberDecl deftbl = 
+    let (decls',members) = leaveScope (memberDecls deftbl) 
     in (,) (map snd members)
-           (symt { memberDecls = decls' })
+           (deftbl { memberDecls = decls' })
 
 -- * declarations
 data DeclarationStatus t =
       NewDecl
     | Redeclared t
+    | KeepDef t
     | Shadowed t
     | DifferentKindRedecl t
-            
+
 defRedeclStatus :: (t -> t -> Bool) -> t -> Maybe t -> DeclarationStatus t
 defRedeclStatus sameKind def oldDecl
     = case oldDecl of
@@ -153,53 +158,75 @@ defRedeclStatusLocal sameKind ident def oldDecl nsm =
 --
 --  returns @Redeclared def@ if there is already an object\/function\/typedef
 --  in global scope, or @DifferentKindRedec def@ if the old declaration is of a different kind.
-declareGlobalObject :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
-declareGlobalObject ident def symt
-    = (defRedeclStatus compatibleObjKind def oldDecl, symt { identDecls = decls' })
+defineGlobalIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
+defineGlobalIdent ident def deftbl
+    = (defRedeclStatus compatibleObjKind def oldDecl, deftbl { identDecls = decls' })
     where
-    (decls',oldDecl) = defGlobal (identDecls symt) ident def
+    (decls',oldDecl) = defGlobal (identDecls deftbl) ident def
 
 -- | declare\/define a object\/function\/typedef with lexical scope
 --
 --  returns @Redeclared def@ or @DifferentKindRedec def@  if there is already an object\/function\/typedef
 --  in the same scope.
-declareScopedObject :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
-declareScopedObject ident def symt
-    = (redeclStatus, symt { identDecls = decls' })
+defineScopedIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
+defineScopedIdent = defineScopedIdentWhen (const True)
+
+-- | declare\/define a object\/function\/typedef with lexical scope, if the given predicate holds on the old
+--   entry.
+--
+--  returns @Redeclared def@ or @DifferentKindRedec def@  if there is already an object\/function\/typedef
+--  in the same scope.
+defineScopedIdentWhen :: (IdentDecl -> Bool) -> Ident -> IdentDecl -> DefTable -> 
+                           (DeclarationStatus IdentDecl, DefTable)
+defineScopedIdentWhen do_override ident def deftbl
+    = (redecl_status, deftbl { identDecls = decls' })
     where
-    (decls',olddecl) = defLocal (identDecls symt) ident def
-    redeclStatus = defRedeclStatusLocal compatibleObjKind ident def olddecl (identDecls symt)
+    old_decls = identDecls deftbl
+    old_decl_opt = lookupInnermostScope old_decls ident
+    (decls',redecl_status)  | (Just old_decl) <- old_decl_opt, not (old_decl `compatibleObjKind` def) 
+                              = (new_decls, DifferentKindRedecl old_decl)
+                            | maybe True do_override old_decl_opt
+                              = (new_decls, redeclStatus old_decl_opt)
+                            | otherwise
+                              = (old_decls, maybe NewDecl KeepDef old_decl_opt)
+    new_decls = fst (defLocal old_decls ident def)
+    redeclStatus overriden_decl = defRedeclStatusLocal compatibleObjKind ident def overriden_decl old_decls
 
 -- | declare\/define an tag
 --
-declareTag :: SUERef -> TagDef -> DefTable -> (DeclarationStatus TagDef, DefTable)
-declareTag sueref tagdef symt
-    =  (redeclStatus, symt { tagDecls = decls'})    
+defineTag :: SUERef -> TagDef -> DefTable -> (DeclarationStatus TagDef, DefTable)
+defineTag sueref tagdef deftbl
+    =  (redeclStatus, deftbl { tagDecls = decls'})    
     where
-    (decls',olddecl) = defLocal (tagDecls symt) sueref tagdef
-    redeclStatus = defRedeclStatusLocal sameTagKind sueref tagdef olddecl (tagDecls symt)
+    (decls',olddecl) = defLocal (tagDecls deftbl) sueref tagdef
+    redeclStatus = defRedeclStatusLocal sameTagKind sueref tagdef olddecl (tagDecls deftbl)
 
 -- | define a label
 -- Return the old label if it is already defined in this function's scope
 --
 -- /TODO/: implement
-declareLabel :: Ident -> DefTable -> (DefTable, Maybe Ident) 
-declareLabel = todo "DefTable.declareLabel"
+defineLabel :: Ident -> DefTable -> (DeclarationStatus Ident, DefTable) 
+defineLabel ident deftbl = 
+    let (labels',old_label) = defLocal (labelDefs deftbl) ident ident
+    in  (maybe NewDecl Redeclared old_label, deftbl { labelDefs = labels' })
+        
 
--- | lookup object
-lookupObj :: Ident -> DefTable -> Maybe IdentDecl
-lookupObj ident symt = lookupName (identDecls symt) ident
+-- | lookup identifier (object, function, typedef, enumerator)
+lookupIdent :: Ident -> DefTable -> Maybe IdentDecl
+lookupIdent ident deftbl = lookupName (identDecls deftbl) ident
     
 -- | lookup tag
 lookupTag :: SUERef -> DefTable -> Maybe TagDef
-lookupTag sue_ref symt = lookupName (tagDecls symt) sue_ref
+lookupTag sue_ref deftbl = lookupName (tagDecls deftbl) sue_ref
 
 -- | lookup label
 lookupLabel :: Ident -> DefTable -> Maybe Ident
-lookupLabel ident symt = lookupName (labelDefs symt) ident
+lookupLabel ident deftbl = lookupName (labelDefs deftbl) ident
 
 -- | lookup an object in the innermost scope
-lookupObjInner :: Ident -> DefTable -> Maybe IdentDecl
-lookupObjInner = undefined
+lookupIdentInner :: Ident -> DefTable -> Maybe IdentDecl
+lookupIdentInner ident deftbl = lookupInnermostScope (identDecls deftbl) ident
+
+-- | lookup an identifier in the innermost scope
 lookupTagInner :: SUERef -> DefTable -> Maybe TagDef
-lookupTagInner = undefined
+lookupTagInner sue_ref deftbl = lookupInnermostScope (tagDecls deftbl) sue_ref

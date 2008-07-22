@@ -12,7 +12,9 @@
 -----------------------------------------------------------------------------
 module Language.C.Syntax.Node (
    NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
-   CNode(nodeInfo), eqByName, nodePos, nodeName,
+   CNode(nodeInfo), fileOfNode,
+   nodePos, nodeName,
+   eqByName, 
 ) where
 import Language.C.Syntax.Position
 import Language.C.Syntax.Error     (internalErr)
@@ -39,6 +41,12 @@ instance Ord NodeInfo where
 -- | a class for convenient access to the attributes of an attributed object
 class CNode a where
   nodeInfo :: a -> NodeInfo
+instance (CNode a, CNode b) => CNode (Either a b) where
+  nodeInfo = either nodeInfo nodeInfo
+
+fileOfNode :: (CNode a) => a -> FilePath
+fileOfNode = posFile . nodePos . nodeInfo
+  
 nodePos :: NodeInfo -> Position
 nodePos ni = case ni of (OnlyPos pos  ) -> pos; (NodeInfo   pos _) -> pos
 nodeName :: NodeInfo -> Maybe Name

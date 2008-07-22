@@ -33,6 +33,7 @@ where
 import Language.C.Syntax
 
 import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Generics
 import Text.PrettyPrint.HughesPJ
 
@@ -50,40 +51,40 @@ instance HasSUERef TagDef where
     
 -- identifiers, typedefs and enumeration constants (namespace sum)
 data IdentDecl =   
-	             Declaration VarDecl NodeInfo -- object or function declaration
-	           | ObjectDef ObjDef           -- object definition
-	           | FunctionDef FunDef         -- function definition
-	           | EnumDef Enumerator SUERef       -- definition of an enumerator
-               | TypeDef Ident Type         -- typedef declaration
+	             Declaration Decl           -- ^ object or function declaration
+	           | ObjectDef ObjDef           -- ^ object definition
+	           | FunctionDef FunDef         -- ^ function definition
+	           | EnumDef Enumerator SUERef  -- ^ definition of an enumerator
+               | TypeDef TypeDef            -- ^ typedef declaration
                deriving (Typeable, Data)
 identOfDecl :: IdentDecl -> Ident
 identOfDecl ident_decl =
     case ident_decl of
-        Declaration vd _ -> declIdent vd
+        Declaration vd  -> declIdent vd
         ObjectDef od -> declIdent od
         FunctionDef fd  -> declIdent fd
         EnumDef enumerator _sue_ref -> fst $ enumerator
-        TypeDef ident _ty -> ident
+        TypeDef (TypeDef' ident _ty _node) -> ident
     where
-    declIdent :: (Decl d) => d -> Ident
+    declIdent :: (Declaration d) => d -> Ident
     declIdent = identOfVarName . declName
 
 instance CNode IdentDecl where
-    nodeInfo (Declaration _ node) = node
+    nodeInfo (Declaration decl) = nodeInfo decl
     nodeInfo (ObjectDef od) = nodeInfo od             
     nodeInfo (FunctionDef fd) = nodeInfo fd             
     nodeInfo (EnumDef (ident,_) _) = nodeInfo ident 
-    nodeInfo (TypeDef ident _) = nodeInfo ident          
+    nodeInfo (TypeDef tydef) = nodeInfo tydef 
 objKindDescr :: IdentDecl -> String
-objKindDescr  (Declaration _ _) = "declaration"
+objKindDescr  (Declaration _ ) = "declaration"
 objKindDescr (ObjectDef _) = "object definition"
 objKindDescr (FunctionDef _) = "function definition"
 objKindDescr (EnumDef _ _) = "enumerator definition"
-objKindDescr (TypeDef _ _) = "typedef"
+objKindDescr (TypeDef _) = "typedef"
 compatibleObjKind :: IdentDecl -> IdentDecl -> Bool
-compatibleObjKind (TypeDef _ _) (TypeDef _ _) = True
-compatibleObjKind _ (TypeDef _ _) = False
-compatibleObjKind (TypeDef _ _) _ = False
+compatibleObjKind (TypeDef _) (TypeDef _) = True
+compatibleObjKind _ (TypeDef _) = False
+compatibleObjKind (TypeDef _) _ = False
 compatibleObjKind (EnumDef _ _) (EnumDef _ _) = True
 compatibleObjKind (EnumDef _ _) _ = False
 compatibleObjKind _ (EnumDef _ _) = False
@@ -92,11 +93,23 @@ compatibleObjKind _ _ = True
 
 -- * global declarations and definitions
 data GlobalDecls = GlobalDecls {
-                     gObjs    :: Map Ident (Either VarDecl ObjDef),
-                     gFuns    :: Map Ident (Either VarDecl FunDef),
-                     gTags    :: Map SUERef TagDef,
-                     gTypedefs :: Map Ident Type
+                     gDecls    :: Map Ident (Decl, Bool), -- ^ @ident ~> (declaration, isFunctionPrototype)@
+                     gObjs     :: Map Ident ObjDef,
+                     gFuns     :: Map Ident FunDef,
+                     gTags     :: Map SUERef TagDef,
+                     gTypedefs :: Map Ident TypeDef
                    }
+-- some boilerplate for the user
+filterGlobalDecls :: (DeclEvent -> Bool) -> GlobalDecls -> GlobalDecls
+filterGlobalDecls decl_filter gmap = GlobalDecls
+    {
+        gDecls = Map.filter (decl_filter . DeclEvent . Declaration . fst) (gDecls gmap),
+        gObjs  = Map.filter (decl_filter . DeclEvent . ObjectDef) (gObjs gmap),
+        gFuns  = Map.filter (decl_filter . DeclEvent . FunctionDef) (gFuns gmap),
+        gTags  = Map.filter (decl_filter . TagEvent) (gTags gmap),
+        gTypedefs = Map.filter (decl_filter . DeclEvent .TypeDef) (gTypedefs gmap)
+    }
+    
 -- * Events
 
 -- | declaration events
@@ -109,33 +122,34 @@ data DeclEvent =
        -- ^ file-scope declaration or definition
      | AsmEvent AsmBlock
        -- ^ assembler block
-      
+     deriving ({-! CNode !-})
+     
 -- * declarations and definitions
 
 -- | class to reduce namespace clutter for declarations and definitions
-class Decl n where
+class Declaration n where
     declName :: n -> VarName
     declType :: n -> Type
     declAttrs :: n -> DeclAttrs
-instance (Decl a, Decl b) => Decl (Either a b) where
+
+instance (Declaration a, Declaration b) => Declaration (Either a b) where
     declName = either declName declName
     declType = either declType declType
     declAttrs = either declAttrs declAttrs
--- | external declarations
-data VarDecl = VarDecl VarName DeclAttrs Type
-              deriving (Typeable, Data)
-instance Decl VarDecl where
-    declName  (VarDecl extname _ _)  = extname
-    declType  (VarDecl _ _ ty)  = ty
-    declAttrs (VarDecl _ declattrs _)  = declattrs
-isExtDecl :: VarDecl -> Bool
-isExtDecl = hasLinkage . storage . declAttrs
 
+-- | Declarations, which aren't definitions
+data Decl = Decl VarDecl NodeInfo
+            deriving (Typeable, Data {-! CNode !-})
+instance Declaration Decl where
+    declName  (Decl vd _) = declName vd
+    declType  (Decl vd _) = declType vd
+    declAttrs (Decl vd _) = declAttrs vd             
+    
 -- | Object Definitions 
 -- A object defintion is of the form @ObjDec vardecl initializer? node@
 data ObjDef = ObjDef VarDecl (Maybe Initializer) NodeInfo
              deriving (Typeable, Data {-! CNode !-})
-instance Decl ObjDef where
+instance Declaration ObjDef where
     declName  (ObjDef vd _ _) = declName vd
     declType  (ObjDef vd _ _) = declType vd
     declAttrs  (ObjDef vd _ _) = declAttrs vd             
@@ -145,7 +159,7 @@ isTentative (ObjDef decl init_opt _) | isExtDecl decl = maybe True (const False)
 -- | Function definitions
 data FunDef = FunDef VarDecl Stmt NodeInfo
              deriving (Typeable, Data {-! CNode !-})
-instance Decl FunDef where
+instance Declaration FunDef where
     declName  (FunDef vd _ _) = declName vd
     declType  (FunDef vd _ _) = declType vd
     declAttrs  (FunDef vd _ _) = declAttrs vd
@@ -153,7 +167,7 @@ instance Decl FunDef where
 -- | Parameter declaration @ParamDecl maybeIdent type attrs node@
 data ParamDecl = ParamDecl VarDecl NodeInfo
     deriving (Typeable, Data {-! CNode !-} )
-instance Decl ParamDecl where
+instance Declaration ParamDecl where
     declName (ParamDecl ld _) = declName ld
     declType (ParamDecl ld _) = declType ld
     declAttrs (ParamDecl ld _) = declAttrs ld
@@ -164,13 +178,23 @@ data MemberDecl = MemberDecl VarDecl (Maybe ConstExpr) NodeInfo
                 | AnonBitField Type ConstExpr NodeInfo
                   -- ^ @AnonBitField typ size@
     deriving (Typeable, Data {-! CNode !-} )
-instance Decl MemberDecl where
+instance Declaration MemberDecl where
     declName (MemberDecl ld _ _) = declName ld
     declName _ = NoName
     declType (MemberDecl ld _ _) = declType ld
     declType (AnonBitField ty _ _) = ty
     declAttrs (MemberDecl ld _ _) = declAttrs ld
     declAttrs _ = DeclAttrs False NoStorage []
+
+-- | Generic variable declarations
+data VarDecl = VarDecl VarName DeclAttrs Type
+              deriving (Typeable, Data)
+instance Declaration VarDecl where
+    declName  (VarDecl extname _ _)  = extname
+    declType  (VarDecl _ _ ty)  = ty
+    declAttrs (VarDecl _ declattrs _)  = declattrs
+isExtDecl :: VarDecl -> Bool
+isExtDecl = hasLinkage . storage . declAttrs
     
 -- | attributes of a declared object have the form @DeclAttrs isInlineFunction storage linkage attrs@.
 data DeclAttrs = DeclAttrs Bool Storage Attributes
@@ -206,6 +230,10 @@ hasLinkage (Static _ _) = True
 hasLinkage _ = False
 
 -- * types
+
+-- | Typedefs
+data TypeDef = TypeDef' Ident Type NodeInfo
+               deriving (Typeable, Data {-! CNode !-} )
 
 -- | types of c objects
 data Type =
@@ -408,12 +436,24 @@ cstringOfLit (StringLit cstr _) = cstr
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 169674109
+-- CHECKSUM: 854018819
 
 instance CNode TagDef
     where nodeInfo (CompTag d) = nodeInfo d
           nodeInfo (EnumTag d) = nodeInfo d
 instance Pos TagDef
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode DeclEvent
+    where nodeInfo (TagEvent d) = nodeInfo d
+          nodeInfo (DeclEvent d) = nodeInfo d
+          nodeInfo (AsmEvent d) = nodeInfo d
+instance Pos DeclEvent
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode Decl
+    where nodeInfo (Decl _ nodeinfo) = nodeinfo
+instance Pos Decl
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode ObjDef
@@ -435,6 +475,11 @@ instance CNode MemberDecl
     where nodeInfo (MemberDecl _ _ nodeinfo) = nodeinfo
           nodeInfo (AnonBitField _ _ nodeinfo) = nodeinfo
 instance Pos MemberDecl
+    where posOf x = nodePos (nodeInfo x)
+
+instance CNode TypeDef
+    where nodeInfo (TypeDef' _ _ nodeinfo) = nodeinfo
+instance Pos TypeDef
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode TypeDefRef

@@ -74,20 +74,20 @@ emptyDefTable :: DefTable
 emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap emptyNameMap
     
 globalDefs :: DefTable -> GlobalDecls
-globalDefs symt = Map.foldWithKey insertDecl (GlobalDecls e e gtags e) (globalNames $ identDecls symt)
+globalDefs symt = Map.foldWithKey insertDecl (GlobalDecls e e e gtags e) (globalNames $ identDecls symt)
     where
     e = Map.empty
     gtags =   globalNames (tagDecls symt)
     insertDecl ident def ds =
         case def of
-            TypeDef _ tyName     -> ds { gTypedefs = Map.insert ident tyName (gTypedefs ds)}
+            TypeDef tydef         -> ds { gTypedefs = Map.insert ident tydef (gTypedefs ds)}
             EnumDef _ _sueref     -> ds -- ignored, because the information is present in the enumeration anyway
-            Declaration vardecl _ | isFunctionType (declType vardecl) ->
-                                      ds { gFuns = Map.insert ident (Left vardecl) (gFuns ds) }
+            Declaration decl      | isFunctionType (declType decl) ->
+                                      ds { gDecls = Map.insert ident (decl,True) (gDecls ds) }
                                   | otherwise ->
-                                      ds { gObjs = Map.insert ident (Left vardecl) (gObjs ds) }
-            FunctionDef funDef   -> ds { gFuns = Map.insert ident (Right funDef) (gFuns ds) }
-            ObjectDef objDef     -> ds { gObjs = Map.insert ident (Right objDef) (gObjs ds) }
+                                      ds { gDecls = Map.insert ident (decl,False) (gDecls ds) }
+            FunctionDef funDef   -> ds { gFuns = Map.insert ident funDef (gFuns ds) }
+            ObjectDef objDef     -> ds { gObjs = Map.insert ident objDef (gObjs ds) }
             
 leaveScope_ :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 leaveScope_ = fst . leaveScope

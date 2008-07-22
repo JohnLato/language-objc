@@ -15,9 +15,11 @@
 module Language.C (
     module Language.C.Syntax,
     module Language.C.Pretty,
-    module Language.C.Parser    
+    module Language.C.Parser,
+    module Language.C.InputStream
 )
 where
 import Language.C.Syntax
 import Language.C.Pretty
 import Language.C.Parser    
+import Language.C.InputStream

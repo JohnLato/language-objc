@@ -14,7 +14,7 @@ module Language.C.Syntax.Node (
    NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
    CNode(nodeInfo), eqByName, nodePos, nodeName,
 ) where
-import Language.C.Syntax.Position   (Position, nopos)
+import Language.C.Syntax.Position
 import Language.C.Syntax.Error     (internalErr)
 import Language.C.Syntax.Name     (Name)
 import Data.Generics

@@ -10,9 +10,9 @@
 -- Wrapper for invoking a preprocessor
 -----------------------------------------------------------------------------
 module Language.C.System.Preprocess (
+    Preprocessor(..),
     CppOption(..),
-    CppArgs(..),defaultCppArgs,addCppOption,
-    Preprocessor,
+    CppArgs(..),simpleCppArgs,addCppOption,addExtraOption,
     runPreprocessor,
 )
 where
@@ -24,6 +24,11 @@ import System.Environment
 import System.IO
 import Control.Exception
 import Control.Monad
+
+class Preprocessor cpp where
+    parseCPPArgs :: cpp -> [String] -> Either String (CppArgs, [String])
+    runCPP :: cpp -> CppArgs -> IO ExitCode
+
 -- | file extension of a preprocessed file
 preprocessedExt :: String
 preprocessedExt = ".i"
@@ -37,22 +42,26 @@ data CppOption =
       
 -- | Generic arguments for the preprocessor
 data CppArgs = CppArgs { 
-        cppOptions :: [CppOption], 
+        cppOptions :: [CppOption],
+        extraOptions :: [String],
         cppTmpDir  :: Maybe FilePath,
         inputFile  :: FilePath,
         outputFile :: Maybe FilePath
     }
     
-defaultCppArgs :: FilePath -> CppArgs
-defaultCppArgs input_file = CppArgs { inputFile = input_file, cppOptions = [], outputFile = Nothing, cppTmpDir = Nothing }
+simpleCppArgs :: [String] -> FilePath -> CppArgs
+simpleCppArgs opts input_file = 
+    CppArgs { inputFile = input_file, cppOptions = [], extraOptions = opts, outputFile = Nothing, cppTmpDir = Nothing }
 
 addCppOption :: CppArgs -> CppOption -> CppArgs
-addCppOption cpp_args opt = cpp_args { cppOptions = opt : (cppOptions cpp_args) }
+addCppOption cpp_args opt = 
+    cpp_args { cppOptions = opt : (cppOptions cpp_args) }
+addExtraOption :: CppArgs -> String -> CppArgs
+addExtraOption cpp_args extra =
+    cpp_args { extraOptions = extra : (extraOptions cpp_args) }
 
-type Preprocessor = CppArgs -> [String] -> IO ExitCode
-
-runPreprocessor :: Preprocessor -> CppArgs -> [String] -> IO (Either ExitCode InputStream)
-runPreprocessor cpp cpp_args extra_args = do
+runPreprocessor :: (Preprocessor cpp) => cpp -> CppArgs -> IO (Either ExitCode InputStream)
+runPreprocessor cpp cpp_args = do
     bracket
         getActualOutFile
         -- remove outfile if it was temporary
@@ -63,7 +72,7 @@ runPreprocessor cpp cpp_args extra_args = do
     getActualOutFile :: IO FilePath
     getActualOutFile = maybe (mkOutputFile (cppTmpDir cpp_args) (inputFile cpp_args)) return (outputFile cpp_args)
     invokeCpp actual_out_file = do
-        exit_code <- cpp (cpp_args { outputFile = Just actual_out_file}) extra_args
+        exit_code <- runCPP cpp (cpp_args { outputFile = Just actual_out_file})
         case exit_code of
             ExitSuccess   -> liftM Right (readInputStream actual_out_file)
             ExitFailure _ -> return $ Left exit_code

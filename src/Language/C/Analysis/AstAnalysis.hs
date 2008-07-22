@@ -82,14 +82,13 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     
 -- | Analyse a top-level declaration other than a function definition
 analyseExtDecls :: (MonadTrav m) => CDecl -> m ()
-analyseExtDecls (CDecl declspecs declrs node) 
+analyseExtDecls decl@(CDecl declspecs declrs node) 
     | (Just declspecs') <- isTypeDef declspecs = 
         case declrs of
             [(Just tydeclr,Nothing,Nothing)] -> analyseTypeDef declspecs' tydeclr node
             _ -> astError node "bad typdef declaration: declarator missing or bitfieldsize/initializer present"
-    | otherwise = do
-        -- analyse the declarators
-        mapM_ (uncurry (convertVarDeclr declspecs)) $ zip (True : repeat False) declrs
+    | null declrs = analyseTypeDecl decl >> return ()
+    | otherwise   = mapM_ (uncurry (convertVarDeclr declspecs)) $ zip (True : repeat False) declrs
     where
     convertVarDeclr declspecs handle_sue_def (Just declr, init_opt, Nothing) = do
         -- analyse the declarator
@@ -138,7 +137,6 @@ analyseVarDecl handle_sue_def declspecs declr oldstyle_params = do
     isInlineSpec (CInlineQual _) = True
     isInlineSpec _ = False
 
-tTypeDef declspecs tydeclr node = undefined -- TODO
 -- | compute storage of a function definition
 --
 -- a function definition has static storage with internal linkage if specified `static`,

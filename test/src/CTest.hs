@@ -21,61 +21,79 @@
 module Main (
 main
 )  where
-import Control.Monad
-import System.Environment (getEnv, getArgs)
-import System.IO
-import Data.Generics
 import Language.C
-import Language.C.Test.CPP
+import Language.C.System.GCC
+import Language.C.Analysis
+import Language.C.Analysis.Pretty
 import Language.C.Test.Environment
 import Language.C.Test.GenericAST
 
-data CTestConfig = CTestConfig { debugFlag :: Bool, parseOnlyFlag :: Bool, semanticAnalysis :: Bool }
+import Control.Monad
+import System.Environment (getEnv, getArgs)
+import System.Exit
+import System.IO
+import Data.Generics
+import Text.PrettyPrint.HughesPJ
+
+data CTestConfig = CTestConfig { debugFlag :: Bool, parseOnlyFlag :: Bool, 
+                                 dumpAst :: Bool, semanticAnalysis :: Bool }
 main :: IO ()
 main = do
   tmpdir     <- getEnv "TMPDIR"
   dbg       <- getEnvFlag "DEBUG"
   parseonly <- getEnvFlag "PARSE_ONLY"
-  semantic  <- getEnvFlag "SEMANTIC_ANALYSIS" -- disabled right now
-  let config = CTestConfig dbg parseonly semantic
+  dumpast   <- getEnvFlag "DUMP_AST"
+  semantic  <- liftM not (getEnvFlag "NO_SEMANTIC_ANALYSIS")
+  let config = CTestConfig dbg parseonly dumpast semantic
   args <- getArgs
-  -- TODO: getOpt
-  case args of
-      ("-e":str:[]) -> parseAndPrint config (exprInput str) (Position "stdin" 1 1)
-      ("-d":str:[]) -> parseAndPrint config (declInput str) (Position "stdin" 1 1)
+  let stdinPos = Position "<stdin>" 1 1
+  (file,ast) <-
+    case args of
+      ("-e":str:[]) -> either bailOut (return.((,) ""))
+                         (parseC (inputStreamFromString (exprInput str)) stdinPos)
+      ("-d":str:[]) -> either bailOut (return.((,) ""))
+                         (parseC (inputStreamFromString (exprInput str)) stdinPos)
       otherArgs ->
           case mungeCcArgs args of
             Groked [cFile] gccOpts -> do
-              ast <- parseCC tmpdir gccOpts cFile >>= either (ioError.userError.show) return
-              output config ast
+                parseFile (newGCC "gcc") (Just tmpdir) gccOpts cFile >>= either bailOut (return.((,) cFile))
             Groked cFiles _ -> usage $ "More than one source file given: " ++ unwords cFiles
             Ignore -> usage $ "Not input files given"
             Unknown reason -> usage $ "Could not process arguments: " ++ reason
-
-usage :: String -> IO ()
-usage msg = hPutStr stderr . unlines $ 
-  [ "! "++msg,"",
-    "Usage: ./CTest -e expression",
-    "Usage: ./CTest -d declaration",
-    "Usage: ./CTest [cpp-opts] file.(c|hc|i)",
-    "   parses the given C source file and pretty print the AST",
-    "Environment Variables: ",
-    "   TMPDIR: temporary directory for preprocessing",
-    "   DEBUG:  debug flag",
-    "   SEMANTIC_ANALYSIS: perform semantic analysis",
-    "   PARSE_ONLY: do not pretty print"
-  ]
+  output config file ast
+bailOut :: (Show err) => err -> IO a
+bailOut err = do
+    hPutStrLn stderr (show err)
+    hPutStrLn stderr "*** Exit on Error ***"
+    exitWith (ExitFailure 1)
+usage :: String -> IO a
+usage msg = printUsage >> exitWith (ExitFailure 2) where
+  printUsage = hPutStr stderr . unlines $ 
+      [ "! "++msg,"",
+        "Usage: ./CTest -e expression",
+        "Usage: ./CTest -d declaration",
+        "Usage: ./CTest [cpp-opts] file.(c|hc|i)",
+        "   parses the given C source file and pretty print the AST",
+        "Environment Variables: ",
+        "   TMPDIR: temporary directory for preprocessing",
+        "   DEBUG:  debug flag",
+        "   DUMP_AST:  dump the ast to file dump.ast",
+        "   NO_SEMANTIC_ANALYSIS: do not perform semantic analysis",
+        "   PARSE_ONLY: do not pretty print"
+      ]
 exprInput str = "void *x = " ++ str ++ " ;"
 declInput str = str ++ ";"
-parseAndPrint :: CTestConfig -> String -> Position -> IO ()
-parseAndPrint config str pos = do
-    ast <- either (ioError.userError.show) return (parseC (inputStreamFromString str) pos)
-    output config ast
-output :: CTestConfig -> CTranslUnit -> IO ()
-output config ast = do
+output :: CTestConfig -> FilePath -> CTranslUnit -> IO ()
+output config file ast = do
+    when (dumpAst config) $ writeFile "dump.ast" (gshow ast)
+    when (semanticAnalysis config && (not (null file))) $ do
+        let result = runTrav_ (analyseAST ast)
+        putStrLn $ either show (comment . show . prettyAssocsWith "global decl stats" text (text.show) . globalDeclStats (== file)) result
     when (not $ parseOnlyFlag config) $ print $ prettyUsingInclude ast
-    when (debugFlag config) $ print . pretty . mkGenericCAST $ ast
-    when (semanticAnalysis config) $  return ()
+    when (debugFlag config) $ putStrLn . comment . show . pretty . mkGenericCAST $ ast
+comment str = "/*\n" ++ str ++ "\n*/"
+
+
         -- case runTrav_ (translateAST ast) of
         --     Left errors -> mapM_ print errors
         --     Right (translunit, ts) -> demoAnalysis translunit

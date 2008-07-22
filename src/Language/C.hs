@@ -34,5 +34,5 @@ parseFile cpp tmp_dir_opt args input_file = do
     input_stream <- runPreprocessor cpp cpp_args >>= handleCppError
     return$ parseC input_stream (Position input_file 1 1)
     where
-    handleCppError (Left exitCode) = fail $ "Preprocessor failed with exit code " ++ show exitCode
+    handleCppError (Left exitCode) = fail $ "Preprocessor failed with " ++ show exitCode
     handleCppError (Right ok)      = return ok

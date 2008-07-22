@@ -27,8 +27,7 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Syntax.Ident (
-    Ident(..), SUERef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, 
-    getIdentNodeInfo,dumpIdent)
+    Ident(..), SUERef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
 where
 
 import Data.Char
@@ -131,10 +130,6 @@ isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (nodePos nodeinfo) || isBui
 -- | get the string of an identifier
 identToString               :: Ident -> String
 identToString (Ident s _ _)  = s
-
--- | get the node associated with the given identifier
-getIdentNodeInfo :: Ident -> NodeInfo
-getIdentNodeInfo (Ident _ _ as)  = as
 
 -- | dump the lexeme and its positions into a string for debugging purposes
 dumpIdent     :: Ident -> String

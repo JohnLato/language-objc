@@ -11,8 +11,8 @@
 -- source position and unqiue name
 -----------------------------------------------------------------------------
 module Language.C.Syntax.Node (
-   NodeInfo(..), noNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
-   CNode(nodeInfo), fileOfNode,
+   NodeInfo(..), mkUndefNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
+   CNode(nodeInfo), nodeFile,
    nodePos, nodeName,
    eqByName, 
 ) where
@@ -42,15 +42,15 @@ class CNode a where
   nodeInfo :: a -> NodeInfo
 instance (CNode a, CNode b) => CNode (Either a b) where
   nodeInfo = either nodeInfo nodeInfo
-
-fileOfNode :: (CNode a) => a -> FilePath
-fileOfNode = posFile . nodePos . nodeInfo
   
-nodePos :: NodeInfo -> Position
-nodePos ni = case ni of (OnlyPos pos  ) -> pos; (NodeInfo   pos _) -> pos
 nodeName :: NodeInfo -> Maybe Name
 nodeName (OnlyPos _) = Nothing
 nodeName (NodeInfo _ name) = Just name
+nodePos :: NodeInfo -> Position
+nodePos ni = case ni of (OnlyPos pos  ) -> pos; (NodeInfo   pos _) -> pos
+nodeFile :: (CNode a) => a -> FilePath
+nodeFile = posFile . nodePos . nodeInfo
+
 -- | equality by name
 eqByName           :: CNode a => a -> a -> Bool
 eqByName obj1 obj2  = (nodeInfo obj1) == (nodeInfo obj2)
@@ -59,8 +59,8 @@ eqByName obj1 obj2  = (nodeInfo obj1) == (nodeInfo obj2)
 -- attribute identifier creation
 -- -----------------------------
 
-noNodeInfo :: NodeInfo
-noNodeInfo = OnlyPos nopos
+mkUndefNodeInfo :: NodeInfo
+mkUndefNodeInfo = OnlyPos nopos
 
 -- | Given only a source position, create a new attribute identifier
 mkNodeInfoOnlyPos :: Position -> NodeInfo

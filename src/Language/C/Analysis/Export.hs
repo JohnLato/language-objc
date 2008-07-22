@@ -111,7 +111,7 @@ exportMemberDecl (MemberDecl vardecl bitfieldsz node_info) =
     let (specs,declarator) = exportVarDecl vardecl
     in  CDecl specs [(Just declarator, Nothing, bitfieldsz)] node_info
 exportVarDecl :: VarDecl -> ([CDeclSpec],CDeclr)
--- /FIXME/ there is an ambiguity between two possible places for __attributes__ s here
+-- FIXME: there is an ambiguity between two possible places for __attributes__ s here
 exportVarDecl (VarDecl name attrs ty) = exportDeclr (exportDeclAttrs attrs) ty [] name
 exportParamDecl :: ParamDecl -> CDecl
 exportParamDecl (ParamDecl vardecl node_info) =

@@ -14,17 +14,25 @@
 -----------------------------------------------------------------------------
 module Language.C.Analysis.Pretty (
 globalDeclStats,
-prettyAssocsWith,
+prettyAssocs, prettyAssocsWith,
+-- and many pretty instances
 )
 where
 import Language.C.Analysis.SemRep
 import Language.C.Pretty
-import Language.C.Syntax hiding (cstringOfLit)
+import Language.C.Syntax
 import Data.Generics
 import Text.PrettyPrint.HughesPJ
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+prettyAssocs :: (Pretty k, Pretty v) => String -> [(k,v)] -> Doc
+prettyAssocs label = prettyAssocsWith label pretty pretty
+prettyAssocsWith :: String -> (k -> Doc) -> (v -> Doc) -> [(k,v)] -> Doc
+prettyAssocsWith label prettyKey prettyVal theMap =
+    text label $$ (nest 8) (vcat $ map prettyEntry theMap)
+    where
+    prettyEntry (k,v) = prettyKey k <+> text " ~> " <+> prettyVal v
 
 instance Pretty GlobalDecls where
     pretty gd = text "Global Declarations" $$ (nest 4 $ vcat declMaps)
@@ -33,12 +41,7 @@ instance Pretty GlobalDecls where
                      prettyMap "objects" $ gObjs gd,  prettyMap "functions" $ gFuns gd, 
                      prettyMap "tags"    $ gTags gd,  prettyMap "typedefs"  $ gTypedefs gd ]
         prettyMap :: (Pretty t, Pretty k) => String -> Map k t -> Doc
-        prettyMap label = prettyAssocsWith label pretty pretty . Map.assocs
-prettyAssocsWith :: String -> (k -> Doc) -> (v -> Doc) -> [(k,v)] -> Doc
-prettyAssocsWith label prettyKey prettyVal theMap =
-    text label $$ (nest 8) (vcat $ map prettyEntry theMap)
-    where
-    prettyEntry (k,v) = prettyKey k <+> text " ~> " <+> prettyVal v
+        prettyMap label = prettyAssocs label . Map.assocs
 
 globalDeclStats :: (FilePath -> Bool) -> GlobalDecls -> [(String,Int)]
 globalDeclStats file_filter gmap =
@@ -49,13 +52,11 @@ globalDeclStats file_filter gmap =
     ] 
     where
     gmap' = filterGlobalDecls filterFile gmap
-    decls = gDecls gmap'
-    objDefs = gObjs gmap'
-    funDefs = gFuns gmap'
-    tagDefs = gTags gmap'
-    typeDefs = gTypedefs gmap'
+    (decls,objDefs,funDefs,tagDefs,typeDefs) = (gDecls gmap', gObjs gmap', gFuns gmap', gTags gmap', gTypedefs gmap')
     filterFile :: (CNode n) => n -> Bool
-    filterFile = file_filter . posFile . nodePos . nodeInfo
+    filterFile = file_filter . posFile . posOfNode . nodeInfo
+
+
 instance Pretty (Either VarDecl ObjDef) where
     pretty = either pretty pretty
 instance Pretty (Either VarDecl FunDef) where
@@ -176,8 +177,6 @@ instance Pretty Attributes where
     pretty = joinComma
 instance Pretty Attr where
     pretty (Attr ident es _) = pretty ident <+> (if null es then empty else text "(...)")
-instance Pretty AsmName where
-    pretty = text.show.cstringOfLit
     
 joinComma :: (Pretty a) => [a] -> Doc
 joinComma = hsep . punctuate comma . map pretty

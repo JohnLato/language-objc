@@ -1,5 +1,5 @@
 Name:           language-c
-Version:        0.2.6
+Version:        0.2.7
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
 License:        BSD3
@@ -39,6 +39,8 @@ Library
                       -- provisional
                       Language.C
                       Language.C.Syntax
+                      Language.C.Syntax.AST
+                      Language.C.Syntax.Constants
                       Language.C.InputStream
                       Language.C.Parser
                       Language.C.Pretty
@@ -46,9 +48,11 @@ Library
                       Language.C.System.GCC
                       -- experimental
                       Language.C.Analysis
+                      -- internal use / alpha
+                      Language.C.Analysis.Pretty
+                      Language.C.Analysis.Export
+    Other-Modules:    
                       -- implementation
-                      Language.C.Syntax.AST
-                      Language.C.Syntax.Constants
                       Language.C.Syntax.Name 
                       Language.C.Syntax.Position 
                       Language.C.Syntax.Node 
@@ -59,7 +63,6 @@ Library
                       Language.C.Analysis.DefTable
                       Language.C.Analysis.TravMonad
                       Language.C.Analysis.SemRep              
-                      Language.C.Analysis.Pretty
                       Language.C.Analysis.AstAnalysis
                       Language.C.Analysis.DeclAnalysis
                       Language.C.Parser.Builtin
@@ -67,5 +70,5 @@ Library
                       Language.C.Parser.Parser 
                       Language.C.Parser.ParserMonad 
                       Language.C.Parser.Tokens 
-    Other-Modules:    
                       Language.C.Syntax.RList
+                      

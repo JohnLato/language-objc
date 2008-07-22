@@ -96,15 +96,18 @@ module Language.C.Parser.Parser (parseC) where
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 
-import Language.C.Syntax
-import Language.C.Syntax.RList
-import Language.C.Syntax.AST
 import Language.C.Parser.Builtin   (builtinTypeNames)
-
 import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
 import Language.C.Parser.ParserMonad (P, failP, execParser, getNewName, addTypedef, shadowTypedef,
                      enterScope, leaveScope, InputStream )
+
+import Language.C.Syntax
+import Language.C.Syntax.RList
+import Language.C.Syntax.Name
+import Language.C.Syntax.Node
+import Language.C.Syntax.Position
+
 }
 
 %name header header

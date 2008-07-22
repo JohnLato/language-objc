@@ -43,7 +43,7 @@ Library
                       Language.C.Parser
                       Language.C.Pretty
                       Language.C.System.Preprocess
-                      Language.C.System.Gcc                      
+                      Language.C.System.GCC
                       -- experimental
                       Language.C.Analysis
                       -- implementation
@@ -59,8 +59,9 @@ Library
                       Language.C.Analysis.DefTable
                       Language.C.Analysis.TravMonad
                       Language.C.Analysis.SemRep              
-                      -- Language.C.Analysis.AstAnalysis
-                      -- Language.C.Analysis.DeclAnalysis
+                      Language.C.Analysis.Pretty
+                      Language.C.Analysis.AstAnalysis
+                      Language.C.Analysis.DeclAnalysis
                       Language.C.Parser.Builtin
                       Language.C.Parser.Lexer 
                       Language.C.Parser.Parser 

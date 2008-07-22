@@ -46,6 +46,7 @@ import Language.C.Syntax.RList as RList
 import Language.C.Syntax.Error
 import Language.C.Syntax.Name
 import Language.C.Syntax.Position
+import Language.C.Syntax.Node
 
 import Language.C.Analysis.DefTable hiding (enterBlockScope,leaveBlockScope,enterFunctionScope,leaveFunctionScope)
 import qualified Language.C.Analysis.DefTable as ST
@@ -97,9 +98,9 @@ handleEnumeratorDef enumerator@(ident,_) enum_ref = do
     checkRedef "enumerator" ident redecl
     return ()
     
-handleTypeDef :: (MonadTrav m) => Ident -> Type -> m ()
-handleTypeDef ident typ = do
-    let def = TypeDef ident typ
+handleTypeDef :: (MonadTrav m) => TypeDef -> m ()
+handleTypeDef typedef@(TypeDef' ident ty node) = do
+    let def = TypeDef typedef
     redecl <- withDefTable (declareScopedObject ident def)
     checkRedef "typedef" def redecl
     handleDecl (DeclEvent def)
@@ -111,10 +112,10 @@ handleAsmBlock asm = handleDecl (AsmEvent asm)
 -- | handle variable declarations (external object declarations and function prototypes)
 -- variable declarations are either function prototypes, or external declarations, and not very interesting
 -- on their own. we only put them in the symbol table and call the handle
-handleVarDecl :: (MonadTrav m) => Ident -> VarDecl -> NodeInfo -> m ()
-handleVarDecl ident var_decl node = do
-    let def = Declaration var_decl node
-    redecl <- withDefTable $ \symt -> declareScopedObject ident def symt
+handleVarDecl :: (MonadTrav m) => Decl -> m ()
+handleVarDecl decl = do
+    let def = Declaration decl
+    redecl <- withDefTable $ \symt -> declareScopedObject (identOfDecl def) def symt
     -- TODO: check compatible type redecl
     handleDecl (DeclEvent def)
     
@@ -174,10 +175,12 @@ lookupTypeDef :: (MonadTrav m) => Ident -> m Type
 lookupTypeDef ident 
     = getDefTable >>= \symt ->
       case lookupObj ident symt of
-        Nothing             -> astError (nodeInfo ident) "unbound typedef"
-        Just (TypeDef _ ty) -> return ty
-        Just d              -> astError (nodeInfo ident) $ 
-                               "wrong kind of object: excepcted typedef but found: "++(objKindDescr d)
+        Nothing
+            -> astError (nodeInfo ident) "unbound typedef"
+        Just (TypeDef (TypeDef' _ident ty _))   
+            -> return ty
+        Just d 
+            -> astError (nodeInfo ident) $ "wrong kind of object: excepcted typedef but found: "++(objKindDescr d)
 
 -- | lookup an arbitrary variable declaration (delegates to symboltable)
 lookupVarDecl :: (MonadTrav m) => Ident -> m (Maybe IdentDecl)
@@ -189,7 +192,7 @@ lookupObject ident = do
     old_decl <- lookupVarDecl ident
     mapMaybeM old_decl $ \obj ->
        case obj of
-           Declaration vardecl _ | (not . isFunctionType . declType) vardecl -> return (Left vardecl)
+           Declaration (Decl vardecl node) | (not . isFunctionType . declType) vardecl -> return (Left vardecl)
            ObjectDef objdef -> return (Right objdef)
            bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected an object, but found: " ++ (objKindDescr bad_obj)
 lookupFun :: (MonadTrav m) => Ident -> m (Maybe (Either VarDecl FunDef))
@@ -197,7 +200,7 @@ lookupFun ident = do
     old_decl <- lookupVarDecl ident
     mapMaybeM old_decl $ \obj ->
         case obj of
-           Declaration vardecl _ | (isFunctionType . declType) vardecl -> return (Left vardecl)
+           Declaration (Decl vardecl node) | (isFunctionType . declType) vardecl -> return (Left vardecl)
            FunctionDef fundef -> return (Right fundef)
            bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected a function, but found: " ++ (objKindDescr bad_obj)
             
@@ -276,7 +279,9 @@ runTrav state traversal =
     action = do
         withDefTable (declareScopedObject (identOfDecl va_list) va_list)
         traversal
-    va_list = TypeDef (internalIdent "__builtin_va_list") (DirectType (TyBuiltin TyVaList) noTypeQuals [])
+    va_list = TypeDef (TypeDef' (internalIdent "__builtin_va_list") 
+                                (DirectType (TyBuiltin TyVaList) noTypeQuals [])
+                                (noNodeInfo))
 runTrav_ :: Trav () a -> Either [CError] a
 runTrav_ t = fmap fst $ runTrav () t
 withExtDeclHandler :: Trav s a -> (DeclEvent -> Trav s ()) -> Trav s a

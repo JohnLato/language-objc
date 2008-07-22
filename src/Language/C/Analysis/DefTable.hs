@@ -85,12 +85,9 @@ globalDefs deftbl = Map.foldWithKey insertDecl (GlobalDecls e e e gtags e) (glob
         case def of
             TypeDef tydef         -> ds { gTypedefs = Map.insert ident tydef (gTypedefs ds)}
             EnumDef _ _sueref     -> ds -- ignored, because the information is present in the enumeration anyway
-            Declaration decl      | isFunctionType (declType decl) ->
-                                      ds { gDecls = Map.insert ident (decl,True) (gDecls ds) }
-                                  | otherwise ->
-                                      ds { gDecls = Map.insert ident (decl,False) (gDecls ds) }
-            FunctionDef funDef   -> ds { gFuns = Map.insert ident funDef (gFuns ds) }
-            ObjectDef objDef     -> ds { gObjs = Map.insert ident objDef (gObjs ds) }
+            Declaration decl      -> ds { gDecls = Map.insert ident decl (gDecls ds) }
+            FunctionDef funDef    -> ds { gFuns = Map.insert ident funDef (gFuns ds) }
+            ObjectDef objDef      -> ds { gObjs = Map.insert ident objDef (gObjs ds) }
             
 leaveScope_ :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 leaveScope_ = fst . leaveScope

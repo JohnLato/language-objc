@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts,FlexibleInstances,
-             PatternSignatures, RankNTypes, ScopedTypeVariables #-} 
+             PatternSignatures, PatternGuards, RankNTypes, ScopedTypeVariables #-} 
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Analysis.TravMonad
@@ -100,7 +100,7 @@ handleEnumeratorDef enumerator@(ident,_) enum_ref = do
     return ()
     
 handleTypeDef :: (MonadTrav m) => TypeDef -> m ()
-handleTypeDef typedef@(TypeDef' ident ty node) = do
+handleTypeDef typedef@(TypeDef' ident ty attrs node) = do
     let def = TypeDef typedef
     redecl <- withDefTable (defineScopedIdent ident def)
     checkRedef "typedef" def redecl
@@ -183,7 +183,7 @@ lookupTypeDef ident
       case lookupIdent ident symt of
         Nothing
             -> astError (nodeInfo ident) "unbound typedef"
-        Just (TypeDef (TypeDef' _ident ty _))   
+        Just (TypeDef (TypeDef' _ident ty _ _))   
             -> return ty
         Just d 
             -> astError (nodeInfo ident) $ "wrong kind of object: excepcted typedef but found: "++(objKindDescr d)
@@ -213,9 +213,14 @@ lookupFun ident = do
 -- * inserting declarations
 
 -- | create a reference to a struct\/union\/enum
-createSUERef :: (MonadTrav m) => Maybe Ident -> m SUERef
-createSUERef (Just ident) = return$ NamedType ident
-createSUERef Nothing = liftM AnonymousType genName 
+--
+-- /TODO/ This currently depends on the fact the structs are tagged with unique names
+-- we rather would want to use the name generation of TravMonad, but this requires
+-- some restructuring of the analysis code
+createSUERef :: (MonadTrav m) => NodeInfo -> Maybe Ident -> m SUERef
+createSUERef node_info (Just ident) = return$ NamedType ident
+createSUERef node_info Nothing | (Just name) <- nodeName node_info = return $ AnonymousType name
+                               | otherwise = astError node_info "struct/union/enum definition without unique name"
 
 
 -- | enter an object definition into the object name space
@@ -289,6 +294,7 @@ runTrav state traversal =
         traversal
     va_list = TypeDef (TypeDef' (internalIdent "__builtin_va_list") 
                                 (DirectType (TyBuiltin TyVaList) noTypeQuals [])
+                                []
                                 (noNodeInfo))
 runTrav_ :: Trav () a -> Either [CError] a
 runTrav_ t = fmap fst $ runTrav () t

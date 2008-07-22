@@ -64,7 +64,7 @@ identOfDecl ident_decl =
         ObjectDef od -> declIdent od
         FunctionDef fd  -> declIdent fd
         EnumDef enumerator _sue_ref -> fst $ enumerator
-        TypeDef (TypeDef' ident _ty _node) -> ident
+        TypeDef (TypeDef' ident _ty _attrs _node) -> ident
     where
     declIdent :: (Declaration d) => d -> Ident
     declIdent = identOfVarName . declName
@@ -93,7 +93,7 @@ compatibleObjKind _ _ = True
 
 -- * global declarations and definitions
 data GlobalDecls = GlobalDecls {
-                     gDecls    :: Map Ident (Decl, Bool), -- ^ @ident ~> (declaration, isFunctionPrototype)@
+                     gDecls    :: Map Ident Decl, 
                      gObjs     :: Map Ident ObjDef,
                      gFuns     :: Map Ident FunDef,
                      gTags     :: Map SUERef TagDef,
@@ -103,7 +103,7 @@ data GlobalDecls = GlobalDecls {
 filterGlobalDecls :: (DeclEvent -> Bool) -> GlobalDecls -> GlobalDecls
 filterGlobalDecls decl_filter gmap = GlobalDecls
     {
-        gDecls = Map.filter (decl_filter . DeclEvent . Declaration . fst) (gDecls gmap),
+        gDecls = Map.filter (decl_filter . DeclEvent . Declaration) (gDecls gmap),
         gObjs  = Map.filter (decl_filter . DeclEvent . ObjectDef) (gObjs gmap),
         gFuns  = Map.filter (decl_filter . DeclEvent . FunctionDef) (gFuns gmap),
         gTags  = Map.filter (decl_filter . TagEvent) (gTags gmap),
@@ -232,7 +232,7 @@ hasLinkage _ = False
 -- * types
 
 -- | Typedefs
-data TypeDef = TypeDef' Ident Type NodeInfo
+data TypeDef = TypeDef' Ident Type Attributes NodeInfo
                deriving (Typeable, Data {-! CNode !-} )
 
 -- | types of c objects
@@ -245,10 +245,31 @@ data Type =
      -- ^ array type
      | FunctionType FunType
      -- ^ function type
+     | TypeDefType TypeDefRef
+     -- ^ a defined type
+     | TypeOfExpr Expr
+     -- ^ (GNU) typeof
      deriving (Typeable, Data)
 
+referencedType :: Type -> Maybe Type
+referencedType (PtrType ty _ _) = Just ty
+referencedType (FunctionType (FunType ty _ _ _)) = Just ty
+referencedType (ArrayType ty _ _ _) = Just ty
+referencedType (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = Just actual_ty
+referencedType _ = Nothing
+
+hasTypeOfExpr :: Type -> Bool
+hasTypeOfExpr (TypeOfExpr _) = True
+hasTypeOfExpr ty = maybe False hasTypeOfExpr (referencedType ty)
+
+-- | note that this cannot be answered in the presence of typedefs and, even worse, typeOfExpr types
 isFunctionType :: Type -> Bool
-isFunctionType ty = case ty of FunctionType _ -> True; _ -> False
+isFunctionType ty = 
+    case ty of  TypeDefType (TypeDefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
+                TypeDefType _ -> error "isFunctionType: unresolved typedef"
+                TypeOfExpr _  -> error "isFunctionType: typeof(expr)"
+                FunctionType _ -> True
+                _ -> False
 
 -- | An array type may either have a size, incomplete type or variable size.
 -- Furthermore, when used as a function parameters, it may have a /static/ qualifier.
@@ -269,13 +290,14 @@ data TypeName =
     | TyFloating FloatTypeQuals FloatType
     | TyComp CompTypeDecl
     | TyEnum EnumTypeDecl
-    | TyTypeDef TypeDefRef
-    | TyOfExpr  Expr
     | TyBuiltin BuiltinType
     deriving (Typeable, Data)
 data BuiltinType = TyVaList 
                    deriving (Typeable, Data)
-data TypeDefRef = TypeDefRef Ident NodeInfo
+
+-- | typdef references
+-- If the actual type is known, it is attached for convenience
+data TypeDefRef = TypeDefRef Ident (Maybe Type) NodeInfo
                deriving (Typeable, Data {-! CNode !-})
 
 -- | qualifiers for floating types (gnu complex extensions, other gnu extensions may follow)
@@ -285,7 +307,8 @@ data FloatTypeQuals =  NoFloatTypeQual
 
 -- | integral types (C99 6.7.2.2)
 data IntType =
-      TyChar
+      TyBool
+    | TyChar
     | TySChar
     | TyUChar
     | TyShort
@@ -296,16 +319,32 @@ data IntType =
     | TyULong
     | TyLLong
     | TyULLong
-    | TyBool
-    deriving (Typeable, Data, Eq, Ord, Show)
-
+    deriving (Typeable, Data, Eq, Ord)
+instance Show IntType where
+    show TyBool = "_Bool"
+    show TyChar = "char"
+    show TySChar = "signed char"
+    show TyUChar = "unsigned char"
+    show TyShort = "short"
+    show TyUShort = "unsigned short"
+    show TyInt = "int"
+    show TyUInt = "unsigned int"
+    show TyLong = "long"
+    show TyULong = "unsigned long"
+    show TyLLong = "long long"
+    show TyULLong = "unsigned long long"
+    
 -- | floating point type (C99 6.7.2.2)
 data FloatType =
       TyFloat
     | TyDouble
     | TyLDouble
-    deriving (Typeable, Data, Eq, Ord, Show)
-
+    deriving (Typeable, Data, Eq, Ord)
+instance Show FloatType where
+    show TyFloat = "float"
+    show TyDouble = "double"
+    show TyLDouble = "long double"
+    
 -- | accessor class : struct\/union\/enum names
 class HasSUERef a where
     sueRef  :: a -> SUERef
@@ -314,14 +353,14 @@ class HasSUERef a where
 class HasCompTag a where
     compTag :: a -> CompTag
     
-data CompTypeDecl = CompTypeDecl SUERef CompTag Attributes NodeInfo
+data CompTypeDecl = CompTypeDecl SUERef CompTag NodeInfo
     deriving (Typeable, Data {-! CNode !-})
-instance HasSUERef  CompTypeDecl where sueRef  (CompTypeDecl ref _ _ _) = ref
-instance HasCompTag CompTypeDecl where compTag (CompTypeDecl _ tag _ _)  = tag
+instance HasSUERef  CompTypeDecl where sueRef  (CompTypeDecl ref _ _) = ref
+instance HasCompTag CompTypeDecl where compTag (CompTypeDecl _ tag _)  = tag
 
-data EnumTypeDecl = EnumTypeDecl SUERef Attributes NodeInfo
+data EnumTypeDecl = EnumTypeDecl SUERef NodeInfo
     deriving (Typeable, Data {-! CNode !-})
-instance HasSUERef  EnumTypeDecl where sueRef  (EnumTypeDecl ref _ _) = ref
+instance HasSUERef  EnumTypeDecl where sueRef  (EnumTypeDecl ref _) = ref
               
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
@@ -478,22 +517,22 @@ instance Pos MemberDecl
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode TypeDef
-    where nodeInfo (TypeDef' _ _ nodeinfo) = nodeinfo
+    where nodeInfo (TypeDef' _ _ _ nodeinfo) = nodeinfo
 instance Pos TypeDef
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode TypeDefRef
-    where nodeInfo (TypeDefRef _ nodeinfo) = nodeinfo
+    where nodeInfo (TypeDefRef _ _ nodeinfo) = nodeinfo
 instance Pos TypeDefRef
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode CompTypeDecl
-    where nodeInfo (CompTypeDecl _ _ _ nodeinfo) = nodeinfo
+    where nodeInfo (CompTypeDecl _ _ nodeinfo) = nodeinfo
 instance Pos CompTypeDecl
     where posOf x = nodePos (nodeInfo x)
 
 instance CNode EnumTypeDecl
-    where nodeInfo (EnumTypeDecl _ _ nodeinfo) = nodeinfo
+    where nodeInfo (EnumTypeDecl _ nodeinfo) = nodeinfo
 instance Pos EnumTypeDecl
     where posOf x = nodePos (nodeInfo x)
 

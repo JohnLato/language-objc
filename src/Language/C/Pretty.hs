@@ -268,8 +268,8 @@ instance Pretty CDeclr where
     prettyPrec prec declr = prettyDeclr prec declr 
 
 prettyDeclr :: Int -> CDeclr -> Doc
-prettyDeclr prec (CDeclr name derivedDeclrs asmname cattrs _) =
-    ppDeclr prec (reverse derivedDeclrs) <+> prettyAsmName asmname <+> attrlistP cattrs
+prettyDeclr prec (CDeclr name derived_declrs asmname cattrs _) =
+    ppDeclr prec (reverse derived_declrs) <+> prettyAsmName asmname <+> attrlistP cattrs
     where    
     ppDeclr _ [] = maybeP identP name
     --'*' __attribute__? qualifiers declarator
@@ -281,8 +281,8 @@ prettyDeclr prec (CDeclr name derivedDeclrs asmname cattrs _) =
         parenPrec p 6 $ ppDeclr 6 declrs <> brackets (hsep (map pretty quals) <+> maybeP pretty expr)
     -- declarator ( arguments )
     -- or (__attribute__ declarator) (arguments)
-    ppDeclr _ (CFunDeclr params declr_attrs _ : declrs) =
-        (if not (null cattrs) then parens (attrlistP declr_attrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
+    ppDeclr _ (CFunDeclr params cattrs _ : declrs) =
+        (if not (null cattrs) then parens (attrlistP cattrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
         <> parens (prettyParams params)
     prettyParams (Right (decls, isVariadic)) =
      sep (punctuate comma (map pretty decls))

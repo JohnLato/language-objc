@@ -16,7 +16,7 @@ genNodeInst dat = [
     ]
 posOfDef :: [Clause]
 posOfDef = [Clause [VarP (mkName "x")] 
-                   (NormalB$ AppE (VarE$ mkName "nodePos") (AppE (VarE$ mkName "nodeInfo") (VarE$ mkName "x")))  
+                   (NormalB$ AppE (VarE$ mkName "posOfNode") (AppE (VarE$ mkName "nodeInfo") (VarE$ mkName "x")))  
                    []]
     
 -- If we have a data constructor

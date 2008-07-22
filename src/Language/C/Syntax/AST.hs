@@ -522,36 +522,36 @@ liftStrLit (CStrLit str at) = CStrConst str at
 instance CNode CTranslUnit
     where nodeInfo (CTranslUnit _ nodeinfo) = nodeinfo
 instance Pos CTranslUnit
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CExtDecl
     where nodeInfo (CDeclExt d) = nodeInfo d
           nodeInfo (CFDefExt d) = nodeInfo d
           nodeInfo (CAsmExt d) = nodeInfo d
 instance Pos CExtDecl
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CFunDef
     where nodeInfo (CFunDef _ _ _ _ nodeinfo) = nodeinfo
 instance Pos CFunDef
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CDecl
     where nodeInfo (CDecl _ _ nodeinfo) = nodeinfo
 instance Pos CDecl
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CDeclr
     where nodeInfo (CDeclr _ _ _ _ nodeinfo) = nodeinfo
 instance Pos CDeclr
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CDerivedDeclr
     where nodeInfo (CPtrDeclr _ nodeinfo) = nodeinfo
           nodeInfo (CArrDeclr _ _ nodeinfo) = nodeinfo
           nodeInfo (CFunDeclr _ _ nodeinfo) = nodeinfo
 instance Pos CDerivedDeclr
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CStat
     where nodeInfo (CLabel _ _ _ nodeinfo) = nodeinfo
@@ -571,31 +571,31 @@ instance CNode CStat
           nodeInfo (CReturn _ nodeinfo) = nodeinfo
           nodeInfo (CAsm _ nodeinfo) = nodeinfo
 instance Pos CStat
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CAsmStmt
     where nodeInfo (CAsmStmt _ _ _ _ _ nodeinfo) = nodeinfo
 instance Pos CAsmStmt
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CAsmOperand
     where nodeInfo (CAsmOperand _ _ _ nodeinfo) = nodeinfo
 instance Pos CAsmOperand
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CBlockItem
     where nodeInfo (CBlockStmt d) = nodeInfo d
           nodeInfo (CBlockDecl d) = nodeInfo d
           nodeInfo (CNestedFunDef d) = nodeInfo d
 instance Pos CBlockItem
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CDeclSpec
     where nodeInfo (CStorageSpec d) = nodeInfo d
           nodeInfo (CTypeSpec d) = nodeInfo d
           nodeInfo (CTypeQual d) = nodeInfo d
 instance Pos CDeclSpec
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CStorageSpec
     where nodeInfo (CAuto nodeinfo) = nodeinfo
@@ -605,7 +605,7 @@ instance CNode CStorageSpec
           nodeInfo (CTypedef nodeinfo) = nodeinfo
           nodeInfo (CThread nodeinfo) = nodeinfo
 instance Pos CStorageSpec
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CTypeSpec
     where nodeInfo (CVoidType nodeinfo) = nodeinfo
@@ -625,7 +625,7 @@ instance CNode CTypeSpec
           nodeInfo (CTypeOfExpr _ nodeinfo) = nodeinfo
           nodeInfo (CTypeOfType _ nodeinfo) = nodeinfo
 instance Pos CTypeSpec
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CTypeQual
     where nodeInfo (CConstQual nodeinfo) = nodeinfo
@@ -634,35 +634,35 @@ instance CNode CTypeQual
           nodeInfo (CInlineQual nodeinfo) = nodeinfo
           nodeInfo (CAttrQual d) = nodeInfo d
 instance Pos CTypeQual
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CStructUnion
     where nodeInfo (CStruct _ _ _ _ nodeinfo) = nodeinfo
 instance Pos CStructUnion
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CEnum
     where nodeInfo (CEnum _ _ _ nodeinfo) = nodeinfo
 instance Pos CEnum
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CInit
     where nodeInfo (CInitExpr _ nodeinfo) = nodeinfo
           nodeInfo (CInitList _ nodeinfo) = nodeinfo
 instance Pos CInit
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CDesignator
     where nodeInfo (CArrDesig _ nodeinfo) = nodeinfo
           nodeInfo (CMemberDesig _ nodeinfo) = nodeinfo
           nodeInfo (CRangeDesig _ _ nodeinfo) = nodeinfo
 instance Pos CDesignator
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CAttr
     where nodeInfo (CAttr _ _ nodeinfo) = nodeinfo
 instance Pos CAttr
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CExpr
     where nodeInfo (CComma _ nodeinfo) = nodeinfo
@@ -687,14 +687,14 @@ instance CNode CExpr
           nodeInfo (CLabAddrExpr _ nodeinfo) = nodeinfo
           nodeInfo (CBuiltinExpr d) = nodeInfo d
 instance Pos CExpr
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CBuiltin
     where nodeInfo (CBuiltinVaArg _ _ nodeinfo) = nodeinfo
           nodeInfo (CBuiltinOffsetOf _ _ nodeinfo) = nodeinfo
           nodeInfo (CBuiltinTypesCompatible _ _ nodeinfo) = nodeinfo
 instance Pos CBuiltin
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CConst
     where nodeInfo (CIntConst _ nodeinfo) = nodeinfo
@@ -702,9 +702,9 @@ instance CNode CConst
           nodeInfo (CFloatConst _ nodeinfo) = nodeinfo
           nodeInfo (CStrConst _ nodeinfo) = nodeinfo
 instance Pos CConst
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CStrLit
     where nodeInfo (CStrLit _ nodeinfo) = nodeinfo
 instance Pos CStrLit
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)

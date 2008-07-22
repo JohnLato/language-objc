@@ -12,8 +12,8 @@
 -----------------------------------------------------------------------------
 module Language.C.Syntax.Node (
    NodeInfo(..), mkUndefNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
-   CNode(nodeInfo), nodeFile,
-   nodePos, nodeName,
+   CNode(nodeInfo), fileOfNode,
+   posOfNode, nameOfNode,
    eqByName, 
 ) where
 import Language.C.Syntax.Position
@@ -43,13 +43,13 @@ class CNode a where
 instance (CNode a, CNode b) => CNode (Either a b) where
   nodeInfo = either nodeInfo nodeInfo
   
-nodeName :: NodeInfo -> Maybe Name
-nodeName (OnlyPos _) = Nothing
-nodeName (NodeInfo _ name) = Just name
-nodePos :: NodeInfo -> Position
-nodePos ni = case ni of (OnlyPos pos  ) -> pos; (NodeInfo   pos _) -> pos
-nodeFile :: (CNode a) => a -> FilePath
-nodeFile = posFile . nodePos . nodeInfo
+nameOfNode :: NodeInfo -> Maybe Name
+nameOfNode (OnlyPos _) = Nothing
+nameOfNode (NodeInfo _ name) = Just name
+posOfNode :: NodeInfo -> Position
+posOfNode ni = case ni of (OnlyPos pos  ) -> pos; (NodeInfo   pos _) -> pos
+fileOfNode :: (CNode a) => a -> FilePath
+fileOfNode = posFile . posOfNode . nodeInfo
 
 -- | equality by name
 eqByName           :: CNode a => a -> a -> Bool

@@ -25,8 +25,11 @@ import System.IO
 import Control.Exception
 import Control.Monad
 
+-- | @Preprocessor@ encapsulates the abstract interface for invoking C preprocessors
 class Preprocessor cpp where
+    -- | parse the given command line arguments, and return a pair of preprocessor and unused arguments
     parseCPPArgs :: cpp -> [String] -> Either String (CppArgs, [String])
+    -- | run the preprocessor
     runCPP :: cpp -> CppArgs -> IO ExitCode
 
 -- | file extension of a preprocessed file
@@ -56,10 +59,12 @@ simpleCppArgs opts input_file =
 addCppOption :: CppArgs -> CppOption -> CppArgs
 addCppOption cpp_args opt = 
     cpp_args { cppOptions = opt : (cppOptions cpp_args) }
+
 addExtraOption :: CppArgs -> String -> CppArgs
 addExtraOption cpp_args extra =
     cpp_args { extraOptions = extra : (extraOptions cpp_args) }
 
+-- | run the preprocessor and return an 'InputStream' if preprocesssing succeeded
 runPreprocessor :: (Preprocessor cpp) => cpp -> CppArgs -> IO (Either ExitCode InputStream)
 runPreprocessor cpp cpp_args = do
     bracket

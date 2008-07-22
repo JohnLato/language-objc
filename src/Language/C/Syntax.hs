@@ -5,22 +5,22 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
--- Stability   :  provisional
 --
 -- Syntax of C files, including the AST, constants, operators, identifiers,
 -- unqiue names, AST nodes and source locations.
 -----------------------------------------------------------------------------
 module Language.C.Syntax (
+     --  * Syntax tree
      module Language.C.Syntax.Constants,
      module Language.C.Syntax.AST,
-     -- * identifiers
+     -- * Identifiers
      SUERef(..),
      Ident,identToString,internalIdent,
-     -- * unqiue names
+     -- * Unqiue names
      Name(..),
      -- * AST nodes
      NodeInfo(..),CNode(..),fileOfNode,nodePos,
-     -- * source code positions
+     -- * Source code positions
      Position(..),Pos(..),posFile,posRow,posColumn,
 )
 where

@@ -716,8 +716,6 @@ asm_attrs_opt
 --      __attribute__ annotations imm. before an declarator (see Attribute Syntax, paragraph 11)
 --      asm + __attribute__ annotations (end of declarations, see Attribute Syntax, paragraph 12)
 --      
--- FIXME: record attributes
---
 declaring_list :: { CDecl }
 declaring_list
   : declaration_specifier declarator asm_attrs_opt initializer_opt
@@ -1090,7 +1088,7 @@ struct_default_declaring_list
   -- GNU extension: __attribute__ as only type qualifier
   | attrs struct_identifier_declarator 
     {% withNodeInfo $1 $ case $2 of (d,s) -> CDecl (liftCAttrs $1) [(d,Nothing,s)] }
-  -- attrs_opt apply to the declared object
+  -- attrs_opt apply to the declared object 
   | struct_default_declaring_list ',' attrs_opt struct_identifier_declarator 
   	{ case $1 of
             CDecl declspecs dies at ->

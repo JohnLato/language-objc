@@ -53,16 +53,19 @@ readInternal s | (Just rest) <- readString "<no file>" s = [(nopos,rest)]
 -- | get the source file of the specified position. Fails unless @isSourcePos pos@.
 posFile :: Position -> String
 posFile (Position fname _ _) = fname
--- | get the line number of the specified position. Fails if @isSourcePos pos@
+
+-- | get the line number of the specified position. Fails unless @isSourcePos pos@
 posRow  :: Position -> Int
 posRow (Position _ row _) = row
--- | get the column of the specified position. Fails if @isSourcePos pos@
+
+-- | get the column of the specified position. Fails unless @isSourcePos pos@
 posColumn :: Position -> Int
 posColumn (Position _ _ col) = col
 
 class Pos a where
     posOf :: a -> Position
       
+-- | returns @True@ if the given position refers to an actual source file
 isSourcePos :: Position -> Bool
 isSourcePos (Position _ row col) = row >= 0 && col >= 0      
 

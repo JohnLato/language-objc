@@ -9,8 +9,8 @@
 -- Stability   :  internal use
 -- Portability :  unspecified
 --
--- Pretty printing the semantic analysis representation, using Data.Generics.
--- We now use overlapping instances, so this is rather unportable prototype code
+-- Pretty printing the semantic analysis representation.
+-- This is currently only intended for debugging purposes.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.Pretty (
 globalDeclStats,

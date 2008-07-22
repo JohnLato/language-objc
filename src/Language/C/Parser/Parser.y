@@ -910,7 +910,7 @@ sue_declaration_specifier
   	{ $1 `snoc` $2 }
   	
   | sue_declaration_specifier attr 
-  	{ $1 }
+  	{ $1 `rappend` (liftCAttrs $2) }  
 
 
 -- A struct, union or enum type (named or anonymous) with optional leading and

@@ -24,8 +24,8 @@
 --    * (maybe): Keep ref counts, if an anonymous struct is only ref'd one, pp it anonymously
 --
 --    * (rather not): Try to merge declarations, s.t. we still can use an anonymous struct
-    
--- /TODO/: At the moment, we do not analyse function bodies.
+--    
+-- /TODO/  At the moment, we do not analyse function bodies.
 --         This will change in the future of course, when we've implemented more analysis steps
 ---------------------------------------------------------------------------------------------------
 module Language.C.Analysis.SemRep

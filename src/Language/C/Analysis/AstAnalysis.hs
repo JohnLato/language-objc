@@ -110,7 +110,7 @@ analyseTypeDef :: (MonadTrav m) => [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
 analyseTypeDef declspecs declr node_info = do
     -- analyse the declarator
     (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr []
-    -- /TODO/: move attribute to the type
+    -- TODO: move attribute to the type
     checkValidTypeDef is_inline storage_spec attrs
     let ident = identOfVarName name
     handleTypeDef (TypeDef' ident ty attrs node_info)
@@ -183,7 +183,7 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
 --
 -- We have to check the storage specifiers here, as they determine wheter we're dealing with decalartions
 -- or definitions
--- see [doc/ExternalDefinitions.txt]
+-- see [doc\/ExternalDefinitions.txt]
 extVarDecl :: (MonadTrav m) => VarDeclInfo -> (Maybe Initializer) -> m ()
 extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) init_opt =
     do let ident = identOfVarName var_name

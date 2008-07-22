@@ -36,21 +36,21 @@ import Data.List (intersperse)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
--- /TODO/: register or no storage
+-- TODO: register or no storage
 computeParamStorage _ = NoStorage
 
 -- * handling declarations
 
--- /TODO/ handle void parameter ?
+-- TODO: handle void parameter ?
 tParamDecl :: (MonadTrav m) => CDecl -> m ParamDecl
 tParamDecl (CDecl declspecs declrs node) = 
     case declrs' of
         [(Just declr, Nothing, Nothing)] -> 
             do  (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr [] Nothing
 
-                -- /TODO/: check assembler name
+                -- TODO: check assembler name
                 when (is_inline) $ astError node "parameter declaration with inline specifier"
-                -- /TODO/: compute storage of parameter declaration
+                -- TODO: compute storage of parameter declaration
                 let storage = computeParamStorage storage_spec
                 return $ ParamDecl (VarDecl name (DeclAttrs False storage attrs) ty) declr_node
         _   -> astError node "bad parameter declaration: multiple decls / bitfield or initializer present"
@@ -214,10 +214,10 @@ mergeTypeAttributes node_info quals attrs typ =
 typeDefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypeDefRef
 typeDefRef t_node name = lookupTypeDef name >>= \ty -> return (TypeDefRef name (Just ty) t_node)
   
--- extract a struct/union
+-- extract a struct\/union
 -- we emit @declStructUnion@ and @defStructUnion@ actions
 --
--- /TODO/: should attributes be part of declarartions too ?
+-- TODO: should attributes be part of declarartions too ?
 tCompTypeDecl :: (MonadTrav m) => Bool -> CStructUnion -> m CompTypeDecl
 tCompTypeDecl handle_def (CStruct tag ident_opt member_decls_opt attrs node_info) = do
     sue_ref <- createSUERef node_info ident_opt                           -- create name
@@ -267,7 +267,7 @@ tEnumType sue_ref enumerators attrs node = do
     return $ EnumType sue_ref enumerators' attrs node
 
 
--- | Mapping from num type specs to C types (C99 6.7.2 / 2), ignoring the complex qualifier
+-- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier
 tNumType :: (MonadTrav m) => NumTypeSpec -> m (Either (FloatType,Bool) IntType)
 tNumType (NumTypeSpec basetype sgn sz iscomplex) = 
     case (basetype,sgn,sz) of
@@ -388,23 +388,26 @@ canonicalStorageSpec storagespecs = liftM elideAuto $ foldrM updStorage NoStorag
         elideAuto spec = spec
 
 -- | convert old style parameters
--- This is quite tricky, as the following example shows:
+--
+-- This requires matching parameter names and declarations, as in the following example:
 --
 -- > int f(d,c,a,b)
 -- > char a,*b;
 -- > int c;
 -- > { }
+--
 -- is converted to
+--
 -- > int f(int d, int c, char a, char* b)
 --
--- /TODO/: This could be moved to syntax, as it operates on the AST only
+-- TODO: This could be moved to syntax, as it operates on the AST only
 mergeOldStyle :: (MonadTrav m) => NodeInfo -> [CDecl] -> [CDerivedDeclr] -> m [CDerivedDeclr]
 mergeOldStyle _node [] declrs = return declrs
 mergeOldStyle node oldstyle_params (CFunDeclr params attrs fdnode : dds) = 
     case params of
         Left list -> do
-            -- /FIXME/ This translation doesn't work in the following example
-            -- > [| int f(b,a) struct x { }; int b,a; { struct x local; return local.x } |]
+            -- FIXME: This translation doesn't work in the following example
+            -- [| int f(b,a) struct x { }; int b,a; { struct x local; return local.x } |]
             oldstyle_params' <- liftM concat $ mapM splitCDecl oldstyle_params
             param_map <- liftM Map.fromList $ mapM attachNameOfDecl oldstyle_params'
             (newstyle_params,param_map') <- foldrM insertParamDecl ([],param_map) list
@@ -453,17 +456,17 @@ splitCDecl decl@(CDecl declspecs declrs node) =
     
 
 -- translate __attribute__ annotations
--- /TODO/: bogus
+-- TODO: bogus
 tAttr :: (MonadTrav m) => CAttr -> m Attr
 tAttr (CAttr name cexpr node) = liftM (\e -> Attr name e node) $ mapM analyseConstExpr cexpr
 
 -- convert string literals
--- /TODO/: bogus
+-- TODO: bogus
 convertStringLit :: CStrLit -> StringLit
 convertStringLit (CStrLit c n) = StringLit c n
 
 -- | construct a name for a variable
--- /TODO/: more or less bogus
+-- TODO: more or less bogus
 mkVarName :: (MonadTrav m) => NodeInfo -> Maybe Ident -> Maybe AsmName -> m VarName
 mkVarName  node Nothing _ = return NoName
 mkVarName  node (Just n) asm = return $ VarName n Nothing

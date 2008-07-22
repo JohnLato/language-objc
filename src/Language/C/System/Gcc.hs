@@ -20,7 +20,10 @@ import Data.Maybe
 import System.Cmd
 import Data.List
 
+-- | @GCC@ represents a reference to the gcc compiler
 newtype GCC = GCC { gccPath :: FilePath }
+
+-- | create a reference to @gcc@
 newGCC :: FilePath -> GCC
 newGCC = GCC
 

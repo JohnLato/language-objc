@@ -13,8 +13,6 @@
 module Language.C.Syntax (
      module Language.C.Syntax.Constants,
      module Language.C.Syntax.AST,
-     -- * errors
-     CError(..),isHardError,
      -- * identifiers
      SUERef(..),
      Ident,identToString,internalIdent,
@@ -28,7 +26,6 @@ module Language.C.Syntax (
 where
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants
-import Language.C.Syntax.Error
 import Language.C.Syntax.Ident
 import Language.C.Syntax.Name
 import Language.C.Syntax.Node

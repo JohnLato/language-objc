@@ -9,24 +9,27 @@
 -- Portability :  portable
 --
 --  Parser for C translation units, which have already been run through the C
---  preprocessor. It is recommended to use the strict flag.
+--  preprocessor. It is recommended to use the `strict' flag for happy.
 --
 --  The parser recognizes all of ISO C 99 and most GNU C extensions.
 --
 --  With C99 we refer to the ISO C99 standard, specifically the section numbers
 --  used below refer to this report:
 --
---    http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf
+--    <http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf>
 --
 -- GNU extensions are documented in the gcc parser
 --    
---    http://gcc.gnu.org/viewcvs/trunk/gcc/c-parser.c
+--    <http://gcc.gnu.org/viewcvs/trunk/gcc/c-parser.c>
 --
--- and on: http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html
+-- and in: <http://gcc.gnu.org/onlinedocs/gcc/C-Extensions.html>
 --
+-- The set of supported extensions is documented in
+--
+--    <http://www.sivity.net/projects/language.c/wiki/Cee>
 ------------------------------------------------------------------
 {
-module Language.C.Parser.Parser (parseC) where
+module Language.C.Parser.Parser (parseC, ParseError(..)) where
 
 -- Relevant C99 sections:
 --
@@ -96,11 +99,12 @@ module Language.C.Parser.Parser (parseC) where
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 
+import Language.C.InputStream
 import Language.C.Parser.Builtin   (builtinTypeNames)
 import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
 import Language.C.Parser.ParserMonad (P, failP, execParser, getNewName, addTypedef, shadowTypedef,
-                     enterScope, leaveScope, InputStream )
+                                      enterScope, leaveScope, ParseError(..))
 
 import Language.C.Syntax
 import Language.C.Syntax.RList
@@ -2209,10 +2213,11 @@ getCDeclrIdent (CDeclr mIdent _ _ _ _) = mIdent
 happyError :: P a
 happyError = parseError
 
+-- * public interface
+
 -- | @parseC input initialPos@ parses the given preprocessed C-source input and return the AST or a list of error messages along with 
 -- the position of the error.
-parseC :: InputStream -> Position -> Either ([String],Position) CTranslUnit
+parseC :: InputStream -> Position -> Either ParseError CTranslUnit
 parseC input initialPosition = 
   execParser header input initialPosition builtinTypeNames (namesStartingFrom 0)
-
 }

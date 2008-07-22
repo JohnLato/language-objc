@@ -11,6 +11,7 @@
 -----------------------------------------------------------------------------
 module Language.C.Parser (
     parseC,
+    ParseError(..)
 )
 where
-import Language.C.Parser.Parser
+import Language.C.Parser.Parser (parseC, ParseError(..))

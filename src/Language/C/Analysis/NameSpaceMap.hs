@@ -32,7 +32,6 @@ import qualified Prelude
 import qualified Data.Map as Map (empty, insert, lookup, toList)
 import Data.Map   (Map)
 import Language.C.Syntax.Ident     (Ident)
-import Language.C.Syntax.Error     (internalErr)
 
 {-
 C Namespaces and scopes:
@@ -97,7 +96,7 @@ enterNewScope (NsMap gs lss)  = NsMap gs ([]:lss)
 -- @(ns',defs) = leaveScope ns@ pops leaves the innermost local scope.
 --  and returns its definitions
 leaveScope :: (Ord k) => NameSpaceMap k a -> (NameSpaceMap k a, [(k, a)])
-leaveScope (NsMap _ [])         = internalErr "NsMaps.leaveScope: No local scope!"
+leaveScope (NsMap _ [])         = error "NsMaps.leaveScope: No local scope!"
 leaveScope (NsMap gs (ls:lss))  = (NsMap gs lss, ls)
 
 -- | Add local definition 

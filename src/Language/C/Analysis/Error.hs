@@ -1,45 +1,27 @@
-{-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Syntax.Error
+-- Module      :  Language.C.Analysis.Error
 -- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
 --                    2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
--- This modules exports some datatypes and auxilliary routines for error handling.
-module Language.C.Syntax.Error (
-  -- * handling of internal errors
-  internalErr, todo,
-  -- * errors in the parsed program
+-- Typed analysis errors.
+--
+-- Additionally, this modules exports some datatypes and auxilliary routines
+-----------------------------------------------------------------------------
+module Language.C.Analysis.Error (
+  -- * error levels
   ErrorLevel(..), isWarning,isHardError,
-  CError(..), mkWarning, mkError, showError,
-  
+  -- * errors in the parsed program
+  CError(..), mkWarning, mkError, 
+  -- * helpers  
+  showError,  
+  internalErr, todo, -- deprecated
 ) where
 
 import Language.C.Syntax.Position (Position(..), isInternalPos)
-
-
--- internal errors
--- ---------------
-internalErrPrefix :: String
-internalErrPrefix = unlines [ "Language.C : Internal Error" ,
-                              "This is propably a bug, and should be reported at "++     
-                              "http://www.sivity.net/projects/language.c/newticket"]
-
--- | raise a fatal internal error; message may have multiple lines
-internalErr     :: String -> a
-internalErr msg  = error (internalErrPrefix ++ "\n"
-                       ++ indentMultilineString 2 msg 
-                       ++ "\n")
-
--- | raise a error due to a implementation restriction; message may have multiple
--- lines
-todo     :: String -> a
-todo msg  = error ("Feature not yet implemented:\n"
-                   ++ indentMultilineString 2 msg 
-                   ++ "\n")
 
 
 -- errors in the translation program
@@ -64,17 +46,17 @@ data CError = CError { errorLevel :: ErrorLevel,
                        errorMsgs :: [String] }
 
 instance Eq CError where
-  (CError lvl1 pos1 _) == (CError lvl2 pos2 _) = lvl1 == lvl2 && pos1 == pos2
-  
+  (CError lvl1 pos1 _) == (CError lvl2 pos2 _) = lvl1 == lvl2 && pos1 == pos2  
+
 instance Ord CError where
-  (CError lvl1 pos1 _) <  (CError lvl2 pos2 _) = pos1 < pos2
-                                               || (pos1 == pos2 && lvl1 < lvl2)
-  e1                  <= e2                  = e1 < e2 || e1 == e2
+  (<) (CError lvl1 pos1 _) (CError lvl2 pos2 _) = pos1 < pos2
+                                              || (pos1 == pos2 && lvl1 < lvl2)
 instance Show CError where
-  show = showError
+  show (CError lvl pos msgs) = showError lvl pos msgs
 
 isWarning :: CError -> Bool
 isWarning = ( <= LevelWarn) . errorLevel
+
 isHardError :: CError -> Bool
 isHardError = ( > LevelWarn) . errorLevel
 
@@ -98,12 +80,12 @@ isHardError = ( > LevelWarn) . errorLevel
 -- >        ...
 -- >      <line_n>
 --
-showError :: CError -> String
-showError (CError _   pos (l:ls))  | isInternalPos pos =
+showError :: ErrorLevel -> Position -> [String] -> String
+showError _ pos (l:ls)  | isInternalPos pos =
   "INTERNAL ERROR!\n" 
   ++ "  >>> " ++ l ++ "\n"
   ++ (indentMultilineString 2 . unlines) ls  
-showError (CError lvl (Position fname row col) (l:ls))  =
+showError lvl (Position fname row col) (l:ls)  =
   let
     prefix = fname ++ ":" ++ show (row::Int) ++ ": "
              ++ "(column " 
@@ -111,15 +93,36 @@ showError (CError lvl (Position fname row col) (l:ls))  =
              ++ ") [" 
              ++ showErrorLvl lvl
              ++ "] "
-    showErrorLvl LevelWarn = "WARNING"
+    showErrorLvl LevelWarn    = "WARNING"
     showErrorLvl LevelError   = "ERROR"
     showErrorLvl LevelFatal   = "FATAL"
   in
   prefix ++ "\n" 
   ++ "  >>> " ++ l ++ "\n"
   ++ (indentMultilineString 2 . unlines) ls
-showError (CError _  _                  []   )   = internalErr "Errors: showError: Empty error message!"
+showError _ _ [] = internalErr "Errors: showError: Empty error message!"
 
+
+-- * utilities
+
+-- ---------------
+internalErrPrefix :: String
+internalErrPrefix = unlines [ "Language.C : Internal Error" ,
+                              "This is propably a bug, and should be reported at "++     
+                              "http://www.sivity.net/projects/language.c/newticket"]
+
+-- | raise a fatal internal error; message may have multiple lines
+internalErr     :: String -> a
+internalErr msg  = error (internalErrPrefix ++ "\n"
+                       ++ indentMultilineString 2 msg 
+                       ++ "\n")
+
+-- | raise a error due to a implementation restriction; message may have multiple
+-- lines
+todo     :: String -> a
+todo msg  = error ("Feature not yet implemented:\n"
+                   ++ indentMultilineString 2 msg 
+                   ++ "\n")
 
 -- indent the given multiline text by the given number of spaces
 --

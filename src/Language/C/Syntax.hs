@@ -21,7 +21,7 @@ module Language.C.Syntax (
      -- * unqiue names
      Name(..),
      -- * AST nodes
-     NodeInfo(..),CNode(..),nodePos,
+     NodeInfo(..),CNode(..),fileOfNode,nodePos,
      -- * source code positions
      Position(..),Pos(..),posFile,posRow,posColumn,
 )

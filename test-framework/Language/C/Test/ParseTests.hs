@@ -119,14 +119,14 @@ runParseTest preFile initialPos = do
   -- check error and add test
   dbgMsg $ "Parse result : " ++ eitherStatus parse ++ "\n"
   case parse of
-    Left err@(errMsgs, pos) -> do
+    Left err@(ParseError (errMsgs, pos)) -> do
       report <- reportParseError err (inputStreamToString input)
       return $ Left $ (unlines (("Parse error in " ++ show pos) : errMsgs), report)
     Right header -> 
       return $ Right $ (header,PerfMeasure (fromIntegral $ countLines input,elapsed))
 
-reportParseError :: ([String],Position) -> String -> TestMonad FilePath
-reportParseError (errMsgs,pos) input = do
+reportParseError :: ParseError -> String -> TestMonad FilePath
+reportParseError (ParseError (errMsgs,pos)) input = do
   withTempFile_ ".report" $ \hnd -> liftIO $ do
     pwd        <- getCurrentDirectory
     contextMsg <- getContextInfo pos
@@ -232,7 +232,7 @@ getDeclSrc decls ix = case drop ix decls of
 
 --  make sure parse is evaluated
 -- Rational: If we no wheter the parse result is an error or ok, we already have performed the parse
-parseEval :: InputStream -> Position -> TestMonad (Either ([String],Position) CTranslUnit)
+parseEval :: InputStream -> Position -> TestMonad (Either ParseError CTranslUnit)
 parseEval input initialPos = 
   case parseC input initialPos of 
     Left  err -> return $ Left err

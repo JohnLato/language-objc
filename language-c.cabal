@@ -51,10 +51,10 @@ Library
                       Language.C.Syntax.Constants
                       Language.C.Syntax.Name 
                       Language.C.Syntax.Position 
-                      Language.C.Syntax.Error 
                       Language.C.Syntax.Node 
                       Language.C.Syntax.Ops
                       Language.C.Syntax.Ident 
+                      Language.C.Analysis.Error
                       Language.C.Analysis.NameSpaceMap
                       Language.C.Analysis.DefTable
                       Language.C.Analysis.TravMonad

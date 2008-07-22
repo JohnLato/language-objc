@@ -96,8 +96,8 @@ getOutputFileName fp | hasExtension fp = replaceExtension filename preprocessedE
 -- | create a temporary file
 mkTmpFile :: FilePath -> FilePath -> IO FilePath
 mkTmpFile tmp_dir file_templ = do
-    putStrLn $ "TmpDir: "++tmp_dir
-    putStrLn $ "FileTempl: "++file_templ
+    -- putStrLn $ "TmpDir: "++tmp_dir
+    -- putStrLn $ "FileTempl: "++file_templ
     (path,file_handle) <- openTempFile tmp_dir file_templ
     hClose file_handle
     return path

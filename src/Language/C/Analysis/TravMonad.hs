@@ -219,7 +219,7 @@ lookupFun ident = do
 -- some restructuring of the analysis code
 createSUERef :: (MonadTrav m) => NodeInfo -> Maybe Ident -> m SUERef
 createSUERef node_info (Just ident) = return$ NamedType ident
-createSUERef node_info Nothing | (Just name) <- nodeName node_info = return $ AnonymousType name
+createSUERef node_info Nothing | (Just name) <- nameOfNode node_info = return $ AnonymousType name
                                | otherwise = astError node_info "struct/union/enum definition without unique name"
 
 
@@ -257,17 +257,17 @@ astError :: (MonadTrav m) => NodeInfo -> String -> m a
 astError node msg = throwTravError $ mkAstError node msg
 
 mkAstError :: NodeInfo -> String -> CError
-mkAstError node msg = mkError LevelError (nodePos node) (lines msg)
+mkAstError node msg = mkError LevelError (posOfNode node) (lines msg)
 
 redeclaredError :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
 redeclaredError node old_node msg = 
     throwTravError $
-        mkError LevelError (nodePos node) (lines msg ++ ["The previous declaration was here: "++show (nodePos old_node)])
+        mkError LevelError (posOfNode node) (lines msg ++ ["The previous declaration was here: "++show (posOfNode old_node)])
 
 warnShadow :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
 warnShadow node old_node msg =
     warn node $
-        (msg++"The definition shadowed is here: " ++ show (nodePos old_node))
+        (msg++"The definition shadowed is here: " ++ show (posOfNode old_node))
 
 -- | raise an error based on an Either argument
 throwOnLeft :: (MonadTrav m) => Either CError a -> m a
@@ -275,7 +275,7 @@ throwOnLeft (Left err) = throwTravError err
 throwOnLeft (Right v) = return v
 
 warn :: (MonadTrav m) => NodeInfo -> String -> m ()
-warn node msg = addError (mkError LevelWarn (nodePos node) (lines msg))
+warn node msg = addError (mkError LevelWarn (posOfNode node) (lines msg))
 -- * The Trav datatype
 
 -- | simple MTL-based traversal monad, providing user state and callbacks
@@ -296,8 +296,12 @@ runTrav state traversal =
                                 (DirectType (TyBuiltin TyVaList) noTypeQuals [])
                                 []
                                 (mkUndefNodeInfo))
-runTrav_ :: Trav () a -> Either [CError] a
-runTrav_ t = fmap fst $ runTrav () t
+runTrav_ :: Trav () a -> Either [CError] (a,[CError])
+runTrav_ t = fmap fst . runTrav () $ do
+    r <- t
+    es <- getErrors
+    return (r,es)
+
 withExtDeclHandler :: Trav s a -> (DeclEvent -> Trav s ()) -> Trav s a
 withExtDeclHandler action handler = do
     modify $ \st -> let cbs_old = callbacks st 

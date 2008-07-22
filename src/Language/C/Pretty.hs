@@ -270,7 +270,7 @@ instance Pretty CDeclr where
 prettyDeclr :: Int -> CDeclr -> Doc
 prettyDeclr prec (CDeclr name derived_declrs asmname cattrs _) =
     ppDeclr prec (reverse derived_declrs) <+> prettyAsmName asmname <+> attrlistP cattrs
-    where    
+    where
     ppDeclr _ [] = maybeP identP name
     --'*' __attribute__? qualifiers declarator
     ppDeclr p (CPtrDeclr quals _ : declrs) =

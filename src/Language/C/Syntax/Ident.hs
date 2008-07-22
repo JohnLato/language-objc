@@ -33,7 +33,7 @@ where
 import Data.Char
 import Language.C.Syntax.Position
 import Language.C.Syntax.Node
-import Language.C.Syntax.Name   (Name)
+import Language.C.Syntax.Name   (Name,nameId)
 import Data.Generics
 
 -- simple identifier representation (EXPORTED)
@@ -47,8 +47,8 @@ data SUERef =  AnonymousType Name
              | NamedType Ident
     deriving (Typeable, Data, Ord, Eq)
 instance Show SUERef where
-    show (AnonymousType name) = "$" ++ show name
-    show (NamedType ident) = show ident
+    show (AnonymousType name) = "$" ++ show (nameId name)
+    show (NamedType ident) = identToString ident
     
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the
@@ -72,7 +72,7 @@ instance Show Ident where
 instance CNode Ident where
   nodeInfo (Ident _ _ at) = at
 instance Pos Ident where
-  posOf = nodePos . nodeInfo
+  posOf = posOfNode . nodeInfo
 -- to speed up the equality test we compute some hash-like value for each
 -- identifiers lexeme and store it in the identifiers representation
 
@@ -125,7 +125,7 @@ builtinIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos builtinPos)
 
 -- | return true if the given identifier is internal
 isInternalIdent :: Ident -> Bool
-isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (nodePos nodeinfo) || isBuiltinPos (nodePos nodeinfo)
+isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (posOfNode nodeinfo) || isBuiltinPos (posOfNode nodeinfo)
 
 -- | get the string of an identifier
 identToString               :: Ident -> String

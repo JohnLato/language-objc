@@ -31,6 +31,7 @@
 module Language.C.Analysis.SemRep
 where
 import Language.C.Syntax
+import Language.C.Syntax.Constants
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -50,8 +51,7 @@ instance HasSUERef TagDef where
     sueRef (EnumTag et) = sueRef et
     
 -- identifiers, typedefs and enumeration constants (namespace sum)
-data IdentDecl =   
-	             Declaration Decl           -- ^ object or function declaration
+data IdentDecl = Declaration Decl           -- ^ object or function declaration
 	           | ObjectDef ObjDef           -- ^ object definition
 	           | FunctionDef FunDef         -- ^ function definition
 	           | EnumDef Enumerator SUERef  -- ^ definition of an enumerator
@@ -238,7 +238,7 @@ data TypeDef = TypeDef' Ident Type Attributes NodeInfo
 -- | types of c objects
 data Type =
        DirectType TypeName TypeQuals Attributes
-     -- a non-derived type
+     -- ^ a non-derived type
      | PtrType Type TypeQuals Attributes
      -- ^ pointer type
      | ArrayType Type ArraySize TypeQuals Attributes
@@ -248,15 +248,25 @@ data Type =
      | TypeDefType TypeDefRef
      -- ^ a defined type
      | TypeOfExpr Expr
-     -- ^ (GNU) typeof
+     -- ^ (GNU) typeof (/broken/ and should be remove, because we do not have expression type analysis)
      deriving (Typeable, Data)
+-- | Function types @FunType params isVariadic attrs type@
+data FunType = FunType Type [ParamDecl] Bool Attributes 
+               deriving (Typeable, Data)
 
+-- may not be called on undefined typedefs or typeof(expr)
 referencedType :: Type -> Maybe Type
 referencedType (PtrType ty _ _) = Just ty
 referencedType (FunctionType (FunType ty _ _ _)) = Just ty
 referencedType (ArrayType ty _ _ _) = Just ty
 referencedType (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = Just actual_ty
-referencedType _ = Nothing
+referencedType (DirectType _ _ _) = Nothing
+referencedType _ = error "referencedType: failed to resolve type"
+
+directType :: Type -> TypeName
+directType (DirectType typename _ _) = typename
+directType ty = case referencedType ty of Just ty' -> directType ty'
+                                          Nothing  -> error "directType: failed to resolve type"
 
 hasTypeOfExpr :: Type -> Bool
 hasTypeOfExpr (TypeOfExpr _) = True
@@ -277,10 +287,6 @@ data ArraySize =  IncompleteArray
                 | VarSizeArray
                 | FixedSizeArray Bool Expr
                 -- ^ @FixedSizeArray static@      
-               deriving (Typeable, Data)
-
--- | Function types @FunType params isVariadic attrs type@
-data FunType = FunType Type [ParamDecl] Bool Attributes 
                deriving (Typeable, Data)
 
 -- | normalized type representation
@@ -428,10 +434,10 @@ identOfVarName :: VarName -> Ident
 identOfVarName NoName            = error "identOfVarName: NoName"
 identOfVarName (VarName ident _) = ident
 -- | Top level assembler block
-type AsmBlock = StringLit
+type AsmBlock = CStrLit
 
 -- | Assembler name
-type AsmName = StringLit
+type AsmName = CStrLit
                
 -- | @__attribute__@ annotations
 --
@@ -456,22 +462,6 @@ data Attr = Attr Ident [Expr] NodeInfo
 
 type Attributes = [Attr]
 
--- | C constant (K&R A2.5 & A7.2)
-data Constant = IntConst   CInteger NodeInfo
-              | CharConst  CChar NodeInfo
-              | FloatConst CFloat NodeInfo
-              | StrLit     CString NodeInfo
-            deriving (Data,Typeable {-! CNode !-})
-
--- | Attributed string literals
-data StringLit = StringLit CString NodeInfo
-            deriving (Data,Typeable {-! CNode !-})
-
-cstringOfLit :: StringLit -> CString
-cstringOfLit (StringLit cstr _) = cstr
-
-
-
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
@@ -481,98 +471,86 @@ instance CNode TagDef
     where nodeInfo (CompTag d) = nodeInfo d
           nodeInfo (EnumTag d) = nodeInfo d
 instance Pos TagDef
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode DeclEvent
     where nodeInfo (TagEvent d) = nodeInfo d
           nodeInfo (DeclEvent d) = nodeInfo d
           nodeInfo (AsmEvent d) = nodeInfo d
 instance Pos DeclEvent
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode Decl
     where nodeInfo (Decl _ nodeinfo) = nodeinfo
 instance Pos Decl
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode ObjDef
     where nodeInfo (ObjDef _ _ nodeinfo) = nodeinfo
 instance Pos ObjDef
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode FunDef
     where nodeInfo (FunDef _ _ nodeinfo) = nodeinfo
 instance Pos FunDef
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode ParamDecl
     where nodeInfo (ParamDecl _ nodeinfo) = nodeinfo
 instance Pos ParamDecl
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode MemberDecl
     where nodeInfo (MemberDecl _ _ nodeinfo) = nodeinfo
           nodeInfo (AnonBitField _ _ nodeinfo) = nodeinfo
 instance Pos MemberDecl
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode TypeDef
     where nodeInfo (TypeDef' _ _ _ nodeinfo) = nodeinfo
 instance Pos TypeDef
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode TypeDefRef
     where nodeInfo (TypeDefRef _ _ nodeinfo) = nodeinfo
 instance Pos TypeDefRef
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CompTypeDecl
     where nodeInfo (CompTypeDecl _ _ nodeinfo) = nodeinfo
 instance Pos CompTypeDecl
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode EnumTypeDecl
     where nodeInfo (EnumTypeDecl _ nodeinfo) = nodeinfo
 instance Pos EnumTypeDecl
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CompType
     where nodeInfo (CompType _ _ _ _ nodeinfo) = nodeinfo
 instance Pos CompType
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode EnumType
     where nodeInfo (EnumType _ _ _ nodeinfo) = nodeinfo
 instance Pos EnumType
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode Initializer_stub
     where nodeInfo (InitExpr _ nodeinfo) = nodeinfo
           nodeInfo (InitList _ nodeinfo) = nodeinfo
 instance Pos Initializer_stub
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode Designator
     where nodeInfo (ArrDesig _ nodeinfo) = nodeinfo
           nodeInfo (MemberDesig _ nodeinfo) = nodeinfo
           nodeInfo (RangeDesig _ _ nodeinfo) = nodeinfo
 instance Pos Designator
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
 instance CNode Attr
     where nodeInfo (Attr _ _ nodeinfo) = nodeinfo
 instance Pos Attr
-    where posOf x = nodePos (nodeInfo x)
+    where posOf x = posOfNode (nodeInfo x)
 
-instance CNode Constant
-    where nodeInfo (IntConst _ nodeinfo) = nodeinfo
-          nodeInfo (CharConst _ nodeinfo) = nodeinfo
-          nodeInfo (FloatConst _ nodeinfo) = nodeinfo
-          nodeInfo (StrLit _ nodeinfo) = nodeinfo
-instance Pos Constant
-    where posOf x = nodePos (nodeInfo x)
-
-instance CNode StringLit
-    where nodeInfo (StringLit _ nodeinfo) = nodeinfo
-instance Pos StringLit
-    where posOf x = nodePos (nodeInfo x)

@@ -295,7 +295,7 @@ runTrav state traversal =
     va_list = TypeDef (TypeDef' (internalIdent "__builtin_va_list") 
                                 (DirectType (TyBuiltin TyVaList) noTypeQuals [])
                                 []
-                                (noNodeInfo))
+                                (mkUndefNodeInfo))
 runTrav_ :: Trav () a -> Either [CError] a
 runTrav_ t = fmap fst $ runTrav () t
 withExtDeclHandler :: Trav s a -> (DeclEvent -> Trav s ()) -> Trav s a

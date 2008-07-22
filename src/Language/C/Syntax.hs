@@ -10,18 +10,23 @@
 -- unqiue names, AST nodes and source locations.
 -----------------------------------------------------------------------------
 module Language.C.Syntax (
-     --  * Syntax tree
+     -- * Constants
      module Language.C.Syntax.Constants,
+     -- * Syntax tree
      module Language.C.Syntax.AST,
      -- * Identifiers
      SUERef(..),
-     Ident,identToString,internalIdent,
+     Ident,mkIdent, identToString, internalIdent, isInternalIdent, builtinIdent,
      -- * Unqiue names
-     Name(..),
+     Name(..),namesStartingFrom,
      -- * AST nodes
-     NodeInfo(..),CNode(..),fileOfNode,nodePos,
+     NodeInfo(..),CNode(..),
+     nodeFile,nodePos,nodeName,
+     mkUndefNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
      -- * Source code positions
-     Position(..),Pos(..),posFile,posRow,posColumn,
+     Position(..),Pos(..),
+     posFile,posRow,posColumn,
+     isSourcePos,isBuiltinPos,isInternalPos,
 )
 where
 import Language.C.Syntax.AST

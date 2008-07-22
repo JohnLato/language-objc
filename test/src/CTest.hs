@@ -88,11 +88,14 @@ output config file ast = do
     when (dumpAst config) $ writeFile "dump.ast" (gshow ast)
     when (semanticAnalysis config && (not (null file))) $ do
         let result = runTrav_ (analyseAST ast)
-        putStrLn $ either show (comment . show . prettyAssocsWith "global decl stats" text (text.show) . globalDeclStats (== file)) result
+        case result of
+            Left errs -> putStrLn (show errs)
+            Right (ok,warnings) -> do mapM print warnings
+                                      printStats file ok
     when (not $ parseOnlyFlag config) $ print $ prettyUsingInclude ast
     when (debugFlag config) $ putStrLn . comment . show . pretty . mkGenericCAST $ ast
 comment str = "/*\n" ++ str ++ "\n*/"
-
+printStats file = putStrLn . comment . show . prettyAssocsWith "global decl stats" text (text.show) . globalDeclStats (== file)
 
         -- case runTrav_ (translateAST ast) of
         --     Left errors -> mapM_ print errors

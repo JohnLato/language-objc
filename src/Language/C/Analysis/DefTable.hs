@@ -1,4 +1,4 @@
-{-# OPTIONS  #-}
+{-# LANGUAGE PatternGuards  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Analysis.DefTable
@@ -25,7 +25,6 @@ module Language.C.Analysis.DefTable (
 where
 import Language.C.Syntax.Ident
 import Language.C.Syntax.Name
-import Language.C.Syntax.Error (todo)
 import Language.C.Analysis.NameSpaceMap
 import Language.C.Analysis.SemRep
 

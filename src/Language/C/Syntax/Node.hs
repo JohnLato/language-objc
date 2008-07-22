@@ -17,7 +17,6 @@ module Language.C.Syntax.Node (
    eqByName, 
 ) where
 import Language.C.Syntax.Position
-import Language.C.Syntax.Error     (internalErr)
 import Language.C.Syntax.Name     (Name)
 import Data.Generics
 
@@ -30,13 +29,13 @@ data NodeInfo = OnlyPos   Position           -- only pos (for internal stuff onl
 instance Eq NodeInfo where
   (NodeInfo   _ id1) == (NodeInfo   _ id2) = id1 == id2
   _               == _               = 
-    internalErr "Attributes: Attempt to compare `OnlyPos' attributes!"
+    error "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 -- attribute ordering
 instance Ord NodeInfo where
   (NodeInfo   _ id1) <= (NodeInfo   _ id2) = id1 <= id2
   _               <= _               = 
-    internalErr "Attributes: Attempt to compare `OnlyPos' attributes!"
+    error "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 -- | a class for convenient access to the attributes of an attributed object
 class CNode a where

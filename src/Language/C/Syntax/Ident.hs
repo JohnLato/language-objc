@@ -35,7 +35,6 @@ import Data.Char
 import Language.C.Syntax.Position
 import Language.C.Syntax.Node
 import Language.C.Syntax.Name   (Name)
-import Language.C.Syntax.Error  (internalErr)
 import Data.Generics
 
 -- simple identifier representation (EXPORTED)

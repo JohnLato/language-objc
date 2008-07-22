@@ -43,14 +43,15 @@ module Language.C.Analysis.TravMonad (
 where
 import Language.C.Syntax
 import Language.C.Syntax.RList as RList
-import Language.C.Syntax.Error
 import Language.C.Syntax.Name
 import Language.C.Syntax.Position
 import Language.C.Syntax.Node
 
+import Language.C.Analysis.Error
+import Language.C.Analysis.SemRep
+
 import Language.C.Analysis.DefTable hiding (enterBlockScope,leaveBlockScope,enterFunctionScope,leaveFunctionScope)
 import qualified Language.C.Analysis.DefTable as ST
-import Language.C.Analysis.SemRep
 
 import Data.Maybe
 import Control.Monad.Error
@@ -88,20 +89,20 @@ checkRedef ctx_string new_decl redecl_status =
 -- If there is already a definition present, yield an error (redeclaration)
 handleTagDef :: (MonadTrav m) => TagDef -> m ()
 handleTagDef def = do
-    redecl <- withDefTable $ declareTag (sueRef def) def
+    redecl <- withDefTable $ defineTag (sueRef def) def
     checkRedef "struct/union/enum" def redecl
     handleDecl (TagEvent def)
 
 handleEnumeratorDef :: (MonadTrav m) => Enumerator -> SUERef -> m ()
 handleEnumeratorDef enumerator@(ident,_) enum_ref = do
-    redecl <- withDefTable (declareScopedObject ident (EnumDef enumerator enum_ref))
+    redecl <- withDefTable (defineScopedIdent ident (EnumDef enumerator enum_ref))
     checkRedef "enumerator" ident redecl
     return ()
     
 handleTypeDef :: (MonadTrav m) => TypeDef -> m ()
 handleTypeDef typedef@(TypeDef' ident ty node) = do
     let def = TypeDef typedef
-    redecl <- withDefTable (declareScopedObject ident def)
+    redecl <- withDefTable (defineScopedIdent ident def)
     checkRedef "typedef" def redecl
     handleDecl (DeclEvent def)
     return ()
@@ -111,11 +112,12 @@ handleAsmBlock asm = handleDecl (AsmEvent asm)
 
 -- | handle variable declarations (external object declarations and function prototypes)
 -- variable declarations are either function prototypes, or external declarations, and not very interesting
--- on their own. we only put them in the symbol table and call the handle
+-- on their own. we only put them in the symbol table and call the handle.
+-- declarations never override definitions
 handleVarDecl :: (MonadTrav m) => Decl -> m ()
 handleVarDecl decl = do
     let def = Declaration decl
-    redecl <- withDefTable $ \symt -> declareScopedObject (identOfDecl def) def symt
+    redecl <- withDefTable $ \symt -> defineScopedIdentWhen (const False) (identOfDecl def) def symt
     -- TODO: check compatible type redecl
     handleDecl (DeclEvent def)
     
@@ -123,18 +125,22 @@ handleVarDecl decl = do
 handleFunDef :: (MonadTrav m) => Ident -> FunDef -> m ()
 handleFunDef ident fun_def = do
     let def = FunctionDef fun_def
-    redecl <- withDefTable $ \symt -> declareScopedObject ident def symt
+    redecl <- withDefTable $ \symt -> defineScopedIdentWhen isDeclaration ident def symt
     -- TODO: check compatible type and redef
     handleDecl (DeclEvent def)
+
+isDeclaration (Declaration _) = True
+isDeclaration _ = False
 
 -- | handle object defintions (maybe tentative)    
 handleObjectDef :: (MonadTrav m) => Ident -> ObjDef -> m ()
 handleObjectDef ident obj_def = do
     let def = ObjectDef obj_def
-    redecl <- withDefTable $ \symt -> declareScopedObject ident def symt
+    redecl <- withDefTable $ \symt -> defineScopedIdentWhen (\o -> isDeclaration o || isTentativeDef o) ident def symt
     -- TODO: check compatible types and redef
     handleDecl (DeclEvent def)
-    
+    where
+    isTentativeDef (ObjectDef obj_def) = isTentative obj_def
 -- * scope manipulation
 --
 --  * file scope: outside of parameter lists and blocks (outermost)
@@ -174,7 +180,7 @@ leaveBlockScope = updDefTable (ST.leaveBlockScope)
 lookupTypeDef :: (MonadTrav m) => Ident -> m Type
 lookupTypeDef ident 
     = getDefTable >>= \symt ->
-      case lookupObj ident symt of
+      case lookupIdent ident symt of
         Nothing
             -> astError (nodeInfo ident) "unbound typedef"
         Just (TypeDef (TypeDef' _ident ty _))   
@@ -184,7 +190,7 @@ lookupTypeDef ident
 
 -- | lookup an arbitrary variable declaration (delegates to symboltable)
 lookupVarDecl :: (MonadTrav m) => Ident -> m (Maybe IdentDecl)
-lookupVarDecl ident = liftM (lookupObj ident) getDefTable
+lookupVarDecl ident = liftM (lookupIdent ident) getDefTable
 
 -- | lookup an object declaration or definition
 lookupObject :: (MonadTrav m) => Ident -> m (Maybe (Either VarDecl ObjDef))
@@ -216,14 +222,14 @@ createSUERef Nothing = liftM AnonymousType genName
 --
 -- -- if a definition of the same name was already present, it is returned 
 -- defObj         :: Ident -> CObj ->Trav s (DeclarationStatus CObj)
--- defObj ident obj  = state $ withDefTable (declareObject ident obj)
+-- defObj ident obj  = state $ withDefTable (defineIdent ident obj)
 -- 
 -- -- | lookup an identifier in the current local and in the global scope
 -- findObj :: Ident -> Trav s (Maybe CObj)
--- findObj ident = gets (lookupObj ident . symbolTable)
+-- findObj ident = gets (lookupIdent ident . symbolTable)
 -- 
 -- defTag         :: SueRef -> CTag ->Trav s (Maybe CTag)
--- defTag ident obj  = state $ withDefTable (declareTag ident obj)
+-- defTag ident obj  = state $ withDefTable (defineTag ident obj)
 -- 
 -- -- | lookup an identifier in the current local and in the global scope
 -- findTag :: Ident -> Trav s (Maybe CTag)
@@ -241,11 +247,6 @@ handleTravError a = liftM Just a `catchTravError` (\e -> addError e >> return No
 hadHardErrors :: [CError] -> Bool
 hadHardErrors = (not . null . filter isHardError)
 
--- | raise an error based on an Either argument
-throwOnLeft :: (MonadTrav m) => Either CError a -> m a
-throwOnLeft (Left err) = throwTravError err
-throwOnLeft (Right v) = return v
-
 -- | raise an error caused by a malformed AST
 astError :: (MonadTrav m) => NodeInfo -> String -> m a
 astError node msg = throwTravError $ mkAstError node msg
@@ -257,10 +258,17 @@ redeclaredError :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
 redeclaredError node old_node msg = 
     throwTravError $
         mkError LevelError (nodePos node) (lines msg ++ ["The previous declaration was here: "++show (nodePos old_node)])
+
 warnShadow :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
 warnShadow node old_node msg =
     warn node $
         (msg++"The definition shadowed is here: " ++ show (nodePos old_node))
+
+-- | raise an error based on an Either argument
+throwOnLeft :: (MonadTrav m) => Either CError a -> m a
+throwOnLeft (Left err) = throwTravError err
+throwOnLeft (Right v) = return v
+
 warn :: (MonadTrav m) => NodeInfo -> String -> m ()
 warn node msg = addError (mkError LevelWarn (nodePos node) (lines msg))
 -- * The Trav datatype
@@ -277,7 +285,7 @@ runTrav state traversal =
                       | otherwise                     -> Right (v,ts)
     where
     action = do
-        withDefTable (declareScopedObject (identOfDecl va_list) va_list)
+        withDefTable (defineScopedIdent (identOfDecl va_list) va_list)
         traversal
     va_list = TypeDef (TypeDef' (internalIdent "__builtin_va_list") 
                                 (DirectType (TyBuiltin TyVaList) noTypeQuals [])

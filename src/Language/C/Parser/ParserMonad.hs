@@ -12,7 +12,7 @@
 --  This monad has to be usable with Alex and Happy. Some things in it are
 --  dictated by that, eg having to be able to remember the last token.
 --
---  The monad also provides a unique name supply (via the Names module)
+--  The monad also provides a unique name supply (via the Name module)
 --
 --  For parsing C we have to maintain a set of identifiers that we know to be
 --  typedef'ed type identifiers. We also must deal correctly with scope so we
@@ -34,11 +34,10 @@ module Language.C.Parser.ParserMonad (
   setInput,          -- :: String -> P ()
   getLastToken,      -- :: P CToken
   setLastToken,      -- :: CToken -> P ()
-  module Language.C.InputStream,
+  ParseError(..),    
   ) where
-
+import Language.C.Analysis.Error (internalErr, showError,ErrorLevel(..))
 import Language.C.Syntax.Position  (Position(..))
-import Language.C.Syntax.Error    (internalErr)
 import Language.C.Syntax.Name    (Name)
 import Language.C.Syntax.Ident    (Ident)
 import Language.C.Parser.Tokens (CToken)
@@ -47,6 +46,10 @@ import Language.C.InputStream
 import Data.Set  (Set)
 import qualified Data.Set as Set (fromList, insert, member, delete)
 
+newtype ParseError = ParseError ([String],Position)
+instance Show ParseError where
+    show (ParseError (msgs,pos)) = showError LevelError pos ("Syntax Error !" : msgs)
+        
 
 data ParseResult a
   = POk !PState a
@@ -69,10 +72,10 @@ instance Monad P where
   fail m = getPos >>= \pos -> failP pos [m]
 
 execParser :: P a -> InputStream -> Position -> [Ident] -> [Name]
-           -> Either ([String], Position) a
+           -> Either ParseError a
 execParser (P parser) input pos builtins names =
   case parser initialState of
-    PFailed message errpos -> Left (message, errpos)
+    PFailed message errpos -> Left (ParseError (message,errpos))
     POk _ result -> Right result
   where initialState = PState {
           curPos = pos,
@@ -130,7 +133,7 @@ enterScope = P $ \s@PState{tyidents=tyids,scopes=ss} ->
 leaveScope :: P ()
 leaveScope = P $ \s@PState{scopes=ss} ->
                      case ss of
-                       []             -> internalErr "leaveScope: already in global scope"
+                       []          -> error "leaveScope: already in global scope"
                        (tyids:ss') -> POk s{tyidents=tyids, scopes=ss'} ()
 
 getInput :: P InputStream

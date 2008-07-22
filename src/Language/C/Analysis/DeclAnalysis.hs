@@ -189,7 +189,7 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
                 case numType of
                     Left (floatType,iscomplex) -> TyFloating (if iscomplex then TyComplex else NoFloatTypeQual) floatType
                     Right intType  -> TyIntegral intType
-        -- /FIXME/ we have __attributes__ both for type qualifiers and for structs - does the duplication make sense ?
+        -- FIXME: we have __attributes__ both for type qualifiers and for structs - does the duplication make sense ?
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl attrs handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl attrs handle_sue_def enum
         TSNonBasic (CTypeDef name t_node)    -> liftM TypeDefType $ typeDefRef t_node name

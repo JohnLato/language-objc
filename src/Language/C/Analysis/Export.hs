@@ -19,7 +19,7 @@ exportCompType,
 )
 where
 import Language.C.Syntax
-import Language.C.Syntax.Ident (internalIdent)
+import Language.C.Data.Ident (internalIdent)
 import Language.C.Analysis.SemRep
 import Data.Maybe
 

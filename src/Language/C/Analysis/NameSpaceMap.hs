@@ -31,7 +31,7 @@ import Prelude hiding (lookup)
 import qualified Prelude 
 import qualified Data.Map as Map (empty, insert, lookup, toList)
 import Data.Map   (Map)
-import Language.C.Syntax.Ident     (Ident)
+import Language.C.Data.Ident     (Ident)
 
 {-
 C Namespaces and scopes:

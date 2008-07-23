@@ -39,7 +39,7 @@ module Language.C.Parser.ParserMonad (
 import Language.C.Analysis.Error (internalErr, showError,ErrorLevel(..))
 import Language.C.Syntax.Position  (Position(..))
 import Language.C.Syntax.Name    (Name)
-import Language.C.Syntax.Ident    (Ident)
+import Language.C.Data.Ident    (Ident)
 import Language.C.Parser.Tokens (CToken)
 import Language.C.InputStream
 

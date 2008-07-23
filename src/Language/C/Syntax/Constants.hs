@@ -28,7 +28,7 @@ import Data.Bits
 import Data.Char
 import Numeric (showOct, showHex, readHex, readOct, readDec)
 import Language.C.Data.Node
-import Language.C.Syntax.Position
+import Language.C.Data.Position
 import Data.Generics
 
 -- | C char constants (abstract)

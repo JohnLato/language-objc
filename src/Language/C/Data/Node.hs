@@ -16,7 +16,7 @@ module Language.C.Data.Node (
    posOfNode, nameOfNode,
    eqByName, 
 ) where
-import Language.C.Syntax.Position
+import Language.C.Data.Position
 import Language.C.Data.Name     (Name)
 import Data.Generics
 

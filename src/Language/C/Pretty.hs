@@ -19,6 +19,7 @@ import qualified Data.Set as Set
 import Text.PrettyPrint.HughesPJ
 import Debug.Trace
 
+import Language.C.Data
 import Language.C.Syntax
 
 -- Pretty class
@@ -281,8 +282,8 @@ prettyDeclr prec (CDeclr name derived_declrs asmname cattrs _) =
         parenPrec p 6 $ ppDeclr 6 declrs <> brackets (hsep (map pretty quals) <+> maybeP pretty expr)
     -- declarator ( arguments )
     -- or (__attribute__ declarator) (arguments)
-    ppDeclr _ (CFunDeclr params cattrs _ : declrs) =
-        (if not (null cattrs) then parens (attrlistP cattrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
+    ppDeclr _ (CFunDeclr params fun_attrs _ : declrs) =
+        (if not (null fun_attrs) then parens (attrlistP cattrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
         <> parens (prettyParams params)
     prettyParams (Right (decls, isVariadic)) =
      sep (punctuate comma (map pretty decls))

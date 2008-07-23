@@ -34,4 +34,4 @@ import Language.C.Syntax.AST
 import Language.C.Syntax.Constants
 import Language.C.Data.Node
 import Language.C.Syntax.Ops
-import Language.C.Syntax.Position
+import Language.C.Data.Position

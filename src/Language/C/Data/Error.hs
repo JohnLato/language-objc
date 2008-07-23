@@ -29,7 +29,7 @@ where
 import Data.Typeable
 import Data.Generics
 
-import Language.C.Syntax
+import Language.C.Data.Position
 
 -- | Error levels (priorities)
 data ErrorLevel = LevelWarn

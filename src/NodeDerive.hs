@@ -3,7 +3,7 @@
 module NodeDerive (makeCNode) where
 import Language.Haskell.TH.All
 import Language.C.Data.Node
-import Language.C.Syntax.Position
+import Language.C.Data.Position
 makeCNode :: Derivation
 makeCNode = derivation genNodeInst "CNode"
 nodeInfoTypeName = "Language.C.Data.Node.NodeInfo"

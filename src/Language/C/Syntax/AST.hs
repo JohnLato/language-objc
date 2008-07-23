@@ -48,7 +48,7 @@ import Language.C.Syntax.Constants
 import Language.C.Syntax.Ops
 import Language.C.Data.Ident
 import Language.C.Data.Node
-import Language.C.Syntax.Position
+import Language.C.Data.Position
 import Data.Generics
 
 -- | Complete C tranlsation unit (C99 6.9, K&R A10)

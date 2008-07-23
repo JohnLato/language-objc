@@ -47,7 +47,7 @@ import Data.List
 import Language.C.Syntax.Constants
 import Language.C.Syntax.Ops
 import Language.C.Data.Ident
-import Language.C.Syntax.Node
+import Language.C.Data.Node
 import Language.C.Syntax.Position
 import Data.Generics
 

@@ -2,11 +2,11 @@
 
 module NodeDerive (makeCNode) where
 import Language.Haskell.TH.All
-import Language.C.Syntax.Node
+import Language.C.Data.Node
 import Language.C.Syntax.Position
 makeCNode :: Derivation
 makeCNode = derivation genNodeInst "CNode"
-nodeInfoTypeName = "Language.C.Syntax.Node.NodeInfo"
+nodeInfoTypeName = "Language.C.Data.Node.NodeInfo"
 genNodeInst :: DataDef -> [Dec]
 genNodeInst dat = [
     instance_context ["CNode"] "CNode" dat 
@@ -20,7 +20,7 @@ posOfDef = [Clause [VarP (mkName "x")]
                    []]
     
 -- If we have a data constructor
--- X a_1 .. a_n, and execatly one a_k is a Language.C.Syntax.NodeInfo, then return that a_k
+-- X a_1 .. a_n, and execatly one a_k is a Language.C.Data.NodeInfo, then return that a_k
 -- If we have a data constructor
 -- X a, then return nodeInfo a
 -- otherwise fail Dec

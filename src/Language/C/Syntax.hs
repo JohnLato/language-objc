@@ -32,8 +32,6 @@ module Language.C.Syntax (
 where
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants
-import Language.C.Data.Ident
-import Language.C.Data.Name
-import Language.C.Syntax.Node
+import Language.C.Data.Node
 import Language.C.Syntax.Ops
 import Language.C.Syntax.Position

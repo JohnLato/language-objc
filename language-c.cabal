@@ -38,26 +38,26 @@ Library
     Exposed-Modules:  
                       -- provisional
                       Language.C
+                      -- data
+                      Language.C.Data
+                      Language.C.Data.Position
+                      Language.C.Data.Ident
+                      Language.C.Data.Error
+                      Language.C.InputStream
+                      -- syntax
                       Language.C.Syntax
                       Language.C.Syntax.AST
                       Language.C.Syntax.Constants
-                      Language.C.InputStream
+                      Language.C.Syntax.Ops
+                      -- parser
                       Language.C.Parser
+                      -- pretty printer
                       Language.C.Pretty
+                      -- system
                       Language.C.System.Preprocess
                       Language.C.System.GCC
-                      -- experimental
+                      -- analysis [experimental]
                       Language.C.Analysis
-                      -- internal use / alpha
-                      Language.C.Analysis.Pretty
-                      Language.C.Analysis.Export
-    Other-Modules:    
-                      -- implementation
-                      Language.C.Syntax.Name 
-                      Language.C.Syntax.Position 
-                      Language.C.Syntax.Node 
-                      Language.C.Syntax.Ops
-                      Language.C.Syntax.Ident 
                       Language.C.Analysis.Error
                       Language.C.Analysis.NameSpaceMap
                       Language.C.Analysis.DefTable
@@ -65,10 +65,15 @@ Library
                       Language.C.Analysis.SemRep              
                       Language.C.Analysis.AstAnalysis
                       Language.C.Analysis.DeclAnalysis
+                      -- semrep -> code [internal use / alpha]
+                      Language.C.Analysis.Pretty
+                      Language.C.Analysis.Export
+    Other-Modules:    
+                      -- implementation
+                      Language.C.Data.RList
                       Language.C.Parser.Builtin
                       Language.C.Parser.Lexer 
-                      Language.C.Parser.Parser 
                       Language.C.Parser.ParserMonad 
                       Language.C.Parser.Tokens 
-                      Language.C.Syntax.RList
+                      Language.C.Parser.Parser 
                       

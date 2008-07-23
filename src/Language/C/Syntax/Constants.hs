@@ -27,7 +27,7 @@ where
 import Data.Bits
 import Data.Char
 import Numeric (showOct, showHex, readHex, readOct, readDec)
-import Language.C.Syntax.Node
+import Language.C.Data.Node
 import Language.C.Syntax.Position
 import Data.Generics
 

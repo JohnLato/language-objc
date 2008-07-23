@@ -287,7 +287,7 @@ instance Show CStorageSpec where
     show (CStatic _) = "static"
     show (CExtern _) = "extern"
     show (CTypedef _) = "typedef"
-    show (CThread _) = "thread"
+    show (CThread _) = "__thread"
                         
 -- | C type specifier (K&R A8.2, C99 6.7.2)
 --

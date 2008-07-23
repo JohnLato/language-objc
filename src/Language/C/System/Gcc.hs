@@ -14,7 +14,7 @@ module Language.C.System.GCC (
     GCC,newGCC,
 )
 where
-import Language.C.Syntax.RList as RList
+import Language.C.Data.RList as RList
 import Language.C.System.Preprocess
 import Data.Maybe
 import System.Cmd

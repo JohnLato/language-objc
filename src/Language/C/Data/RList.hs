@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Syntax.RList
+-- Module      :  Language.C.Data.RList
 -- Copyright   :  (c) [2007..2008] Duncan Coutts, Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
@@ -11,7 +11,7 @@
 -- in reverse. To make sure we do this consistently and correctly we have a
 -- newtype to wrap the reversed style of list:
 -----------------------------------------------------------------------------
-module Language.C.Syntax.RList (
+module Language.C.Data.RList (
     RList,Reversed(..),
     empty,singleton,snoc,rappend,appendr,rappendr,rmap,reverse,
 )

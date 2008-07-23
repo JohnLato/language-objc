@@ -18,7 +18,7 @@ module Language.C.Analysis.AstAnalysis (
 )
 where
 import Language.C.Syntax
-import Language.C.Syntax.RList
+import Language.C.Data.RList
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants
 import Language.C.Syntax.Ops

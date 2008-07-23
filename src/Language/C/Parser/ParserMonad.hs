@@ -36,7 +36,7 @@ module Language.C.Parser.ParserMonad (
   setLastToken,      -- :: CToken -> P ()
   ParseError(..),    
   ) where
-import Language.C.Analysis.Error (internalErr, showError,ErrorLevel(..))
+import Language.C.Data.Error (internalErr, showErrorInfo,ErrorInfo(..),ErrorLevel(..))
 import Language.C.Data.Position  (Position(..))
 import Language.C.Data.Name    (Name)
 import Language.C.Data.Ident    (Ident)
@@ -48,7 +48,7 @@ import qualified Data.Set as Set (fromList, insert, member, delete)
 
 newtype ParseError = ParseError ([String],Position)
 instance Show ParseError where
-    show (ParseError (msgs,pos)) = showError LevelError pos ("Syntax Error !" : msgs)
+    show (ParseError (msgs,pos)) = showErrorInfo "Syntax Error !" (ErrorInfo LevelError pos msgs)
         
 
 data ParseResult a

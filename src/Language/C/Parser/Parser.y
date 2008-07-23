@@ -106,11 +106,12 @@ import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
 import Language.C.Parser.ParserMonad (P, failP, execParser, getNewName, addTypedef, shadowTypedef,
                                       enterScope, leaveScope, ParseError(..))
 
+import Language.C.Data.RList
+import Language.C.Data.Ident
+import Language.C.Data.Name
+import Language.C.Data.Node
+import Language.C.Data.Position
 import Language.C.Syntax
-import Language.C.Syntax.RList
-import Language.C.Syntax.Name
-import Language.C.Syntax.Node
-import Language.C.Syntax.Position
 
 }
 

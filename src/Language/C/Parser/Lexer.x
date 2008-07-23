@@ -56,10 +56,11 @@ import Numeric   (readDec, readOct, readHex)
 
 import Language.C.InputStream
 
-import Language.C.Syntax.Position  (Position(..),posOf)
-import Language.C.Syntax.Ident    (mkIdent)
+import Language.C.Data.Position  (Position(..),posOf)
+import Language.C.Data.Ident    (mkIdent)
 
 import Language.C.Syntax.Constants
+
 import Language.C.Parser.Tokens
 import Language.C.Parser.ParserMonad
 }

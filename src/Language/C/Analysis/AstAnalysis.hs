@@ -17,15 +17,16 @@ module Language.C.Analysis.AstAnalysis (
     analyseExt,analyseFunDef,analyseExtDecls,
 )
 where
-import Language.C.Syntax
-import Language.C.Data.RList
-import Language.C.Syntax.AST
-import Language.C.Syntax.Constants
-import Language.C.Syntax.Ops
+import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
 import Language.C.Analysis.DefTable
 import Language.C.Analysis.DeclAnalysis
+
+import Language.C.Data.Node
+import Language.C.Data.Ident
+import Language.C.Syntax
+
 import Control.Monad
 import Control.Monad.State
 import Prelude hiding (reverse)
@@ -48,7 +49,7 @@ import Debug.Trace
 -- Returns the set of global declarations and definitions which where successfully translated.
 -- It is the users responsibility to check whether any hard errors occured (@runTrav@ does this for you).
 analyseAST :: (MonadTrav m) => CTranslUnit -> m GlobalDecls
-analyseAST (CTranslUnit decls node) = do
+analyseAST (CTranslUnit decls _file_node) = do
     mapRecoverM_ analyseExt decls
     liftM globalDefs getDefTable
     where
@@ -72,8 +73,8 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     var_decl_info <- analyseVarDecl True declspecs declr oldstyle_decls
     let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl_info
     let ident = identOfVarName name
-    storage <- computeFunDefStorage ident storage_spec
-    let var_decl = VarDecl name (DeclAttrs is_inline storage attrs) ty
+    fun_storage <- computeFunDefStorage ident storage_spec
+    let var_decl = VarDecl name (DeclAttrs is_inline fun_storage attrs) ty
     handleVarDecl (Decl var_decl node_info)
     -- translate the body
     stmt' <- analyseFunctionBody var_decl stmt
@@ -88,9 +89,9 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
             [(Just tydeclr,Nothing,Nothing)] -> analyseTypeDef declspecs' tydeclr node
             _ -> astError node "bad typdef declaration: declarator missing or bitfieldsize/initializer present"
     | null declrs = analyseTypeDecl decl >> return ()
-    | otherwise   = mapM_ (uncurry (convertVarDeclr declspecs)) $ zip (True : repeat False) declrs
+    | otherwise   = mapM_ (uncurry convertVarDeclr) $ zip (True : repeat False) declrs
     where
-    convertVarDeclr declspecs handle_sue_def (Just declr, init_opt, Nothing) = do
+    convertVarDeclr handle_sue_def (Just declr, init_opt, Nothing) = do
         -- analyse the declarator
         vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <- analyseVarDecl handle_sue_def declspecs declr []
         -- declare / define the object
@@ -99,8 +100,8 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
         if (isFunctionType typ) 
             then extFunProto vardeclInfo
             else extVarDecl vardeclInfo init_opt'
-    convertVarDeclr _ _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
-    convertVarDeclr _ _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
+    convertVarDeclr _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
+    convertVarDeclr _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
     isTypeOfExpr (TypeOfExpr _) = True
     isTypeOfExpr _ = False
     
@@ -198,7 +199,8 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
              | Nothing <- init_opt  -- declaration with either external or old storage
                -> handleVarDecl $ decl $ maybe (Static ExternalLinkage thread_local) (storage.declAttrs) old_decl
              | otherwise            -- warning, external definition
-               -> do warn node_info "Both initializer and `extern` specifier given - treating as definition"
+               -> do warn $ badSpecifierError node_info
+                            "Both initializer and `extern` specifier given - treating as definition"
                      handleObjectDef ident $ ObjDef (vardecl (Static ExternalLinkage thread_local)) init_opt node_info
            _ -> error$ "extVarDecl: storage_spec: "++show storage_spec
     where

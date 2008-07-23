@@ -19,12 +19,14 @@ prettyAssocs, prettyAssocsWith,
 )
 where
 import Language.C.Analysis.SemRep
+
+import Language.C.Data
 import Language.C.Pretty
 import Language.C.Syntax
+
 import Data.Generics
 import Text.PrettyPrint.HughesPJ
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map (Map) ; import qualified Data.Map as Map
 
 prettyAssocs :: (Pretty k, Pretty v) => String -> [(k,v)] -> Doc
 prettyAssocs label = prettyAssocsWith label pretty pretty

@@ -33,7 +33,7 @@ where
 import Data.Char
 import Language.C.Syntax.Position
 import Language.C.Syntax.Node
-import Language.C.Syntax.Name   (Name,nameId)
+import Language.C.Data.Name   (Name,nameId)
 import Data.Generics
 
 -- simple identifier representation (EXPORTED)

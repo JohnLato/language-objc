@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Syntax.Name
+-- Module      :  Language.C.Data.Name
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
@@ -9,7 +9,7 @@
 --
 -- Unique Names with fast equality (a.k.a. newtype Int)
 --
-module Language.C.Syntax.Name (
+module Language.C.Data.Name (
 Name(..),namesStartingFrom,
 NameMap,emptyNameMap,
 ) where

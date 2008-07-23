@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternGuards  #-}
+{-# LANGUAGE PatternGuards, DeriveDataTypeable  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Analysis.DefTable
@@ -35,7 +35,7 @@ import Language.C.Analysis.SemRep
 import Control.Applicative ((<|>))
 import Data.Map (Map)
 import qualified Data.Map as Map
-
+import Data.Generics
 
 {- Name spaces, scopes and contexts [Scopes]
 
@@ -134,13 +134,14 @@ data DeclarationStatus t =
     | Redeclared t
     | KeepDef t
     | Shadowed t
-    | DifferentKindRedecl t
-
+    | KindMismatch t
+    deriving (Data,Typeable)
+    
 defRedeclStatus :: (t -> t -> Bool) -> t -> Maybe t -> DeclarationStatus t
 defRedeclStatus sameKind def oldDecl
     = case oldDecl of
           Just def' | def `sameKind` def' -> Redeclared def'
-                    | otherwise           -> DifferentKindRedecl def'
+                    | otherwise           -> KindMismatch def'
           Nothing                         -> NewDecl
 defRedeclStatusLocal :: (Ord k) =>
                         (t -> t -> Bool) -> k -> t -> Maybe t -> NameSpaceMap k t -> DeclarationStatus t
@@ -171,8 +172,8 @@ defineScopedIdent = defineScopedIdentWhen (const True)
 -- | declare\/define a object\/function\/typedef with lexical scope, if the given predicate holds on the old
 --   entry.
 --
---  returns @Redeclared def@ or @DifferentKindRedec def@  if there is already an object\/function\/typedef
---  in the same scope.
+--  returns @Keep old_def@ if the old definition shouldn't be overwritten, and otherwise @Redeclared def@ or
+--  @DifferentKindRedec def@  if there is already an object\/function\/typedef in the same scope.
 defineScopedIdentWhen :: (IdentDecl -> Bool) -> Ident -> IdentDecl -> DefTable -> 
                            (DeclarationStatus IdentDecl, DefTable)
 defineScopedIdentWhen do_override ident def deftbl
@@ -181,13 +182,13 @@ defineScopedIdentWhen do_override ident def deftbl
     old_decls = identDecls deftbl
     old_decl_opt = lookupInnermostScope old_decls ident
     (decls',redecl_status)  | (Just old_decl) <- old_decl_opt, not (old_decl `compatibleObjKind` def) 
-                              = (new_decls, DifferentKindRedecl old_decl)
+                              = (new_decls, KindMismatch old_decl)
                             | maybe True do_override old_decl_opt
-                              = (new_decls, redeclStatus old_decl_opt)
+                              = (new_decls, redeclStatus' old_decl_opt)
                             | otherwise
                               = (old_decls, maybe NewDecl KeepDef old_decl_opt)
     new_decls = fst (defLocal old_decls ident def)
-    redeclStatus overriden_decl = defRedeclStatusLocal compatibleObjKind ident def overriden_decl old_decls
+    redeclStatus' overriden_decl = defRedeclStatusLocal compatibleObjKind ident def overriden_decl old_decls
 
 -- | declare\/define an tag
 --

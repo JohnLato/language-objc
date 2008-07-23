@@ -25,8 +25,11 @@ module Language.C.Analysis.DeclAnalysis (
   tAttr,mkVarName,getOnlyDeclr,nameOfDecl,convertStringLit,
 )
 where
+import Language.C.Data.Error
+import Language.C.Data.Node
+import Language.C.Data.Ident
 import Language.C.Syntax
-import Language.C.Analysis.Error
+import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
 
@@ -443,7 +446,7 @@ mergeOldStyle node _ _ = astError node "oldstyle parameter list, but not functio
 splitCDecl :: (MonadTrav m) => CDecl -> m [CDecl]
 splitCDecl decl@(CDecl declspecs declrs node) =
     case declrs of
-        []      -> astError node "splitCDecl applied to empty declaration"
+        []      -> internalErr "splitCDecl applied to empty declaration"
         [declr] -> return [decl]
         (d1:ds) -> 
             let declspecs' = map elideSUEDef declspecs in
@@ -480,9 +483,9 @@ nameOfDecl :: (MonadTrav m) => CDecl -> m Ident
 nameOfDecl d = getOnlyDeclr d >>= \declr -> 
     case declr of
         (CDeclr (Just name) _ _ _ _) -> return name
-        (CDeclr Nothing _ _ _ node) -> astError node "nameOfDecl: abstract declarator"
+        (CDeclr Nothing _ _ _ node) -> internalErr "nameOfDecl: abstract declarator"
 emptyDeclr :: NodeInfo -> CDeclr
 emptyDeclr node = CDeclr Nothing [] Nothing [] node
 getOnlyDeclr :: (MonadTrav m) => CDecl -> m CDeclr
 getOnlyDeclr (CDecl _ [(Just declr,_,_)] _) = return declr
-getOnlyDeclr (CDecl _ _ node) = astError node "getOnlyDeclr: declaration doesn't have a unique declarator"
+getOnlyDeclr (CDecl _ _ node) = internalErr "getOnlyDeclr: declaration doesn't have a unique declarator"

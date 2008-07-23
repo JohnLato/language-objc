@@ -30,6 +30,7 @@
 ---------------------------------------------------------------------------------------------------
 module Language.C.Analysis.SemRep
 where
+import Language.C.Data
 import Language.C.Syntax
 import Language.C.Syntax.Constants
 
@@ -462,10 +463,12 @@ data Attr = Attr Ident [Expr] NodeInfo
 
 type Attributes = [Attr]
 
+
+
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 854018819
+-- CHECKSUM: 1153782254
 
 instance CNode TagDef
     where nodeInfo (CompTag d) = nodeInfo d
@@ -553,4 +556,3 @@ instance CNode Attr
     where nodeInfo (Attr _ _ nodeinfo) = nodeinfo
 instance Pos Attr
     where posOf x = posOfNode (nodeInfo x)
-

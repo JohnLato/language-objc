@@ -31,7 +31,7 @@ module Language.C.Analysis.TravMonad (
     createSUERef,
     -- * additional error handling facilities
     hadHardErrors,handleTravError,throwOnLeft,
-    astError,warn,mkAstError,
+    astError, warn,
     -- * Trav - default MonadTrav implementation
     Trav(..),
     runTrav,runTrav_,
@@ -41,35 +41,37 @@ module Language.C.Analysis.TravMonad (
     mapMaybeM,maybeM,mapSndM,concatMapM,
 )
 where
-import Language.C.Syntax
+import Language.C.Data
 import Language.C.Data.RList as RList
-import Language.C.Data.Name
-import Language.C.Data.Position
-import Language.C.Data.Node
+import Language.C.Syntax
 
-import Language.C.Analysis.Error
+import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 
 import Language.C.Analysis.DefTable hiding (enterBlockScope,leaveBlockScope,enterFunctionScope,leaveFunctionScope)
 import qualified Language.C.Analysis.DefTable as ST
 
 import Data.Maybe
-import Control.Monad.Error
+import qualified Control.Monad.Error as MtlError
 import Control.Monad.State
 import Control.Monad.Reader
 
 -- | Traversal monad
 class (Monad m) => MonadTrav m where
+
     -- error handling facilities
-    throwTravError :: CError -> m a
+    throwTravError :: Error e => e -> m a
     catchTravError :: m a -> (CError -> m a) -> m a
-    addError       :: CError -> m ()
+    recordError       :: Error e => e -> m ()
     getErrors      :: m [CError]
+
     -- symbol table handling
     getDefTable :: m DefTable
     withDefTable :: (DefTable -> (a, DefTable)) -> m a
+
     -- unique name generation
     genName :: m Name
+
     -- handling declarations and definitions
     handleDecl :: DeclEvent -> m ()
     
@@ -78,12 +80,12 @@ checkRedef :: (MonadTrav m, CNode t, CNode t1) => String -> t -> (DeclarationSta
 checkRedef ctx_string new_decl redecl_status =
     case redecl_status of
         NewDecl -> return ()
-        Redeclared oldDef -> redeclaredError (nodeInfo new_decl) (nodeInfo oldDef) $ 
-            ctx_string++" already defined"
-        DifferentKindRedecl oldDef -> redeclaredError (nodeInfo new_decl) (nodeInfo oldDef) $ 
-            ctx_string++" redefined as a different kind of symbol"
-        Shadowed oldDef -> warnShadow (nodeInfo new_decl) (nodeInfo oldDef) $ 
-            "This "++ctx_string++" shadows an outer one"
+        Redeclared oldDef          -> throwTravError $
+            redefinition LevelError ctx_string DuplicateDef (nodeInfo new_decl) (nodeInfo oldDef)
+        DifferentKindRedecl oldDef -> throwTravError $
+            redefinition LevelError ctx_string DiffKindRedecl (nodeInfo new_decl) (nodeInfo oldDef)
+        Shadowed oldDef            -> warn $ 
+            redefinition LevelWarn ctx_string ShadowedDef (nodeInfo new_decl) (nodeInfo oldDef)
 
 -- | define the given composite type or enumeration in the current namespace
 -- If there is already a definition present, yield an error (redeclaration)
@@ -100,7 +102,7 @@ handleEnumeratorDef enumerator@(ident,_) enum_ref = do
     return ()
     
 handleTypeDef :: (MonadTrav m) => TypeDef -> m ()
-handleTypeDef typedef@(TypeDef' ident ty attrs node) = do
+handleTypeDef typedef@(TypeDef' ident _ _ _) = do
     let def = TypeDef typedef
     redecl <- withDefTable (defineScopedIdent ident def)
     checkRedef "typedef" def redecl
@@ -129,6 +131,7 @@ handleFunDef ident fun_def = do
     -- TODO: check compatible type and redef
     handleDecl (DeclEvent def)
 
+isDeclaration :: IdentDecl -> Bool
 isDeclaration (Declaration _) = True
 isDeclaration _ = False
 
@@ -140,7 +143,7 @@ handleObjectDef ident obj_def = do
     -- TODO: check compatible types and redef
     handleDecl (DeclEvent def)
     where
-    isTentativeDef (ObjectDef obj_def) = isTentative obj_def
+    isTentativeDef (ObjectDef object_def) = isTentative object_def
 -- * scope manipulation
 --
 --  * file scope: outside of parameter lists and blocks (outermost)
@@ -198,17 +201,18 @@ lookupObject ident = do
     old_decl <- lookupVarDecl ident
     mapMaybeM old_decl $ \obj ->
        case obj of
-           Declaration (Decl vardecl node) | (not . isFunctionType . declType) vardecl -> return (Left vardecl)
-           ObjectDef objdef -> return (Right objdef)
-           bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected an object, but found: " ++ (objKindDescr bad_obj)
+           Declaration (Decl vardecl _) | (not . isFunctionType . declType) vardecl -> return (Left vardecl)
+           ObjectDef objdef                                                         -> return (Right objdef)
+           bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected an object, but found: " ++ objKindDescr bad_obj
+
 lookupFun :: (MonadTrav m) => Ident -> m (Maybe (Either VarDecl FunDef))
 lookupFun ident = do
     old_decl <- lookupVarDecl ident
     mapMaybeM old_decl $ \obj ->
         case obj of
-           Declaration (Decl vardecl node) | (isFunctionType . declType) vardecl -> return (Left vardecl)
-           FunctionDef fundef -> return (Right fundef)
-           bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected a function, but found: " ++ (objKindDescr bad_obj)
+           Declaration (Decl vardecl _) | (isFunctionType . declType) vardecl -> return (Left vardecl)
+           FunctionDef fundef                                                 -> return (Right fundef)
+           bad_obj -> astError (nodeInfo ident) $ "lookupObject: Expected a function, but found: " ++ objKindDescr bad_obj
             
 -- * inserting declarations
 
@@ -222,31 +226,10 @@ createSUERef node_info (Just ident) = return$ NamedType ident
 createSUERef node_info Nothing | (Just name) <- nameOfNode node_info = return $ AnonymousType name
                                | otherwise = astError node_info "struct/union/enum definition without unique name"
 
-
--- | enter an object definition into the object name space
---
--- -- if a definition of the same name was already present, it is returned 
--- defObj         :: Ident -> CObj ->Trav s (DeclarationStatus CObj)
--- defObj ident obj  = state $ withDefTable (defineIdent ident obj)
--- 
--- -- | lookup an identifier in the current local and in the global scope
--- findObj :: Ident -> Trav s (Maybe CObj)
--- findObj ident = gets (lookupIdent ident . symbolTable)
--- 
--- defTag         :: SueRef -> CTag ->Trav s (Maybe CTag)
--- defTag ident obj  = state $ withDefTable (defineTag ident obj)
--- 
--- -- | lookup an identifier in the current local and in the global scope
--- findTag :: Ident -> Trav s (Maybe CTag)
--- findTag ident = gets (lookupTag ident . symbolTable)
-
--- * stupid wrappers
--- * common definitions
-
 -- * error handling facilities
 
 handleTravError :: (MonadTrav m) => m a -> m (Maybe a)
-handleTravError a = liftM Just a `catchTravError` (\e -> addError e >> return Nothing)
+handleTravError a = liftM Just a `catchTravError` (\e -> recordError e >> return Nothing)
 
 -- | check wheter non-recoverable errors occured
 hadHardErrors :: [CError] -> Bool
@@ -254,28 +237,16 @@ hadHardErrors = (not . null . filter isHardError)
 
 -- | raise an error caused by a malformed AST
 astError :: (MonadTrav m) => NodeInfo -> String -> m a
-astError node msg = throwTravError $ mkAstError node msg
-
-mkAstError :: NodeInfo -> String -> CError
-mkAstError node msg = mkError LevelError (posOfNode node) (lines msg)
-
-redeclaredError :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
-redeclaredError node old_node msg = 
-    throwTravError $
-        mkError LevelError (posOfNode node) (lines msg ++ ["The previous declaration was here: "++show (posOfNode old_node)])
-
-warnShadow :: (MonadTrav m) => NodeInfo -> NodeInfo -> String -> m ()
-warnShadow node old_node msg =
-    warn node $
-        (msg++"The definition shadowed is here: " ++ show (posOfNode old_node))
+astError node msg = throwTravError $ invalidAST node msg
 
 -- | raise an error based on an Either argument
 throwOnLeft :: (MonadTrav m) => Either CError a -> m a
 throwOnLeft (Left err) = throwTravError err
 throwOnLeft (Right v) = return v
 
-warn :: (MonadTrav m) => NodeInfo -> String -> m ()
-warn node msg = addError (mkError LevelWarn (posOfNode node) (lines msg))
+warn :: (Error e, MonadTrav m) => e -> m ()
+warn err = recordError (changeErrorLevel err LevelWarn)
+
 -- * The Trav datatype
 
 -- | simple MTL-based traversal monad, providing user state and callbacks
@@ -314,17 +285,17 @@ instance Monad (Trav s) where
 instance MonadState (TravState s) (Trav s) where
     get = Trav get
     put = Trav . put
-instance Error CError where
-   strMsg msg = mkError LevelError nopos (lines msg)
-instance MonadError CError (Trav s) where
-    throwError = Trav . throwError
-    catchError a handler = Trav $ (unTrav a) `catchError` (unTrav . handler)
+instance MtlError.Error CError where
+    strMsg msg = internalErr "strMsg called (please use the Language.C specific error mechanism)"
+instance MtlError.MonadError CError (Trav s) where
+    throwError = Trav . MtlError.throwError
+    catchError a handler = Trav $ (unTrav a) `MtlError.catchError` (unTrav . handler)
 
 instance MonadTrav (Trav s) where
     -- error handling facilities
-    throwTravError = throwError
-    catchTravError a handler =  a `catchError` handler
-    addError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` e } 
+    throwTravError = MtlError.throwError . toError
+    catchTravError a handler =  a `MtlError.catchError` handler
+    recordError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` toError e } 
     getErrors = gets (RList.reverse . rerrors)
     -- symbol table handling
     getDefTable = gets symbolTable

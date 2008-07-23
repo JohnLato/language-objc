@@ -58,6 +58,7 @@ data IdentDecl = Declaration Decl           -- ^ object or function declaration
 	           | EnumDef Enumerator SUERef  -- ^ definition of an enumerator
                | TypeDef TypeDef            -- ^ typedef declaration
                deriving (Typeable, Data)
+
 identOfDecl :: IdentDecl -> Ident
 identOfDecl ident_decl =
     case ident_decl of
@@ -76,12 +77,14 @@ instance CNode IdentDecl where
     nodeInfo (FunctionDef fd) = nodeInfo fd             
     nodeInfo (EnumDef (ident,_) _) = nodeInfo ident 
     nodeInfo (TypeDef tydef) = nodeInfo tydef 
+
 objKindDescr :: IdentDecl -> String
 objKindDescr  (Declaration _ ) = "declaration"
 objKindDescr (ObjectDef _) = "object definition"
 objKindDescr (FunctionDef _) = "function definition"
 objKindDescr (EnumDef _ _) = "enumerator definition"
 objKindDescr (TypeDef _) = "typedef"
+
 compatibleObjKind :: IdentDecl -> IdentDecl -> Bool
 compatibleObjKind (TypeDef _) (TypeDef _) = True
 compatibleObjKind _ (TypeDef _) = False

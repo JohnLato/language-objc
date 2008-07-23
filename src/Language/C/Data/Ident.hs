@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Syntax.Ident
+-- Module      :  Language.C.Data.Ident
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
@@ -26,7 +26,7 @@
 --
 --  * Hashing is not 8bit clean.
 --
-module Language.C.Syntax.Ident (
+module Language.C.Data.Ident (
     Ident(..), SUERef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
 where
 

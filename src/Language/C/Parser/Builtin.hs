@@ -13,7 +13,7 @@
 module Language.C.Parser.Builtin (
   builtinTypeNames
 ) where
-import Language.C.Syntax.Ident (Ident, builtinIdent)
+import Language.C.Data.Ident (Ident, builtinIdent)
 
 -- predefined type names
 --

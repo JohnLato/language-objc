@@ -27,7 +27,7 @@ module Language.C.Analysis.DefTable (
     lookupTag,lookupLabel,lookupIdentInner,lookupTagInner,
 )
 where
-import Language.C.Syntax.Ident
+import Language.C.Data.Ident
 import Language.C.Syntax.Name
 import Language.C.Analysis.NameSpaceMap
 import Language.C.Analysis.SemRep

@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, PatternGuards #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Syntax.Position
+-- Module      :  Language.C.Data.Position
 -- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
@@ -9,7 +9,7 @@
 --
 -- Source code position
 -----------------------------------------------------------------------------
-module Language.C.Syntax.Position (
+module Language.C.Data.Position (
   --
   -- source text positions
   --

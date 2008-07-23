@@ -37,7 +37,7 @@ module Language.C.Parser.ParserMonad (
   ParseError(..),    
   ) where
 import Language.C.Analysis.Error (internalErr, showError,ErrorLevel(..))
-import Language.C.Syntax.Position  (Position(..))
+import Language.C.Data.Position  (Position(..))
 import Language.C.Data.Name    (Name)
 import Language.C.Data.Ident    (Ident)
 import Language.C.Parser.Tokens (CToken)

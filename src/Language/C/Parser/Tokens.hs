@@ -13,7 +13,7 @@
 -----------------------------------------------------------------------------
 module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where 
 
-import Language.C.Syntax.Position  (Position, Pos(..))
+import Language.C.Data.Position  (Position, Pos(..))
 import Language.C.Data.Ident    (Ident, identToString)
 import Language.C.Syntax.Constants     (CChar, CInteger, CFloat, CString)
 

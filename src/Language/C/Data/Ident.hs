@@ -31,7 +31,7 @@ module Language.C.Data.Ident (
 where
 
 import Data.Char
-import Language.C.Syntax.Position
+import Language.C.Data.Position
 import Language.C.Data.Node
 import Language.C.Data.Name   (Name,nameId)
 import Data.Generics

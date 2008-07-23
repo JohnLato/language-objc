@@ -14,12 +14,14 @@
 -----------------------------------------------------------------------------
 module Language.C (
     parseFile,
+    module Language.C.Data,
     module Language.C.Syntax,
     module Language.C.Pretty,
     module Language.C.Parser,
     module Language.C.InputStream
 )
 where
+import Language.C.Data
 import Language.C.Syntax
 import Language.C.Pretty
 import Language.C.Parser    

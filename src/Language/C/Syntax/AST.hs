@@ -517,7 +517,7 @@ liftStrLit (CStrLit str at) = CStrConst str at
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 37319874
+-- CHECKSUM: 2100672083
 
 instance CNode CTranslUnit
     where nodeInfo (CTranslUnit _ nodeinfo) = nodeinfo

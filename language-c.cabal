@@ -43,6 +43,8 @@ Library
                       Language.C.Data.Position
                       Language.C.Data.Ident
                       Language.C.Data.Error
+                      Language.C.Data.Name
+                      Language.C.Data.Node
                       Language.C.InputStream
                       -- syntax
                       Language.C.Syntax
@@ -58,11 +60,10 @@ Library
                       Language.C.System.GCC
                       -- analysis [experimental]
                       Language.C.Analysis
-                      Language.C.Analysis.Error
-                      Language.C.Analysis.NameSpaceMap
+                      Language.C.Analysis.SemError
+                      Language.C.Analysis.SemRep              
                       Language.C.Analysis.DefTable
                       Language.C.Analysis.TravMonad
-                      Language.C.Analysis.SemRep              
                       Language.C.Analysis.AstAnalysis
                       Language.C.Analysis.DeclAnalysis
                       -- semrep -> code [internal use / alpha]
@@ -71,6 +72,7 @@ Library
     Other-Modules:    
                       -- implementation
                       Language.C.Data.RList
+                      Language.C.Analysis.NameSpaceMap
                       Language.C.Parser.Builtin
                       Language.C.Parser.Lexer 
                       Language.C.Parser.ParserMonad 

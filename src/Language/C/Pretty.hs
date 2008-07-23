@@ -283,7 +283,7 @@ prettyDeclr prec (CDeclr name derived_declrs asmname cattrs _) =
     -- declarator ( arguments )
     -- or (__attribute__ declarator) (arguments)
     ppDeclr _ (CFunDeclr params fun_attrs _ : declrs) =
-        (if not (null fun_attrs) then parens (attrlistP cattrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
+        (if not (null fun_attrs) then parens (attrlistP fun_attrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
         <> parens (prettyParams params)
     prettyParams (Right (decls, isVariadic)) =
      sep (punctuate comma (map pretty decls))

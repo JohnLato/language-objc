@@ -26,6 +26,7 @@ module Language.C.Syntax (
      -- * Source code positions
      Position(..),Pos(..),
      posFile,posRow,posColumn,
+     nopos,builtinPos,internalPos,
      isSourcePos,isBuiltinPos,isInternalPos,
 )
 where

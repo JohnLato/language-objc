@@ -10,7 +10,7 @@
 --
 -- source position and unqiue name
 -----------------------------------------------------------------------------
-module Language.C.Syntax.Node (
+module Language.C.Data.Node (
    NodeInfo(..), mkUndefNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
    CNode(nodeInfo), fileOfNode,
    posOfNode, nameOfNode,

@@ -17,7 +17,7 @@ module Language.C.Syntax.Node (
    eqByName, 
 ) where
 import Language.C.Syntax.Position
-import Language.C.Syntax.Name     (Name)
+import Language.C.Data.Name     (Name)
 import Data.Generics
 
 -- | Parsed entity attribute

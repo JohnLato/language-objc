@@ -43,7 +43,7 @@ module Language.C.Analysis.TravMonad (
 where
 import Language.C.Syntax
 import Language.C.Syntax.RList as RList
-import Language.C.Syntax.Name
+import Language.C.Data.Name
 import Language.C.Syntax.Position
 import Language.C.Syntax.Node
 

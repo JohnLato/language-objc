@@ -28,7 +28,7 @@ module Language.C.Analysis.DefTable (
 )
 where
 import Language.C.Data.Ident
-import Language.C.Syntax.Name
+import Language.C.Data.Name
 import Language.C.Analysis.NameSpaceMap
 import Language.C.Analysis.SemRep
 

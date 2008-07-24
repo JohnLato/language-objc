@@ -14,6 +14,7 @@ module Language.C.System.Preprocess (
     CppOption(..),
     CppArgs(..),simpleCppArgs,addCppOption,addExtraOption,
     runPreprocessor,
+    isPreprocessed,
 )
 where
 import Language.C.InputStream
@@ -24,6 +25,7 @@ import System.Environment
 import System.IO
 import Control.Exception
 import Control.Monad
+import Data.List
 
 -- | @Preprocessor@ encapsulates the abstract interface for invoking C preprocessors
 class Preprocessor cpp where
@@ -106,3 +108,7 @@ mkTmpFile tmp_dir file_templ = do
     (path,file_handle) <- openTempFile tmp_dir file_templ
     hClose file_handle
     return path
+
+-- | guess whether a file is preprocessed (file end with .i)
+isPreprocessed :: FilePath -> Bool
+isPreprocessed = (".i" `isSuffixOf`)

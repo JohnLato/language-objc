@@ -68,7 +68,8 @@ import Language.C.Parser.ParserMonad
 $space = [ \ \t ]                           -- horizontal white space
 $eol   = \n                                 -- end of line
 
-$letter   = [a-zA-Z_]
+$letter   = [a-zA-Z]
+$identletter = [a-zA-Z_\$]                  -- GNU extension: allow $ in variable names
 $octdigit = 0-7
 $digit    = 0-9
 $digitNZ  = 1-9
@@ -154,7 +155,7 @@ $white+         ;
 
 -- identifiers and keywords (follows K&R A2.3 and A2.4)
 --
-$letter($letter|$digit)*  { \pos len str -> idkwtok (takeChars len str) pos }
+$identletter($identletter|$digit)*  { \pos len str -> idkwtok (takeChars len str) pos }
 
 -- constants (follows K&R A2.5) 
 --

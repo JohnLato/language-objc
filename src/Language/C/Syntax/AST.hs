@@ -28,7 +28,8 @@ module Language.C.Syntax.AST (
   CFunDef(..),  CDecl(..),
   CStructUnion(..),  CStructTag(..), CEnum(..),
   -- * Declaration attributes
-  CDeclSpec(..), CStorageSpec(..), CTypeSpec(..), CTypeQual(..), CAttr(..),
+  CDeclSpec(..), partitionDeclSpecs, 
+  CStorageSpec(..), CTypeSpec(..), CTypeQual(..), CAttr(..),
   -- * Declarators
   CDeclr(..),CDerivedDeclr(..),
   -- * Initialization
@@ -271,6 +272,15 @@ data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or type
                | CTypeSpec    CTypeSpec     -- ^ type name
                | CTypeQual    CTypeQual     -- ^ type qualifier
                  deriving (Data,Typeable {-! CNode !-})
+
+-- | seperate the declaration specifiers 
+-- Note that inline isn't actually a type qualifier, but a function specifier
+partitionDeclSpecs :: [CDeclSpec] -> ([CStorageSpec], [CTypeQual], [CTypeSpec], Bool)
+partitionDeclSpecs = foldr deals ([],[],[],False) where
+    deals (CTypeQual (CInlineQual _)) (sts,tqs,tss,_) = (sts,tqs,tss,True)
+    deals (CStorageSpec sp) (sts,tqs,tss,inline)  = (sp:sts,tqs,tss,inline) 
+    deals (CTypeQual tq) (sts,tqs,tss,inline)     = (sts,tq:tqs,tss,inline) 
+    deals (CTypeSpec ts) (sts,tqs,tss,inline)     = (sts,tqs,ts:tss,inline) 
 
 -- | C storage class specifier (and typedefs) (K&R A8.1, C99 6.7.1)
 --

@@ -19,7 +19,6 @@ module Language.C.Analysis.DeclAnalysis (
   -- * dissecting type specs
   canonicalTypeSpec, NumBaseType(..),SignSpec(..),SizeMod(..),NumTypeSpec(..),TypeSpecAnalysis(..), 
   canonicalStorageSpec, StorageSpec(..),isThreadLocalSpec,
-  partitionDeclSpecs,
   -- * helpers
   VarDeclInfo(..),
   tAttr,mkVarName,getOnlyDeclr,nameOfDecl,convertStringLit,
@@ -323,14 +322,6 @@ tTypeQuals = foldrM go (noTypeQuals,[]) where
 
 -- * analysis
 
--- | seperate the declaration specifiers 
--- Note that inline isn't actually a type qualifier, but a function specifier
-partitionDeclSpecs :: [CDeclSpec] -> ([CStorageSpec], [CTypeQual], [CTypeSpec], Bool)
-partitionDeclSpecs = foldr deals ([],[],[],False) where
-    deals (CTypeQual (CInlineQual _)) (sts,tqs,tss,_) = (sts,tqs,tss,True)
-    deals (CStorageSpec sp) (sts,tqs,tss,inline)  = (sp:sts,tqs,tss,inline) 
-    deals (CTypeQual tq) (sts,tqs,tss,inline)     = (sts,tq:tqs,tss,inline) 
-    deals (CTypeSpec ts) (sts,tqs,tss,inline)     = (sts,tqs,ts:tss,inline) 
 
 {-
 To canoicalize type specifiers, we define a canonical form:

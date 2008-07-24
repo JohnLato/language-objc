@@ -169,13 +169,27 @@ instance Pretty CBlockItem where
     pretty (CNestedFunDef fundef) = ii $ pretty fundef
 
 instance Pretty CDecl where
+    -- CAVEAT:
+    -- we may not print __attribute__s directly after typespecs,
+    -- as this may change the semantics of the declaration.
+    -- In order to not destroy the roundtrip tests or layout, we reason as follows:
+    -- If the last spec is an attribute list, then it has to be pretty printed
+    -- following the declarator. It is was obtained using the parser, it was also
+    -- parsed at that position.
     pretty (CDecl specs divs _) =
-        hsep (map pretty specs) <+> hsep (punctuate comma (map p divs)) where
-        p (declr, initializer, expr) =
-            maybeP pretty declr <+>
-            maybeP ((text "=" <+>) . pretty) initializer <+>
-            maybeP ((text ":" <+>) . pretty) expr
-
+        hsep (map pretty specs) <+> hsep (punctuate comma (map p divs))
+            where
+            p (declr, initializer, expr) =
+                maybeP pretty declr <+>
+                maybeP ((text "=" <+>) . pretty) initializer <+>
+                maybeP ((text ":" <+>) . pretty) expr
+            -- (no_trailing_attrs_specs, trailing_attrs) fixSpecs collect [] = 
+            -- fixSpecs [(CTypeQual (CAttrQual att))]
+            -- fixSpecs [] = []
+            -- ordered_specs = let (stor,qual,ty,inline) = partitionDeclSpecs specs in
+            --                 (if inline then [CTypeQual (CInlineQual undefined)] else []) ++
+            --                 ( (map CStorageSpec stor) ++ (map CTypeQual qual) ++ (map CTypeSpec ty) )
+    
 instance Pretty CDeclSpec where
     pretty (CStorageSpec sp) = pretty sp
     pretty (CTypeSpec sp) = pretty sp

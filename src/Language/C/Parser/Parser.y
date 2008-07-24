@@ -1069,8 +1069,8 @@ struct_declaration
   : struct_declaring_list ';'
   	{ case $1 of CDecl declspecs dies at -> CDecl declspecs (List.reverse dies) at }
 
-  | struct_default_declaring_list attrs_opt ';'
-  	{ case $1 of CDecl declspecs dies at -> CDecl (declspecs ++ liftCAttrs $2) (List.reverse dies) at }
+  | struct_default_declaring_list';'
+  	{ case $1 of CDecl declspecs dies at -> CDecl declspecs (List.reverse dies) at }
 
   | "__extension__" struct_declaration	{ $2 } 
 
@@ -1126,17 +1126,22 @@ struct_declaring_list
 --
 struct_declarator :: { (Maybe CDeclr, Maybe CExpr) }
 struct_declarator
-  : declarator					{ (Just (reverseDeclr $1), Nothing) }
-  | ':' constant_expression			{ (Nothing, Just $2) }
-  | declarator ':' constant_expression		{ (Just (reverseDeclr $1), Just $3) }
+  : declarator					       { (Just (reverseDeclr $1), Nothing) }
+  | ':' constant_expression			   { (Nothing, Just $2) }
+  | declarator ':' constant_expression { (Just (reverseDeclr $1), Just $3) }
 
-
+-- FIXME: anonymous bitfield doesn't allow recording of attributes
 struct_identifier_declarator :: { (Maybe CDeclr, Maybe CExpr) }
 struct_identifier_declarator
   : identifier_declarator				{ (Just (reverseDeclr $1), Nothing) }
   | ':' constant_expression				{ (Nothing, Just $2) }
   | identifier_declarator ':' constant_expression	{ (Just (reverseDeclr $1), Just $3) }
-
+  | struct_identifier_declarator attr  
+    {  case $1 of {   (Nothing,expr) -> (Nothing,expr) {- FIXME -} 
+                    ; (Just (CDeclr name derived asmname attrs node), bsz) -> 
+                        (Just (CDeclr name derived asmname (attrs++$2) node),bsz)
+                  }
+    }
 
 -- parse C enumeration declaration (C99 6.7.2.2)
 --

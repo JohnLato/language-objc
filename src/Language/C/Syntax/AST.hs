@@ -29,7 +29,7 @@ module Language.C.Syntax.AST (
   CStructUnion(..),  CStructTag(..), CEnum(..),
   -- * Declaration attributes
   CDeclSpec(..), partitionDeclSpecs, 
-  CStorageSpec(..), CTypeSpec(..), CTypeQual(..), CAttr(..),
+  CStorageSpec(..), CTypeSpec(..), isSUEDef, CTypeQual(..), CAttr(..),
   -- * Declarators
   CDeclr(..),CDerivedDeclr(..),
   -- * Initialization
@@ -328,6 +328,12 @@ data CTypeSpec = CVoidType    NodeInfo
                               NodeInfo             -- ^ @typeof(type)@
                deriving (Data,Typeable {-! CNode !-})
 
+-- | returns @True@ if the given typespec is a struct, union or enum /definition/
+isSUEDef :: CTypeSpec -> Bool
+isSUEDef (CSUType (CStruct _ _ (Just _) _ _) _) = True
+isSUEDef (CEnumType (CEnum _ (Just _) _ _) _) = True
+isSUEDef _ = False
+
 -- | C type qualifiers (K&R A8.2, C99 6.7.3) and function specifiers (C99 6.7.4)
 --
 -- @const@, @volatile@ and @restrict@ type qualifiers and @inline@ function specifier.
@@ -379,6 +385,7 @@ data CEnum = CEnum (Maybe Ident)
                    NodeInfo
              deriving (Data,Typeable {-! CNode !-})
           
+        
 -- | C initialization (K&R A8.7, C99 6.7.8)
 -- 
 -- Initializers are either assignment expressions or initializer lists 

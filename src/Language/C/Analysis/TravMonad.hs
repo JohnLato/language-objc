@@ -123,8 +123,7 @@ checkVarRedef def redecl =
                               throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)
         -- redeclaration: old entry has to be a declaration or tentative, type have to match
         Redeclared old_def | isTentativeG old_def -> 
-                                do when (isDecl def) $ warn (redef LevelWarn old_def DuplicateDef)
-                                   throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)                                   
+                             throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)                                   
                            | otherwise -> throwTravError $ redef LevelError old_def DuplicateDef
         -- NewDecl/Shadowed is ok
         _ -> return ()

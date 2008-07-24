@@ -93,7 +93,8 @@ module Language.C.Parser.Parser (parseC, ParseError(..)) where
 --  !* We do not distinguish in the AST between incomplete array types and
 --      complete variable length arrays ([ '*' ] means the latter). (see C99 6.7.5.2)
 --  !* The AST doesn't allow recording __attribute__ of unnamed struct field
---
+--     (see struct_declaring_list, struct_default_declaring_list, struct_identifier_declarator)
+--  !* see `We're being far to liberal here' (... struct definition within structs)
 --  * Documentation isn't complete and consistent yet.
 
 import Prelude    hiding (reverse)
@@ -778,7 +779,7 @@ declaration_qualifier_list
   	{ $1 `snoc` $2 }
 
   | declaration_qualifier_list attr
-  	{ $1 `rappend` (liftCAttrs $2) }
+  	{ addTrailingAttrs $1 $2 }
 
 -- 
 -- declaration_qualifier :- storage_class | type_qualifier
@@ -855,7 +856,7 @@ basic_declaration_specifier
   	{ $1 `snoc` CTypeSpec $2 }
 
   | basic_declaration_specifier attr 
-  	{ $1 `rappend` (liftCAttrs $2) } 
+  	{ addTrailingAttrs $1 $2 } 
 
 
 -- A mixture of type qualifiers and basic type names in any order, but
@@ -888,7 +889,7 @@ basic_type_specifier
   	{ $1 `snoc` CTypeSpec $2 }
 
   | basic_type_specifier attr
-     { $1 `rappend` (liftCAttrs $2) } 
+     { addTrailingAttrs $1 $2 } 
 
 
 -- A named or anonymous struct, union or enum type along with at least one
@@ -909,7 +910,7 @@ sue_declaration_specifier
   	{ $1 `snoc` $2 }
   	
   | sue_declaration_specifier attr 
-  	{ $1 `rappend` (liftCAttrs $2) }  
+  	{ addTrailingAttrs $1 $2 }  
 
 
 -- A struct, union or enum type (named or anonymous) with optional leading and
@@ -967,7 +968,7 @@ typedef_declaration_specifier
   	{ $1 `snoc` $2 }
 
   | typedef_declaration_specifier attr
-  	{ $1 `rappend` (liftCAttrs $2) }
+  	{ addTrailingAttrs $1 $2 }
 
 
 -- typedef'ed type identifier with optional leading and trailing type qualifiers
@@ -1018,7 +1019,7 @@ typedef_type_specifier
   	{ $1 `snoc` CTypeQual $2 }
 
   | typedef_type_specifier attr
-  	{ $1 `rappend` (liftCAttrs $2) }
+  	{ addTrailingAttrs $1 $2 }
 
 
 -- A named or anonymous struct, union or enum type.
@@ -1097,12 +1098,12 @@ struct_default_declaring_list
 
 -- * GNU extensions:
 --     allow anonymous nested structures and unions
---
+--     FIXME: cannot record attribute of unnamed field
 struct_declaring_list :: { CDecl }
 struct_declaring_list
   : type_specifier struct_declarator attrs_opt
-  	{% withNodeInfo $1 $ case $2 of (d,s) -> CDecl ($1++liftCAttrs $3) [(d,Nothing,s)] }
-
+  	{% withNodeInfo $1 $ case $2 of { (Just d,s)  -> CDecl $1 [(Just $! appendObjAttrs $3 d,Nothing,s)] 
+                                    ; (Nothing,s) -> CDecl $1 [(Nothing,Nothing,s)]  } } {- DO FIXME -}
   | struct_declaring_list ',' attrs_opt struct_declarator attrs_opt
   	{ case $1 of
             CDecl declspecs dies attr ->

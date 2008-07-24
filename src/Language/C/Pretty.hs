@@ -17,7 +17,7 @@ module Language.C.Pretty (
 import Data.List (partition,nub,isSuffixOf)
 import qualified Data.Set as Set
 import Text.PrettyPrint.HughesPJ
-import Debug.Trace
+import Debug.Trace {- for warnings -}
 
 import Language.C.Data
 import Language.C.Syntax
@@ -183,7 +183,10 @@ instance Pretty CDecl where
                 maybeP ((text ":" <+>) . pretty) expr
             checked_specs = 
                 case any isAttrAfterSUE  (zip specs (tail specs)) of
-                    True -> error "AST Invariant violated: __attribute__ specifier following struct/union/enum"
+                    True -> trace 
+                              ("Warning: AST Invariant violated: __attribute__ specifier following struct/union/enum:"++
+                               (show $ map pretty specs))
+                            specs
                     False -> specs
             isAttrAfterSUE (CTypeSpec ty,CTypeQual (CAttrQual _)) = isSUEDef ty
             isAttrAfterSUE _ = False

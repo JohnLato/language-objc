@@ -192,9 +192,8 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
                 case numType of
                     Left (floatType,iscomplex) -> TyFloating (if iscomplex then TyComplex else NoFloatTypeQual) floatType
                     Right intType  -> TyIntegral intType
-        -- FIXME: we have __attributes__ both for type qualifiers and for structs - does the duplication make sense ?
-        TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl attrs handle_sue_def su
-        TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl attrs handle_sue_def enum
+        TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
+        TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
         TSNonBasic (CTypeDef name t_node)    -> liftM TypeDefType $ typeDefRef t_node name
         TSNonBasic (CTypeOfExpr expr _tnode) -> liftM (TypeOfExpr) (analyseConstExpr expr)
         TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
@@ -225,15 +224,15 @@ typeDefRef t_node name = lookupTypeDef name >>= \ty -> return (TypeDefRef name (
 -- we emit @declStructUnion@ and @defStructUnion@ actions
 --
 -- TODO: should attributes be part of declarartions too ?
-tCompTypeDecl :: (MonadTrav m) => Attributes -> Bool -> CStructUnion -> m CompTypeDecl
-tCompTypeDecl attrs_copy handle_def (CStruct tag ident_opt member_decls_opt attrs node_info) = do
+tCompTypeDecl :: (MonadTrav m) => Bool -> CStructUnion -> m CompTypeDecl
+tCompTypeDecl handle_def (CStruct tag ident_opt member_decls_opt attrs node_info) = do
     sue_ref <- createSUERef node_info ident_opt                           -- create name
     let tag' = tTag tag
     attrs' <- mapM tAttr attrs 
     let decl = CompTypeDecl sue_ref tag' node_info
     when (handle_def) $ do
         maybeM member_decls_opt $ \decls -> 
-                tCompType sue_ref tag' decls (attrs_copy++attrs') node_info   
+                tCompType sue_ref tag' decls (attrs') node_info   
             >>= (handleTagDef.CompTag)                                      -- handle comp type definition 
     return decl
 
@@ -253,8 +252,8 @@ tCompType tag sue_ref member_decls attrs node
 --  > enum my_enum
 --  > enum your_enum { x, y=3 }
 --
-tEnumTypeDecl :: (MonadTrav m) => Attributes -> Bool -> CEnum -> m EnumTypeDecl
-tEnumTypeDecl attrs_copy handle_def (CEnum ident_opt enumerators_opt attrs node_info)
+tEnumTypeDecl :: (MonadTrav m) => Bool -> CEnum -> m EnumTypeDecl
+tEnumTypeDecl handle_def (CEnum ident_opt enumerators_opt attrs node_info)
     | (Nothing, Nothing) <- (ident_opt, enumerators_opt) = astError node_info "both definition and name of enum missing"
     | Just [] <- enumerators_opt                         = astError node_info "empty enumerator list"
     | otherwise
@@ -263,7 +262,7 @@ tEnumTypeDecl attrs_copy handle_def (CEnum ident_opt enumerators_opt attrs node_
              let decl = EnumTypeDecl sue_ref node_info
              when handle_def $ do
                  maybeM enumerators_opt $ \enumerators -> 
-                         tEnumType sue_ref enumerators (attrs'++attrs_copy) node_info
+                         tEnumType sue_ref enumerators attrs' node_info
                     >>=  (handleTagDef . EnumTag)
              return decl
              

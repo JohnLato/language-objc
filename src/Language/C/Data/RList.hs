@@ -14,6 +14,7 @@
 module Language.C.Data.RList (
     RList,Reversed(..),
     empty,singleton,snoc,rappend,appendr,rappendr,rmap,reverse,
+    viewr,
 )
 where
 import Prelude hiding (reverse)
@@ -45,3 +46,7 @@ rmap f (Reversed xs) = Reversed (map f xs)
 
 reverse :: Reversed [a] -> [a]
 reverse (Reversed xs) = List.reverse xs
+
+viewr :: Reversed [a] -> (Reversed [a] , a)
+viewr (Reversed []) = error "viewr: empty RList"
+viewr (Reversed (x:xs)) = (Reversed xs, x)

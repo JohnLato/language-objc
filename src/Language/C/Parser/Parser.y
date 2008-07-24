@@ -937,10 +937,8 @@ sue_type_specifier
 
   | sue_type_specifier type_qualifier
   	{ $1 `snoc` CTypeQual $2 }
-
   | sue_type_specifier attr
-    { $1 `rappend` (liftCAttrs $2) }
-
+    { addTrailingAttrs $1 $2 }
 
 -- A typedef'ed type identifier with at least one storage qualifier and any
 -- number of type qualifiers
@@ -1080,7 +1078,7 @@ struct_declaration
 -- 
 --  * Note: doesn't redeclare typedef
 --
---  TODO: FIXME: AST doesn't allow recording attributes of unnamed struct field
+--  TODO: FIXME: AST doesn't allow recording attributes of unnamed struct members
 struct_default_declaring_list :: { CDecl }
 struct_default_declaring_list
   : type_qualifier_list attrs_opt struct_identifier_declarator
@@ -2168,6 +2166,17 @@ liftTypeQuals (Reversed tyqs) = revmap [] tyqs
 -- 
 liftCAttrs :: [CAttr] -> [CDeclSpec]
 liftCAttrs = map (CTypeQual . CAttrQual)
+
+-- when we parsed (decl_spec_1,...,decl_spec_n,attrs), add the __attributes__s to the declspec list
+-- needs special care when @decl_spec_n@ is a SUE definition
+addTrailingAttrs :: Reversed [CDeclSpec] -> [CAttr] -> Reversed [CDeclSpec]
+addTrailingAttrs declspecs new_attrs =
+    case viewr declspecs of
+        (specs_init, CTypeSpec (CSUType (CStruct tag name (Just def) def_attrs su_node) node))
+            -> (specs_init `snoc` CTypeSpec (CSUType (CStruct tag name (Just def) (def_attrs ++ new_attrs) su_node) node))
+        (specs_init, CTypeSpec (CEnumType (CEnum name (Just def) def_attrs e_node) node))
+            -> (specs_init `snoc` CTypeSpec (CEnumType (CEnum name (Just def) (def_attrs ++ new_attrs) e_node) node))
+        _ -> declspecs `rappend` (liftCAttrs new_attrs)
 
 -- convenient instance, the position of a list of things is the position of
 -- the first thing in the list

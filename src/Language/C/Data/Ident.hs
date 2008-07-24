@@ -36,19 +36,19 @@ import Language.C.Data.Node
 import Language.C.Data.Name   (Name,nameId)
 import Data.Generics
 
--- simple identifier representation (EXPORTED)
---
-data Ident = Ident String       -- lexeme
-                   {-# UNBOXED #-}   !Int         -- hash to speed up equality check
-                   NodeInfo        -- attributes of this ident. incl. position
-             deriving (Data,Typeable)
-
 data SUERef =  AnonymousType Name
              | NamedType Ident
     deriving (Typeable, Data, Ord, Eq)
 instance Show SUERef where
     show (AnonymousType name) = "$" ++ show (nameId name)
     show (NamedType ident) = identToString ident
+
+-- simple identifier representation (EXPORTED)
+--
+data Ident = Ident String       -- lexeme
+                   {-# UNBOXED #-}   !Int         -- hash to speed up equality check
+                   NodeInfo        -- attributes of this ident. incl. position
+             deriving (Data,Typeable)
     
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the

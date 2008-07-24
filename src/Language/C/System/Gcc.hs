@@ -18,6 +18,7 @@ import Language.C.Data.RList as RList
 import Language.C.System.Preprocess
 import Data.Maybe
 import System.Cmd
+import System.Directory
 import Data.List
 
 -- | @GCC@ represents a reference to the gcc compiler
@@ -29,7 +30,11 @@ newGCC = GCC
 
 instance Preprocessor GCC where
     parseCPPArgs _ = gccParseCPPArgs
-    runCPP gcc cpp_args = rawSystem (gccPath gcc) (buildCppArgs cpp_args)
+    runCPP gcc cpp_args = 
+        do  -- copy the input to the outputfile, because in case the input is preprocessed,
+            -- gcc -E will do nothing.
+            maybe (return()) (copyFile (inputFile cpp_args)) (outputFile cpp_args)
+            rawSystem (gccPath gcc) (buildCppArgs cpp_args)
     
 -- | Parse arguments for preprocessing via GCC.
 --   At least one .c, .hc or .h file has to be present.

@@ -20,7 +20,6 @@ const __attribute__((deprecated))  l_4;
 long __attribute__((deprecated))  l_6;
 struct s_1 __attribute__((deprecated))  l_8;
 S_1 __attribute__((deprecated))  l_10;
-
 __attribute__((deprecated)) register l_3;
 __attribute__((deprecated)) const l_5;
 __attribute__((deprecated)) long l_7;
@@ -30,6 +29,8 @@ __attribute__((deprecated)) S_1 l_11;
 /* applies to all declarations */
 static __attribute__((unused)) int *l_12_a, l_12_b(), *l_12_c;    
 __attribute__((unused)) unsigned *l_13_a, l_13_b(), *l_13_c;    
+const __attribute__((deprecated)) long __attribute__((deprecated)) long l_14;
+
 
 /* Applies to decl */
 __attribute__((noreturn)) int f_1_a_1();  
@@ -101,7 +102,14 @@ int (__attribute__((packed)) *g_2) (void);
 
 /* pointer to non-returning function returning void */
 void (__attribute__((noreturn)) *f) (void); 
-
+/* y is a packed pointer to a packed pointer to a non-returning function returning int */
+int x, 
+  __attribute__((packed)) /* applies to `the next identifier',i.e. y */ 
+   ( __attribute__((noreturn)) /* applies to the function */
+    * __attribute__((packed))  /* applies to the function pointer */ 
+    *
+    *
+    *y) () = 3;
 /* A packed, non-aliased pointer to a packed, constant pointer to an
    function that doesn't return int */
 void ( __attribute__((noreturn))

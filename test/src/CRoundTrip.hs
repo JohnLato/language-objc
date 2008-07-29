@@ -70,6 +70,13 @@ roundtripTest' origFile gccArgs = do
         either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult2
     ast2 <- either (const exitTest) (return . fst) parseResult2
 
+    -- compile
+    let compileTest = initializeTestResult (compileTestTemplate { testName = "04-compile"}) [prettyFile]
+    compileResult <- runCompileTest ("-fsyntax-only":gccArgs) prettyFile
+    addTestM $
+      setTestStatus compileTest $ 
+        either (uncurry testFailWithReport) (testOkNoReport . snd) compileResult
+
     -- check equiv
     let equivTest = initializeTestResult (equivTestTemplate { testName = "04-orig-equiv-pp" }) []
     equivResult <- runEquivTest ast ast2

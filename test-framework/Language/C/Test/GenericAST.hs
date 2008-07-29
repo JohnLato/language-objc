@@ -24,7 +24,7 @@ instance Pretty GenAST where
   pretty (GNode constr sub) = 
     text (show constr) $$ nest 2 (vcat $ map pretty sub)
   pretty (GNested sub) =
-    text "-" $$ (nest 1 $ (vcat $ map pretty sub))
+    text "-" $$ (nest 2 $ (vcat $ map pretty sub))
   pretty (GLeaf l) = text (show l)
   pretty GIgnore = text ""
   

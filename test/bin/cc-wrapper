@@ -10,10 +10,9 @@ fi
 $CTEST_BINDIR/CheckGccArgs $@
 if [ $? -eq 0 ]; then
 	sh $CTEST_BINDIR/run-test $@
-fi
-
-# Invoke gcc
-if [ ! -z $CTEST_NO_GCC ]; then
-    echo gcc $@
+    # Invoke gcc
+    gcc $@
+else
     gcc $@
 fi
+

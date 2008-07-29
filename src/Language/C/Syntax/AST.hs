@@ -31,7 +31,7 @@ module Language.C.Syntax.AST (
   CDeclSpec(..), partitionDeclSpecs, 
   CStorageSpec(..), CTypeSpec(..), isSUEDef, CTypeQual(..), CAttr(..),
   -- * Declarators
-  CDeclr(..),CDerivedDeclr(..),
+  CDeclr(..),CDerivedDeclr(..),CArrSize(..),
   -- * Initialization
   CInit(..), CInitList, CDesignator(..), 
   -- * Statements
@@ -195,11 +195,17 @@ data CDeclr = CDeclr (Maybe Ident) [CDerivedDeclr] (Maybe CStrLit) [CAttr] NodeI
 data CDerivedDeclr =
               CPtrDeclr [CTypeQual] NodeInfo
               -- ^ Pointer declarator @CPtrDeclr tyquals declr@
-            | CArrDeclr [CTypeQual] (Maybe CExpr) NodeInfo 
+            | CArrDeclr [CTypeQual] (CArrSize) NodeInfo 
               -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@ 
             | CFunDeclr (Either [Ident] ([CDecl],Bool)) [CAttr] NodeInfo
               -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@ 
             deriving (Data,Typeable {-! CNode !-})
+            
+-- | Size of an array
+data CArrSize = CNoArrSize Bool     -- ^ @CUnknownSize isCompleteType@
+              | CArrSize Bool CExpr -- ^ @CArrSize isStatic expr@ 
+              deriving (Data,Typeable)
+              
 -- | C statement (K&R A9, C99 6.8)
 --
 data CStat = CLabel  Ident CStat [CAttr] NodeInfo  -- ^ An (attributed) label followed by a statement
@@ -316,16 +322,11 @@ data CTypeSpec = CVoidType    NodeInfo
                | CUnsigType   NodeInfo
                | CBoolType    NodeInfo
                | CComplexType NodeInfo
-               | CSUType      CStructUnion      
-                              NodeInfo             -- ^ Struct or Union specifier
-               | CEnumType    CEnum             
-                              NodeInfo             -- ^ Enumeration specifier
-               | CTypeDef     Ident
-                              NodeInfo             -- ^ Typedef name
-               | CTypeOfExpr  CExpr
-                              NodeInfo             -- ^ @typeof(expr)@
-               | CTypeOfType  CDecl
-                              NodeInfo             -- ^ @typeof(type)@
+               | CSUType      CStructUnion NodeInfo  -- ^ Struct or Union specifier
+               | CEnumType    CEnum        NodeInfo  -- ^ Enumeration specifier
+               | CTypeDef     Ident        NodeInfo  -- ^ Typedef name
+               | CTypeOfExpr  CExpr        NodeInfo  -- ^ @typeof(expr)@
+               | CTypeOfType  CDecl        NodeInfo  -- ^ @typeof(type)@
                deriving (Data,Typeable {-! CNode !-})
 
 -- | returns @True@ if the given typespec is a struct, union or enum /definition/

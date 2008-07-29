@@ -34,6 +34,10 @@ class Pretty p where
 maybeP :: (p -> Doc) -> Maybe p -> Doc
 maybeP = maybe empty
 
+-- pretty print when flag is true
+ifP :: Bool -> Doc -> Doc
+ifP flag doc = if flag then doc else empty
+                 
 -- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
 mlistP :: ([p] -> Doc) -> [p] -> Doc
 mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
@@ -177,10 +181,13 @@ instance Pretty CDecl where
     pretty (CDecl specs divs _) =
         hsep (map pretty checked_specs) <+> hsep (punctuate comma (map p divs))
             where
+            -- possible hint for AST improvement - (declr, initializer, expr, attrs)
+            -- currently there are no sensible attributes for unnamed bitfields though
             p (declr, initializer, expr) =
-                maybeP pretty declr <+>
-                maybeP ((text "=" <+>) . pretty) initializer <+>
-                maybeP ((text ":" <+>) . pretty) expr
+                maybeP (prettyDeclr False 10) declr <+>
+                maybeP ((text ":" <+>) . pretty) expr <+>
+                attrlistP (getAttrs declr) <+>
+                maybeP ((text "=" <+>) . pretty) initializer
             checked_specs = 
                 case any isAttrAfterSUE  (zip specs (tail specs)) of
                     True -> trace 
@@ -190,6 +197,8 @@ instance Pretty CDecl where
                     False -> specs
             isAttrAfterSUE (CTypeSpec ty,CTypeQual (CAttrQual _)) = isSUEDef ty
             isAttrAfterSUE _ = False
+            getAttrs Nothing = []
+            getAttrs (Just (CDeclr _ _ _ cattrs _)) = cattrs
     
 instance Pretty CDeclSpec where
     pretty (CStorageSpec sp) = pretty sp
@@ -281,11 +290,11 @@ instance Pretty CEnum where
 --   prettyList :: (Pretty a) => [a] -> Doc
 --   prettyList = hsep . punctuate comma . map pretty
 instance Pretty CDeclr where
-    prettyPrec prec declr = prettyDeclr prec declr 
+    prettyPrec prec declr = prettyDeclr True prec declr 
 
-prettyDeclr :: Int -> CDeclr -> Doc
-prettyDeclr prec (CDeclr name derived_declrs asmname cattrs _) =
-    ppDeclr prec (reverse derived_declrs) <+> prettyAsmName asmname <+> attrlistP cattrs
+prettyDeclr :: Bool -> Int -> CDeclr -> Doc
+prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
+    ppDeclr prec (reverse derived_declrs) <+> prettyAsmName asmname <+> ifP show_attrs (attrlistP cattrs)
     where
     ppDeclr _ [] = maybeP identP name
     --'*' __attribute__? qualifiers declarator
@@ -293,8 +302,8 @@ prettyDeclr prec (CDeclr name derived_declrs asmname cattrs _) =
         parenPrec p 5 $ text "*" <+> hsep (map pretty quals) <+> ppDeclr 5 declrs
 
     -- declarator[ __attribute__? qualifiers expr ]
-    ppDeclr p (CArrDeclr quals expr _ : declrs) =
-        parenPrec p 6 $ ppDeclr 6 declrs <> brackets (hsep (map pretty quals) <+> maybeP pretty expr)
+    ppDeclr p (CArrDeclr quals size _ : declrs) =
+        parenPrec p 6 $ ppDeclr 6 declrs <> brackets (hsep (map pretty quals) <+> pretty size)
     -- declarator ( arguments )
     -- or (__attribute__ declarator) (arguments)
     ppDeclr _ (CFunDeclr params fun_attrs _ : declrs) =
@@ -308,6 +317,9 @@ prettyDeclr prec (CDeclr name derived_declrs asmname cattrs _) =
     prettyAsmName asm_name_opt
         = maybe empty (\asm_name -> text "__asm__" <> parens (pretty asm_name)) asm_name_opt
     
+instance Pretty CArrSize where
+  pretty (CNoArrSize completeType) = ifP completeType (text "*")
+  pretty (CArrSize staticMod expr) = ifP staticMod (text "static") <+> pretty expr
 -- initializer :: { CInit }
 -- initializer :- assignment_expression
 --              | '{' (designation? initializer)_cs_list '}'

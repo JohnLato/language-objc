@@ -93,7 +93,7 @@ module Language.C.Parser.Parser (parseC, ParseError(..)) where
 --  !* We do not distinguish in the AST between incomplete array types and
 --      complete variable length arrays ([ '*' ] means the latter). (see C99 6.7.5.2)
 --  !* The AST doesn't allow recording __attribute__ of unnamed struct field
---     (see struct_declaring_list, struct_default_declaring_list, struct_identifier_declarator)
+--     (see , struct_default_declaring_list, struct_identifier_declarator)
 --  !* see `We're being far to liberal here' (... struct definition within structs)
 --  * Documentation isn't complete and consistent yet.
 
@@ -1109,7 +1109,7 @@ struct_declaring_list
   	{ case $1 of
             CDecl declspecs dies attr ->
               case $4 of
-                (Just d,s) -> CDecl declspecs ((Just$ appendObjAttrs $3 d,Nothing,s) : dies) attr
+                (Just d,s) -> CDecl declspecs ((Just$ appendObjAttrs ($3++$5) d,Nothing,s) : dies) attr
                 (Nothing,s) -> CDecl declspecs ((Nothing,Nothing,s) : dies) attr }
 
   -- FIXME: We're being far too liberal in the parsing here, we really want to just
@@ -1141,7 +1141,7 @@ struct_identifier_declarator
   | struct_identifier_declarator attr
     {  case $1 of {   (Nothing,expr) -> (Nothing,expr) {- FIXME -}
                     ; (Just (CDeclr name derived asmname attrs node), bsz) ->
-                        (Just (CDeclr name derived asmname (attrs++$2) node),bsz)
+                                        (Just (CDeclr name derived asmname (attrs++$2) node),bsz)
                   }
     }
 
@@ -1430,11 +1430,11 @@ parameter_declaration
   | declaration_specifier abstract_declarator
   	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $2), Nothing, Nothing)] }
 
-  | declaration_specifier identifier_declarator attrs_opt        -- FIX 0700
-  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $2), Nothing, Nothing)] }
+  | declaration_specifier identifier_declarator attrs_opt
+  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $! appendDeclrAttrs $3 $2), Nothing, Nothing)] }
 
-  | declaration_specifier parameter_typedef_declarator attrs_opt -- FIX 0700
-  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $2), Nothing, Nothing)] }
+  | declaration_specifier parameter_typedef_declarator attrs_opt
+  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $! appendDeclrAttrs $3 $2), Nothing, Nothing)] }
 
   | declaration_qualifier_list
   	{% withNodeInfo $1 $ CDecl (reverse $1) [] }
@@ -1442,8 +1442,8 @@ parameter_declaration
   | declaration_qualifier_list abstract_declarator
   	{% withNodeInfo $1 $ CDecl (reverse $1) [(Just (reverseDeclr $2), Nothing, Nothing)] }
 
-  | declaration_qualifier_list identifier_declarator attrs_opt -- FIX 0700
-  	{% withNodeInfo $1 $ CDecl (reverse $1) [(Just (reverseDeclr $2), Nothing, Nothing)] }
+  | declaration_qualifier_list identifier_declarator attrs_opt
+  	{% withNodeInfo $1 $ CDecl (reverse $1) [(Just (reverseDeclr $! appendDeclrAttrs $3 $2), Nothing, Nothing)] }
 
   | type_specifier
   	{% withNodeInfo $1 $ CDecl $1 [] }
@@ -1451,11 +1451,11 @@ parameter_declaration
   | type_specifier abstract_declarator
   	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $2), Nothing, Nothing)] }
 
-  | type_specifier identifier_declarator attrs_opt -- FIX 0700
-  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $2), Nothing, Nothing)] }
+  | type_specifier identifier_declarator attrs_opt
+  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $! appendDeclrAttrs $3 $2), Nothing, Nothing)] }
 
-  | type_specifier parameter_typedef_declarator attrs_opt -- FIX 0700
-  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $2), Nothing, Nothing)] }
+  | type_specifier parameter_typedef_declarator attrs_opt
+  	{% withNodeInfo $1 $ CDecl $1 [(Just (reverseDeclr $! appendDeclrAttrs $3 $2), Nothing, Nothing)] }
 
   | type_qualifier_list
   	{% withNodeInfo $1 $ CDecl (liftTypeQuals $1) [] }
@@ -1535,38 +1535,35 @@ array_abstract_declarator
 postfix_array_abstract_declarator :: { CDeclrR -> CDeclrR }
 postfix_array_abstract_declarator
   : '[' assignment_expression_opt ']'
-  	{% withNodeInfo $1 $ \at declr -> arrDeclr declr [] $2 at }
+  	{% withNodeInfo $1 $ \at declr -> arrDeclr declr [] False False $2 at }
 
   | '[' attrs assignment_expression_opt ']'
-  	{% withAttributePF $1 $2 $ \at declr -> arrDeclr declr [] $3 at }
+  	{% withAttributePF $1 $2 $ \at declr -> arrDeclr declr [] False False $3 at }
 
   | '[' type_qualifier_list assignment_expression_opt ']'
-  	{% withNodeInfo $1 $ \at declr -> arrDeclr declr (reverse $2) $3 at }
+  	{% withNodeInfo $1 $ \at declr -> arrDeclr declr (reverse $2) False False $3 at }
 
   | '[' type_qualifier_list attrs assignment_expression_opt ']'
-  	{% withAttributePF $1 $3 $ \at declr -> arrDeclr declr (reverse $2) $4 at }
+  	{% withAttributePF $1 $3 $ \at declr -> arrDeclr declr (reverse $2) False False $4 at }
 
-  -- FIXME: static isn't recorded
   | '[' static attrs_opt assignment_expression ']'
-  	{% withAttributePF $1 $3 $ \at declr -> arrDeclr declr [] (Just $4) at }
+  	{% withAttributePF $1 $3 $ \at declr -> arrDeclr declr [] False True (Just $4) at }
 
-  -- FIXME: static isn't recorded
   | '[' static type_qualifier_list attrs_opt assignment_expression ']'
-  	{% withAttributePF $1 $4 $ \at declr -> arrDeclr declr (reverse $3) (Just $5) at }
+  	{% withAttributePF $1 $4 $ \at declr -> arrDeclr declr (reverse $3) False True (Just $5) at }
 
-  -- FIXME: static isn't recorded
   | '[' type_qualifier_list attrs_opt static attrs_opt assignment_expression ']'
-  	{% withAttributePF $1 ($3 ++ $5) $ \at declr -> arrDeclr declr (reverse $2) (Just $6) at }
+  	{% withAttributePF $1 ($3 ++ $5) $ \at declr -> arrDeclr declr (reverse $2) False True  (Just $6) at }
 
   | '[' '*' attrs_opt ']'
-  	{% withAttributePF $1 $3 $ \at declr -> arrDeclr declr [] Nothing at }
+  	{% withAttributePF $1 $3 $ \at declr -> arrDeclr declr [] True False Nothing at }
   | '[' attrs '*' attrs_opt ']'
-  	{% withAttributePF $1 ($2 ++ $4) $ \at declr -> arrDeclr declr [] Nothing at }
+  	{% withAttributePF $1 ($2 ++ $4) $ \at declr -> arrDeclr declr [] True False Nothing at }
 
   | '[' type_qualifier_list '*' attrs_opt ']'
-  	{% withAttributePF $1 $4 $ \at declr -> arrDeclr declr (reverse $2) Nothing at }
+  	{% withAttributePF $1 $4 $ \at declr -> arrDeclr declr (reverse $2) True False Nothing at }
   | '[' type_qualifier_list attrs '*' attrs_opt ']'
-  	{% withAttributePF $1 ($3 ++ $5) $ \at declr -> arrDeclr declr (reverse $2) Nothing at }
+  	{% withAttributePF $1 ($3 ++ $5) $ \at declr -> arrDeclr declr (reverse $2) True False Nothing at }
 
 unary_abstract_declarator :: { CDeclrR }
 unary_abstract_declarator
@@ -1574,7 +1571,7 @@ unary_abstract_declarator
   	{% withNodeInfo $1 $ ptrDeclr emptyDeclr [] }
 
   | '*' type_qualifier_list attrs_opt
-  	{% withNodeInfo $1 $ ptrDeclr emptyDeclr (reverse $2)  }
+  	{% withAttribute $1 $3 $ ptrDeclr emptyDeclr (reverse $2)  }
 
   | '*' abstract_declarator
   	{% withNodeInfo $1 $ ptrDeclr $2 [] }
@@ -2160,10 +2157,14 @@ ptrDeclr (CDeclrR ident derivedDeclrs asmname cattrs dat) tyquals at
 funDeclr :: CDeclrR -> (Either [Ident] ([CDecl],Bool)) -> [CAttr] -> NodeInfo -> CDeclrR
 funDeclr (CDeclrR ident derivedDeclrs asmname dcattrs dat) params cattrs at
     = CDeclrR ident (derivedDeclrs `snoc` CFunDeclr params cattrs at) asmname dcattrs dat
-arrDeclr :: CDeclrR -> [CTypeQual] -> Maybe CExpr -> NodeInfo -> CDeclrR
-arrDeclr (CDeclrR ident derivedDeclrs asmname cattrs dat) tyquals size at
-    = CDeclrR ident (derivedDeclrs `snoc` CArrDeclr tyquals size at) asmname cattrs dat
-
+arrDeclr :: CDeclrR -> [CTypeQual] -> Bool -> Bool -> Maybe CExpr -> NodeInfo -> CDeclrR
+arrDeclr (CDeclrR ident derivedDeclrs asmname cattrs dat) tyquals var_sized static_size size_expr_opt at
+    = arr_sz `seq` ( CDeclrR ident (derivedDeclrs `snoc` CArrDeclr tyquals arr_sz at) asmname cattrs dat )
+    where 
+    arr_sz = case size_expr_opt of
+                 Just e  -> CArrSize static_size e
+                 Nothing -> CNoArrSize var_sized
+    
 liftTypeQuals :: Reversed [CTypeQual] -> [CDeclSpec]
 liftTypeQuals (Reversed tyqs) = revmap [] tyqs
   where revmap a []     = a

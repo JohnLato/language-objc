@@ -19,6 +19,7 @@ runCPP,
 parseTestTemplate, runParseTest,
 ppTestTemplate, runPrettyPrint,
 equivTestTemplate,runEquivTest,
+compileTestTemplate, runCompileTest,
 ) where
 import Control.Monad.State
 import Control.Monad.Instances
@@ -225,7 +226,38 @@ getDeclSrc decls ix = case drop ix decls of
         case mLineNext of
           Nothing -> lns
           (Just lineNext) -> take (lineNext - lnStart - 1) lns
-          
+
+-- ================
+-- = Compile test =
+-- ================
+compileTestTemplate :: Test
+compileTestTemplate = Test
+  {
+    testName = "compile",
+    testDescr = "compile the given file using gcc",
+    preferredScale = Kilo,
+    inputUnit = linesOfCode
+  }
+
+runCompileTest :: [String] -> FilePath -> TestMonad (Either (String, FilePath) (FilePath, PerfMeasure))
+runCompileTest args file = do
+    -- compile
+    dbgMsg "Compile ..."
+    outFile   <- withTempFile_ ".o" $ \_hnd -> return ()
+    (gccErrReport,(exitCode,t)) <- withTempFile ".cc_report" $ \errReportHnd -> do
+        time $ liftIO $ runProcess "gcc"  (["-o", outFile,"-std=gnu99"] ++ args ++ [file]) 
+                                Nothing Nothing 
+                                Nothing Nothing (Just errReportHnd)
+                         >>= waitForProcess
+    case exitCode of
+        ExitSuccess ->  do
+            liftIO $ removeFile gccErrReport
+            locs <- liftIO $ lineCount file
+            return . Right $ (outFile, PerfMeasure (fromIntegral locs, t))
+        ExitFailure fCode -> do
+            return . Left $ ("gcc "++concat (intersperse " " args)++" "++file++ " failed with exit code "++show fCode,
+                             gccErrReport)
+              
 -- ===========
 -- = Helpers =
 -- ===========

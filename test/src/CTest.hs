@@ -35,7 +35,7 @@ import System.IO
 import Data.Generics
 import Text.PrettyPrint.HughesPJ
 
-data CTestConfig = CTestConfig { debugFlag :: Bool, parseOnlyFlag :: Bool, 
+data CTestConfig = CTestConfig { debugFlag :: Bool, parseOnlyFlag :: Bool, useIncludes :: Bool,
                                  dumpAst :: Bool, semanticAnalysis :: Bool }
 main :: IO ()
 main = do
@@ -43,8 +43,9 @@ main = do
   dbg       <- getEnvFlag "DEBUG"
   parseonly <- getEnvFlag "PARSE_ONLY"
   dumpast   <- getEnvFlag "DUMP_AST"
+  no_includes <- getEnvFlag "NO_HEADERS_VIA_INCLUDE"
   semantic  <- liftM not (getEnvFlag "NO_SEMANTIC_ANALYSIS")
-  let config = CTestConfig dbg parseonly dumpast semantic
+  let config = CTestConfig dbg parseonly (not $ no_includes) dumpast semantic
   args <- getArgs
   let stdinPos = Position "<stdin>" 1 1
   (file,ast) <-
@@ -76,6 +77,7 @@ usage msg = printUsage >> exitWith (ExitFailure 2) where
         "   parses the given C source file and pretty print the AST",
         "Environment Variables: ",
         "   TMPDIR: temporary directory for preprocessing",
+        "   NO_HEADERS_VIA_INCLUDE: do not use heuristic #include directives for pretty printing",
         "   DEBUG:  debug flag",
         "   DUMP_AST:  dump the ast to file dump.ast",
         "   NO_SEMANTIC_ANALYSIS: do not perform semantic analysis",
@@ -89,18 +91,11 @@ output config file ast = do
     when (semanticAnalysis config && (not (null file))) $ do
         let result = runTrav_ (analyseAST ast)
         case result of
-            Left errs -> putStrLn (show errs)
-            Right (ok,warnings) -> do mapM print warnings
+            Left errs -> hPutStrLn stderr (show errs)
+            Right (ok,warnings) -> do mapM (hPutStrLn stderr . show) warnings
                                       printStats file ok
-    when (not $ parseOnlyFlag config) $ print $ prettyUsingInclude ast
+    when (not $ parseOnlyFlag config) $ print $ (if useIncludes config then prettyUsingInclude else pretty) ast
     when (debugFlag config) $ putStrLn . comment . show . pretty . mkGenericCAST $ ast
 comment str = "/*\n" ++ str ++ "\n*/"
 printStats file = putStrLn . comment . show . prettyAssocsWith "global decl stats" text (text.show) . globalDeclStats (== file)
 
-        -- case runTrav_ (translateAST ast) of
-        --     Left errors -> mapM_ print errors
-        --     Right (translunit, ts) -> demoAnalysis translunit
--- demoAnalysis :: TranslUnit -> IO ()
--- demoAnalysis tunit@(TranslUnit decls _) =
---     mapM_ (print . describe Spec) decls
-    

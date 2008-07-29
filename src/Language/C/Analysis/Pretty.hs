@@ -129,9 +129,10 @@ instance Pretty TypeQuals where
         where showAttr (str,select) | select tyQuals = text str
                                     | otherwise      = empty
 instance Pretty ArraySize where
-    pretty IncompleteArray = empty
-    pretty VarSizeArray    = text "*"
-    pretty (FixedSizeArray static expr) = (if static then text "static" else empty) <+> pretty expr
+    pretty (UnknownArraySize False) = empty
+    pretty (UnknownArraySize True)  = text "*"
+    pretty (ArraySize static expr) = (if static then text "static" else empty) <+> pretty expr
+    
 instance Pretty TypeName where
     pretty TyVoid = text "void"
     pretty (TyIntegral int_type) = text (show int_type)

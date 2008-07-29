@@ -50,9 +50,9 @@ exportTypeQuals quals = mapMaybe (select quals) [(constant,CConstQual ni),(volat
     where
     select quals (predicate,tyqual) | predicate quals = Just tyqual
                                     | otherwise       = Nothing
-exportArraySize :: ArraySize -> (Maybe Expr)
-exportArraySize (FixedSizeArray static e) = Just e
-exportArraySize _ = Nothing
+exportArraySize :: ArraySize -> CArrSize
+exportArraySize (ArraySize static e) = CArrSize static e
+exportArraySize (UnknownArraySize complete) = CNoArrSize complete
 
 exportTypeSpec :: TypeName -> [CTypeSpec]
 exportTypeSpec tyname =

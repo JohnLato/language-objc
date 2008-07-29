@@ -13,9 +13,6 @@ import Language.C.Analysis        -- analysis API
 import Language.C.System.GCC      -- preprocessor used
 import Language.C.Analysis.Export -- [starting point for exporting SemRep to AST]
 
--- not that we do not handle structs referenced by typedefs, and that those might be anonymous due to a
--- typedef. ironically, we cannot parse $ identifiers, and so have to exclude anonymous names. Doh.
--- hopefully we'll fix this soon, but it is just an example after all.
 main :: IO ()
 main = do
     let usage = error "Example Usage: ./ScanFile 'pattern' -I/usr/include my_file.c"
@@ -29,7 +26,7 @@ main = do
     
     (globals,warnings) <- (runTrav_ >>> checkResult "[analysis]") $ analyseAST ast
     mapM (hPutStrLn stderr . show) warnings
-    
+    putStrLn "#include <stdio.h>"
     print $ pretty (generateSizeTests pat globals)
     where
     checkResult :: (Show a) => String -> (Either a b) -> IO b
@@ -42,18 +39,24 @@ generateSizeTests pat globals =
       flip CTranslUnit ni $
       -- define all neccessary composite type
       map defineComp referenced_comps
-      ++
-      [ genSizeTest (Map.elems comps_of_interest) ]
+      -- define typedefs
+      ++ (map (uncurry defineTyDef) (Map.assocs reverse_typedefs))
+      -- generate size tests for named comps
+      ++ [ genSizeTest reverse_typedefs (Map.elems comps_of_interest) ]
     where
     comps = Map.mapMaybe fromComp (gTags globals)
-    comps_of_interest  = compsOfInterest pat comps
+    comps_of_interest  = filterDefs pat comps
     referenced_comps   = computeRefClosure comps comps_of_interest
+    reverse_typedefs   = Map.fromList . mapMaybe fromCompTyDef . Map.elems . filterDefs pat $ gTypedefs globals
     fromComp (CompTag struct_union) = Just struct_union
     fromComp (EnumTag _) = Nothing
-
+    fromCompTyDef (TypeDef' name ty _ _) =
+      case ty of 
+        (DirectType (TyComp (CompTypeDecl ref tag _)) _ _) -> Just (ref,name)
+        _ -> Nothing
     
-compsOfInterest :: String -> Map SUERef CompType -> Map SUERef CompType
-compsOfInterest pat = Map.filter isInCFile
+filterDefs :: (CNode v, Ord k) => String -> Map k v -> Map k v
+filterDefs pat = Map.filter isInCFile
     where
     isInCFile = (pat `isPrefixOf`) . takeBaseName . fileOfNode
 
@@ -89,19 +92,31 @@ defineComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompType $ derefTypeDefs t
     replaceEnum (TyEnum _) = TyIntegral TyInt
     replaceEnum dty = dty
     
+defineTyDef :: SUERef -> Ident -> CExtDecl
+defineTyDef ref tydef = CDeclExt (CDecl specs [(Just$ CDeclr (Just tydef) [] Nothing [] ni, Nothing, Nothing)] ni)
+  where 
+  specs = [CStorageSpec (CTypedef ni),CTypeSpec (CSUType struct_ty ni)]
+  struct_ty = CStruct CStructTag (Just$ internalIdent (show ref)) Nothing [] ni
+
 -- This is were we'd like to have quasi-quoting.
 -- For now, as we lack any code generation facilies, we'll parse a string :)
-genSizeTest :: [CompType] -> CExtDecl
-genSizeTest tys = either (error.show) fromExtDecl $
+genSizeTest :: Map SUERef Ident -> [CompType] -> CExtDecl
+genSizeTest typedefs tys = either (error.show) fromExtDecl $
                   parseC (inputStreamFromString test) (Position "genSizeTest" 1 1) 
     where
     fromExtDecl (CTranslUnit [decl] _ ) = decl
     fromExtDecl (CTranslUnit decls _) = error $ "Expected one declaration, but found: "++show (length decls)
     test = "int main() {" ++ concatMap checkSize tys ++ "}"
-    checkSize (CompType sue_ref tag _ _ _) = 
-        let tag_str = show tag ++ " " ++ show sue_ref in
-        "printf(\""++ tag_str ++": %d\\n\",sizeof(" ++ tag_str ++ ")); ";
-    
+    checkSize (CompType sue_ref tag _ _ _) =
+      case getTagStr sue_ref tag of
+        Nothing  -> ""
+        Just tag_str -> "printf(\""++ tag_str ++": %lu\\n\",sizeof(" ++ tag_str ++ ")); ";
+    getTagStr ref@(AnonymousType _) tag =
+      case Map.lookup ref typedefs of
+        Just tyident -> Just (identToString tyident)
+        Nothing      -> Nothing -- ignoring inaccessible anonymous type
+    getTagStr ref@(NamedType _) tag =
+      Just (show tag ++ " " ++ show ref)    
 
 compileAndRunAST _ _ file = 
     case file of

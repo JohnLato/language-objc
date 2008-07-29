@@ -285,11 +285,11 @@ isFunctionType ty =
                 FunctionType _ -> True
                 _ -> False
 
--- | An array type may either have a size, incomplete type or variable size.
--- Furthermore, when used as a function parameters, it may have a /static/ qualifier.
-data ArraySize =  IncompleteArray 
-                | VarSizeArray
-                | FixedSizeArray Bool Expr
+-- | An array type may either have unknown size or a specified array size, the latter either variable or constant.
+-- Furthermore, when used as a function parameters, the size may be qualified as /static/.
+-- In a function prototype, the size may be `Unspecified variable size' (@[*]@).
+data ArraySize =  UnknownArraySize Bool
+                | ArraySize Bool Expr
                 -- ^ @FixedSizeArray static@      
                deriving (Typeable, Data)
 

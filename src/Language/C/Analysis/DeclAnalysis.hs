@@ -159,15 +159,15 @@ tType handle_sue_def top_node typequals typespecs derived_declrs oldstyle_params
     buildType [] = tDirectType handle_sue_def top_node typequals typespecs 
     buildType (CPtrDeclr ptrquals node : dds) = 
         buildType dds >>= buildPointerType ptrquals node
-    buildType (CArrDeclr arrquals szOpt node : dds) 
-        = buildType dds >>= buildArrayType arrquals szOpt node
+    buildType (CArrDeclr arrquals size node : dds) 
+        = buildType dds >>= buildArrayType arrquals size node
     buildType (CFunDeclr ~(Right (params, isVariadic)) attrs node : dds) 
         = buildType dds >>= (liftM FunctionType . buildFunctionType params isVariadic attrs node)
     buildPointerType ptrquals _node inner_ty     
         = liftM (\(quals,attrs) -> PtrType inner_ty quals attrs) (tTypeQuals ptrquals)
-    buildArrayType arr_quals sz_opt _node inner_ty
+    buildArrayType arr_quals size _node inner_ty
         = do (quals,attrs) <- tTypeQuals arr_quals
-             arr_sz        <- tArraySize sz_opt
+             arr_sz        <- tArraySize size
              return$ ArrayType inner_ty arr_sz quals attrs
     buildFunctionType params is_variadic attrs _node return_ty 
         = do params' <- mapM tParamDecl params
@@ -306,10 +306,11 @@ tNumType (NumTypeSpec basetype sgn sz iscomplex) =
     intType = return . Right
     floatType ft = return (Left (ft,iscomplex))
 
--- | /FIXME/: AST is incomplete - we do not support C99 variable sized arrays and `static' qualifiers for now
-tArraySize :: (MonadTrav m) => (Maybe CExpr) -> m ArraySize
-tArraySize Nothing      = return IncompleteArray
-tArraySize (Just szexpr) = liftM (FixedSizeArray False) (analyseConstExpr szexpr)
+-- TODO: currently bogus
+tArraySize :: (MonadTrav m) => CArrSize -> m ArraySize
+tArraySize (CNoArrSize False) = return (UnknownArraySize False)
+tArraySize (CNoArrSize True) = return (UnknownArraySize True)
+tArraySize (CArrSize static szexpr) = liftM (ArraySize static) (return szexpr)
 
 tTypeQuals :: (MonadTrav m) => [CTypeQual] -> m (TypeQuals,Attributes)
 tTypeQuals = foldrM go (noTypeQuals,[]) where

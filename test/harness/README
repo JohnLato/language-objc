@@ -1,0 +1,6 @@
+== Description ==
+while `suite' is intended to execute long test runs on existing libraries, `harness' consists of crafted tests documenting bugs and problems.
+
+== Execute ==
+(cd ..; make)
+make

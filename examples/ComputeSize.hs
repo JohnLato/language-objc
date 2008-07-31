@@ -33,7 +33,7 @@ main = do
     checkResult label = either (error . (label++) . show) return
 
 ni :: NodeInfo
-ni = mkUndefNodeInfo
+ni = internalNode
 generateSizeTests :: String -> GlobalDecls -> CTranslUnit
 generateSizeTests pat globals = 
       flip CTranslUnit ni $

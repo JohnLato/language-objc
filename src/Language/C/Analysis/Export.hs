@@ -15,7 +15,9 @@
 -- monad or something like that.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.Export (
-exportCompType,
+exportType, exportTypeDecl, exportTypeSpec,
+exportCompType, exportCompTypeDecl, exportCompTypeRef,
+exportEnumTypeDecl, exportEnumTypeRef,
 )
 where
 import Language.C.Data.Ident
@@ -31,6 +33,14 @@ exportDeclr other_specs ty attrs name =
     (specs,derived) = exportType ty
     (ident,asmname) = case name of (VarName ident asmname_opt) -> (Just ident, asmname_opt)
                                    _ -> (Nothing,Nothing)
+
+exportTypeDecl :: Type -> CDecl
+exportTypeDecl ty = 
+  CDecl declspecs declrs ni
+  where
+  (declspecs,derived) = exportType ty
+  declrs | null derived = []
+         | otherwise = [(Just $ CDeclr Nothing derived Nothing [] ni,Nothing,Nothing)]
 
 exportType :: Type -> ([CDeclSpec],[CDerivedDeclr])
 exportType ty = exportTy [] ty
@@ -84,17 +94,20 @@ exportFloatType qual ty = (case qual of TyComplex -> (CComplexType ni :); _ -> i
       TyFloat   -> [CFloatType ni]
       TyDouble  -> [CDoubleType ni]
       TyLDouble -> [CLongType ni, CDoubleType ni]
+
 exportCompTypeDecl :: CompTypeDecl -> [CTypeSpec]
 exportCompTypeDecl ty = [CSUType (exportComp ty) ni]
     where
     exportComp (CompTypeDecl sue_ref comp_tag node_info) =
         CStruct (if comp_tag == StructTag then CStructTag else CUnionTag)
                 (exportSUERef sue_ref) Nothing [] ni
+
 exportEnumTypeDecl :: EnumTypeDecl -> [CTypeSpec]
 exportEnumTypeDecl ty = [CEnumType (exportEnum ty) ni]
     where
     exportEnum (EnumTypeDecl sue_ref node_info) =
         CEnum (exportSUERef sue_ref) Nothing [] ni
+
 exportCompType :: CompType -> [CTypeSpec]
 exportCompType (CompType sue_ref comp_tag members attrs node_info) = [CSUType comp ni]
     where
@@ -103,6 +116,12 @@ exportCompType (CompType sue_ref comp_tag members attrs node_info) = [CSUType co
                    (Just (map exportMemberDecl members))
                    (exportAttrs attrs)
                    node_info
+exportCompTypeRef :: CompType -> [CTypeSpec]
+exportCompTypeRef (CompType sue_ref com_tag  _ _ node_info) = exportCompTypeDecl (CompTypeDecl sue_ref com_tag node_info) 
+
+exportEnumTypeRef :: EnumType -> [CTypeSpec]
+exportEnumTypeRef (EnumType sue_ref _ _ node_info) = exportEnumTypeDecl (EnumTypeDecl sue_ref node_info)
+                   
 exportSUERef = Just . ident . show -- relies on a the source program not having any $'s in it                   
 
 exportMemberDecl :: MemberDecl -> CDecl
@@ -137,6 +156,6 @@ fromDirectType (DirectType ty _ _) = ty
 fromDirectType (TypeDefType (TypeDefRef _ ref _)) = maybe (error "undefined typedef") fromDirectType ref
 fromDirectType _ = error "fromDirectType"
 ni :: NodeInfo
-ni = mkUndefNodeInfo
+ni = internalNode
 ident :: String -> Ident
 ident = internalIdent

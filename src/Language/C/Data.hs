@@ -23,7 +23,7 @@ module Language.C.Data (
      -- * Syntax tree nodes
      NodeInfo(..),CNode(..),
      fileOfNode,posOfNode,nameOfNode,
-     mkUndefNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
+     internalNode,mkNodeInfoOnlyPos,mkNodeInfo,
      -- * extensible errors
      module Language.C.Data.Error
 )

@@ -11,7 +11,7 @@
 -- source position and unqiue name
 -----------------------------------------------------------------------------
 module Language.C.Data.Node (
-   NodeInfo(..), mkUndefNodeInfo,mkNodeInfoOnlyPos,mkNodeInfo,
+   NodeInfo(..), internalNode,mkNodeInfoOnlyPos,mkNodeInfo,
    CNode(nodeInfo), fileOfNode,
    posOfNode, nameOfNode,
    eqByName, 
@@ -59,8 +59,8 @@ eqByName obj1 obj2  = (nodeInfo obj1) == (nodeInfo obj2)
 -- attribute identifier creation
 -- -----------------------------
 
-mkUndefNodeInfo :: NodeInfo
-mkUndefNodeInfo = OnlyPos nopos
+internalNode :: NodeInfo
+internalNode = OnlyPos nopos
 
 -- | Given only a source position, create a new attribute identifier
 mkNodeInfoOnlyPos :: Position -> NodeInfo

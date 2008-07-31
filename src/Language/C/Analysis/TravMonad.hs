@@ -84,8 +84,9 @@ checkRedef subject new_decl redecl_status =
             redefinition LevelError subject DuplicateDef (nodeInfo new_decl) (nodeInfo old_def)
         KindMismatch old_def -> throwTravError $
             redefinition LevelError subject DiffKindRedecl (nodeInfo new_decl) (nodeInfo old_def)
-        Shadowed old_def     -> warn $ 
-            redefinition LevelWarn subject ShadowedDef (nodeInfo new_decl) (nodeInfo old_def)
+        Shadowed old_def     ->  return ()
+            -- warn $ 
+            -- redefinition LevelWarn subject ShadowedDef (nodeInfo new_decl) (nodeInfo old_def)
         KeepDef _old_def      -> return ()
 
 -- | define the given composite type or enumeration in the current namespace
@@ -119,7 +120,7 @@ checkVarRedef def redecl =
         -- always an error
         KindMismatch old_def -> throwTravError $ redef LevelError old_def DiffKindRedecl
         -- types have to match, it is pointless though to declare something already defined
-        KeepDef old_def -> do when (isDecl def) $ warn (redef LevelWarn old_def DuplicateDef)
+        KeepDef old_def -> do -- when (isDecl def) $ warn (redef LevelWarn old_def DuplicateDef)
                               throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)
         -- redeclaration: old entry has to be a declaration or tentative, type have to match
         Redeclared old_def | isTentativeG old_def -> 
@@ -308,7 +309,7 @@ runTrav state traversal =
     va_list = TypeDef (TypeDef' (internalIdent "__builtin_va_list") 
                                 (DirectType (TyBuiltin TyVaList) noTypeQuals [])
                                 []
-                                (mkUndefNodeInfo))
+                                (internalNode))
 
 runTrav_ :: Trav () a -> Either [CError] (a,[CError])
 runTrav_ t = fmap fst . runTrav () $

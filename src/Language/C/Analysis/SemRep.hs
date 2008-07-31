@@ -41,21 +41,27 @@ import Text.PrettyPrint.HughesPJ
 
 -- tags (namespace sum)
 data TagDef =  CompTag CompType	  --definition
-     	     | EnumTag EnumType      -- enum definition
-                deriving (Typeable, Data {-! CNode !-})
+     	       | EnumTag EnumType      -- enum definition
+               deriving (Typeable, Data {-! CNode !-})
+
 sameTagKind :: TagDef -> TagDef -> Bool
 sameTagKind (CompTag ct1) (CompTag ct2) = compTag ct1 == compTag ct2
 sameTagKind (EnumTag _) (EnumTag _) = True
 sameTagKind _ _ = False
+
 instance HasSUERef TagDef where
     sueRef (CompTag ct) = sueRef ct
     sueRef (EnumTag et) = sueRef et
-    
+
+typeOfTagDef :: TagDef -> TypeName
+typeOfTagDef (CompTag comptype) =  typeOfCompTypeDef comptype
+typeOfTagDef (EnumTag enumtype) =  typeOfEnumTypeDef enumtype
+  
 -- identifiers, typedefs and enumeration constants (namespace sum)
 data IdentDecl = Declaration Decl           -- ^ object or function declaration
-	           | ObjectDef ObjDef           -- ^ object definition
-	           | FunctionDef FunDef         -- ^ function definition
-	           | EnumDef Enumerator SUERef  -- ^ definition of an enumerator
+	             | ObjectDef ObjDef           -- ^ object definition
+	             | FunctionDef FunDef         -- ^ function definition
+	             | EnumDef Enumerator SUERef  -- ^ definition of an enumerator
                | TypeDef TypeDef            -- ^ typedef declaration
                deriving (Typeable, Data)
 
@@ -104,6 +110,9 @@ data GlobalDecls = GlobalDecls {
                      gTypedefs :: Map Ident TypeDef
                    }
 -- some boilerplate for the user
+emptyGlobalDecls :: GlobalDecls
+emptyGlobalDecls = GlobalDecls Map.empty Map.empty Map.empty Map.empty Map.empty
+
 filterGlobalDecls :: (DeclEvent -> Bool) -> GlobalDecls -> GlobalDecls
 filterGlobalDecls decl_filter gmap = GlobalDecls
     {
@@ -113,7 +122,15 @@ filterGlobalDecls decl_filter gmap = GlobalDecls
         gTags  = Map.filter (decl_filter . TagEvent) (gTags gmap),
         gTypedefs = Map.filter (decl_filter . DeclEvent .TypeDef) (gTypedefs gmap)
     }
-    
+mergeGlobalDecls :: GlobalDecls -> GlobalDecls -> GlobalDecls
+mergeGlobalDecls gmap1 gmap2 = GlobalDecls
+    {
+        gDecls = Map.union (gDecls gmap1) (gDecls gmap2),
+        gObjs  = Map.union (gObjs gmap1) (gObjs gmap2),
+        gFuns  = Map.union (gFuns gmap1) (gFuns gmap2),
+        gTags  = Map.union  (gTags gmap1) (gTags gmap2),
+        gTypedefs = Map.union (gTypedefs gmap1) (gTypedefs gmap2)    
+    }
 -- * Events
 
 -- | declaration events
@@ -267,10 +284,6 @@ referencedType (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = Just actual_ty
 referencedType (DirectType _ _ _) = Nothing
 referencedType _ = error "referencedType: failed to resolve type"
 
-directType :: Type -> TypeName
-directType (DirectType typename _ _) = typename
-directType ty = case referencedType ty of Just ty' -> directType ty'
-                                          Nothing  -> error "directType: failed to resolve type"
 
 hasTypeOfExpr :: Type -> Bool
 hasTypeOfExpr (TypeOfExpr _) = True
@@ -379,6 +392,9 @@ data CompType =  CompType SUERef CompTag [MemberDecl] Attributes NodeInfo
 instance HasSUERef  CompType where sueRef  (CompType ref _ _ _ _) = ref
 instance HasCompTag CompType where compTag (CompType _ tag _ _ _) = tag
 
+typeOfCompTypeDef :: CompType -> TypeName
+typeOfCompTypeDef (CompType ref tag _ _ _) = TyComp (CompTypeDecl ref tag internalNode)
+
 -- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CCompType'.
 data CompTag =  StructTag
               | UnionTag
@@ -392,8 +408,11 @@ data EnumType = EnumType SUERef [Enumerator] Attributes NodeInfo
                  -- ^ @EnumDef name enumeration-constants(-value)? attrs node@
                  deriving (Typeable, Data {-! CNode !-} )
 instance HasSUERef EnumType where sueRef  (EnumType ref _ _ _) = ref
-type Enumerator = (Ident,Maybe Expr)
 
+typeOfEnumTypeDef :: EnumType -> TypeName
+typeOfEnumTypeDef (EnumType ref _ _ _) = TyEnum (EnumTypeDecl ref internalNode)
+
+type Enumerator = (Ident,Maybe Expr)
 type Initializer = CInit
 
 -- | C initialization (K&R A8.7, C99 6.7.8)

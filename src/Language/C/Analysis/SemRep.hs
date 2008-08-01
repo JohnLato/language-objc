@@ -40,22 +40,22 @@ import Data.Generics
 import Text.PrettyPrint.HughesPJ
 
 -- tags (namespace sum)
-data TagDef =  CompTag CompType	  --definition
-     	       | EnumTag EnumType      -- enum definition
+data TagDef =  CompDef CompType	  --definition
+     	       | EnumDef EnumType      -- enum definition
                deriving (Typeable, Data {-! CNode !-})
 
 sameTagKind :: TagDef -> TagDef -> Bool
-sameTagKind (CompTag ct1) (CompTag ct2) = compTag ct1 == compTag ct2
-sameTagKind (EnumTag _) (EnumTag _) = True
+sameTagKind (CompDef ct1) (CompDef ct2) = compTag ct1 == compTag ct2
+sameTagKind (EnumDef _) (EnumDef _) = True
 sameTagKind _ _ = False
 
 instance HasSUERef TagDef where
-    sueRef (CompTag ct) = sueRef ct
-    sueRef (EnumTag et) = sueRef et
+    sueRef (CompDef ct) = sueRef ct
+    sueRef (EnumDef et) = sueRef et
 
 typeOfTagDef :: TagDef -> TypeName
-typeOfTagDef (CompTag comptype) =  typeOfCompTypeDef comptype
-typeOfTagDef (EnumTag enumtype) =  typeOfEnumTypeDef enumtype
+typeOfTagDef (CompDef comptype) =  typeOfCompTypeDef comptype
+typeOfTagDef (EnumDef enumtype) =  typeOfEnumTypeDef enumtype
   
 -- identifiers, typedefs and enumeration constants (namespace sum)
 data IdentDecl = Declaration Decl           -- ^ object or function declaration
@@ -373,13 +373,13 @@ class HasSUERef a where
     sueRef  :: a -> SUERef
     
 -- | accessor class : composite type tags (struct or enum)
-class HasCompTag a where
-    compTag :: a -> CompTag
+class HasCompTyKind a where
+    compTag :: a -> CompTyKind
     
-data CompTypeDecl = CompTypeDecl SUERef CompTag NodeInfo
+data CompTypeDecl = CompTypeDecl SUERef CompTyKind NodeInfo
     deriving (Typeable, Data {-! CNode !-})
 instance HasSUERef  CompTypeDecl where sueRef  (CompTypeDecl ref _ _) = ref
-instance HasCompTag CompTypeDecl where compTag (CompTypeDecl _ tag _)  = tag
+instance HasCompTyKind CompTypeDecl where compTag (CompTypeDecl _ tag _)  = tag
 
 data EnumTypeDecl = EnumTypeDecl SUERef NodeInfo
     deriving (Typeable, Data {-! CNode !-})
@@ -387,19 +387,19 @@ instance HasSUERef  EnumTypeDecl where sueRef  (EnumTypeDecl ref _) = ref
               
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
-data CompType =  CompType SUERef CompTag [MemberDecl] Attributes NodeInfo
+data CompType =  CompType SUERef CompTyKind [MemberDecl] Attributes NodeInfo
                  deriving (Typeable, Data {-! CNode !-} )
 instance HasSUERef  CompType where sueRef  (CompType ref _ _ _ _) = ref
-instance HasCompTag CompType where compTag (CompType _ tag _ _ _) = tag
+instance HasCompTyKind CompType where compTag (CompType _ tag _ _ _) = tag
 
 typeOfCompTypeDef :: CompType -> TypeName
 typeOfCompTypeDef (CompType ref tag _ _ _) = TyComp (CompTypeDecl ref tag internalNode)
 
 -- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CCompType'.
-data CompTag =  StructTag
+data CompTyKind =  StructTag
               | UnionTag
     deriving (Eq,Ord,Typeable,Data)
-instance Show CompTag where
+instance Show CompTyKind where
     show StructTag = "struct"
     show UnionTag  = "union"
 -- | C enumeration specifier (K&R A8.4, C99 6.7.2.2)
@@ -493,8 +493,8 @@ type Attributes = [Attr]
 -- CHECKSUM: 1153782254
 
 instance CNode TagDef
-    where nodeInfo (CompTag d) = nodeInfo d
-          nodeInfo (EnumTag d) = nodeInfo d
+    where nodeInfo (CompTyKind d) = nodeInfo d
+          nodeInfo (EnumDef d) = nodeInfo d
 instance Pos TagDef
     where posOf x = posOfNode (nodeInfo x)
 

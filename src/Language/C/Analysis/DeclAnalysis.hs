@@ -232,14 +232,14 @@ tCompTypeDecl handle_def (CStruct tag ident_opt member_decls_opt attrs node_info
     when (handle_def) $ do
         maybeM member_decls_opt $ \decls -> 
                 tCompType sue_ref tag' decls (attrs') node_info   
-            >>= (handleTagDef.CompTag)                                      -- handle comp type definition 
+            >>= (handleTagDef.CompDef)                                      -- handle comp type definition
     return decl
 
-tTag :: CStructTag -> CompTag
+tTag :: CStructTag -> CompTyKind
 tTag CStructTag = StructTag
 tTag CUnionTag  = UnionTag
 
-tCompType :: (MonadTrav m) => SUERef -> CompTag -> [CDecl] -> Attributes -> NodeInfo -> m CompType
+tCompType :: (MonadTrav m) => SUERef -> CompTyKind -> [CDecl] -> Attributes -> NodeInfo -> m CompType
 tCompType tag sue_ref member_decls attrs node
     = return (CompType tag sue_ref) `ap` 
         (concatMapM tMemberDecls member_decls) `ap` 
@@ -262,7 +262,7 @@ tEnumTypeDecl handle_def (CEnum ident_opt enumerators_opt attrs node_info)
              when handle_def $ do
                  maybeM enumerators_opt $ \enumerators -> 
                          tEnumType sue_ref enumerators attrs' node_info
-                    >>=  (handleTagDef . EnumTag)
+                    >>=  (handleTagDef . EnumDef)
              return decl
              
 tEnumType :: (MonadTrav m) => SUERef -> [(Ident, Maybe CExpr)] -> Attributes -> NodeInfo -> m EnumType

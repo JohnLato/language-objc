@@ -69,8 +69,8 @@ instance Pretty SUERef where
     pretty (AnonymousType name)   = text $ "$sue_" ++ show (nameId name)
     pretty (NamedType ident)      = pretty ident
 instance Pretty TagDef where
-    pretty (CompTag compty) = pretty compty
-    pretty (EnumTag enumty) = pretty enumty
+    pretty (CompTyKind compty) = pretty compty
+    pretty (EnumDef enumty) = pretty enumty
 instance Pretty IdentDecl where
     pretty (Declaration decl) = pretty decl
     pretty (ObjectDef odef) = pretty odef

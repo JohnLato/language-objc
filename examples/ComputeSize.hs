@@ -48,8 +48,8 @@ generateSizeTests pat globals =
     comps_of_interest  = filterDefs pat comps
     referenced_comps   = computeRefClosure comps comps_of_interest
     reverse_typedefs   = Map.fromList . mapMaybe fromCompTyDef . Map.elems . filterDefs pat $ gTypedefs globals
-    fromComp (CompTag struct_union) = Just struct_union
-    fromComp (EnumTag _) = Nothing
+    fromComp (CompDef struct_union) = Just struct_union
+    fromComp (EnumDef _) = Nothing
     fromCompTyDef (TypeDef' name ty _ _) =
       case ty of 
         (DirectType (TyComp (CompTypeDecl ref tag _)) _ _) -> Just (ref,name)

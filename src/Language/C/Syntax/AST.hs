@@ -280,13 +280,17 @@ data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or type
                  deriving (Data,Typeable {-! CNode !-})
 
 -- | seperate the declaration specifiers 
--- Note that inline isn't actually a type qualifier, but a function specifier
-partitionDeclSpecs :: [CDeclSpec] -> ([CStorageSpec], [CTypeQual], [CTypeSpec], Bool)
-partitionDeclSpecs = foldr deals ([],[],[],False) where
-    deals (CTypeQual (CInlineQual _)) (sts,tqs,tss,_) = (sts,tqs,tss,True)
-    deals (CStorageSpec sp) (sts,tqs,tss,inline)  = (sp:sts,tqs,tss,inline) 
-    deals (CTypeQual tq) (sts,tqs,tss,inline)     = (sts,tq:tqs,tss,inline) 
-    deals (CTypeSpec ts) (sts,tqs,tss,inline)     = (sts,tqs,ts:tss,inline) 
+--
+-- Note that inline isn't actually a type qualifier, but a function specifier.
+-- @__attribute__@s qualify declarations or declarators, and are therefore
+-- seperated as well.
+partitionDeclSpecs :: [CDeclSpec] -> ([CStorageSpec], [CAttr], [CTypeQual], [CTypeSpec], Bool)
+partitionDeclSpecs = foldr deals ([],[],[],[],False) where
+    deals (CTypeQual (CInlineQual _)) (sts,ats,tqs,tss,_) = (sts,ats,tqs,tss,True)
+    deals (CStorageSpec sp) (sts,ats,tqs,tss,inline)  = (sp:sts,ats,tqs,tss,inline) 
+    deals (CTypeQual (CAttrQual attr)) (sts,ats,tqs,tss,inline)  = (sts,attr:ats,tqs,tss,inline) 
+    deals (CTypeQual tq) (sts,ats,tqs,tss,inline)     = (sts,ats,tq:tqs,tss,inline) 
+    deals (CTypeSpec ts) (sts,ats,tqs,tss,inline)     = (sts,ats,tqs,ts:tss,inline) 
 
 -- | C storage class specifier (and typedefs) (K&R A8.1, C99 6.7.1)
 --
@@ -335,10 +339,10 @@ isSUEDef (CSUType (CStruct _ _ (Just _) _ _) _) = True
 isSUEDef (CEnumType (CEnum _ (Just _) _ _) _) = True
 isSUEDef _ = False
 
--- | C type qualifiers (K&R A8.2, C99 6.7.3) and function specifiers (C99 6.7.4)
+-- | C type qualifiers (K&R A8.2, C99 6.7.3), function specifiers (C99 6.7.4), and attributes.
 --
 -- @const@, @volatile@ and @restrict@ type qualifiers and @inline@ function specifier.
--- Additionally, @__attribute__@ annotations for declarators and types.
+-- Additionally, @__attribute__@ annotations for declarations and declarators.
 data CTypeQual = CConstQual NodeInfo
                | CVolatQual NodeInfo
                | CRestrQual NodeInfo

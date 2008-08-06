@@ -37,12 +37,18 @@ instance Ord NodeInfo where
   _               <= _               = 
     error "Attributes: Attempt to compare `OnlyPos' attributes!"
 
+instance Pos NodeInfo where
+  posOf (OnlyPos pos) = pos
+  posOf (NodeInfo pos _) = pos
+
 -- | a class for convenient access to the attributes of an attributed object
 class CNode a where
   nodeInfo :: a -> NodeInfo
+instance CNode NodeInfo where
+  nodeInfo = id
 instance (CNode a, CNode b) => CNode (Either a b) where
   nodeInfo = either nodeInfo nodeInfo
-  
+
 nameOfNode :: NodeInfo -> Maybe Name
 nameOfNode (OnlyPos _) = Nothing
 nameOfNode (NodeInfo _ name) = Just name

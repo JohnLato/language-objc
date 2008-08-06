@@ -26,7 +26,7 @@ module Language.C.Analysis.TravMonad (
     enterFunctionScope,leaveFunctionScope,
     enterBlockScope,leaveBlockScope,
     -- * symbol table lookup (delegate)
-    lookupTypeDef, lookupVarDecl, lookupObject, lookupFun,
+    lookupTypedef, lookupObject, 
     -- * symbol table modification
     createSUERef,
     -- * additional error handling facilities
@@ -221,13 +221,13 @@ leaveBlockScope = updDefTable (ST.leaveBlockScope)
 -- the 'wrong kind of object' is an internal error here,
 -- because the parser should distinguish typedefs and other
 -- objects
-lookupTypeDef :: (MonadTrav m) => Ident -> m Type
-lookupTypeDef ident =
+lookupTypedef :: (MonadTrav m) => Ident -> m Type
+lookupTypedef ident =
     getDefTable >>= \symt ->
     case lookupIdent ident symt of
-        Nothing                                 -> astError (nodeInfo ident) "unbound typedef"
-        Just (TypeDef (TypeDef' _ident ty _ _)) -> return ty
-        Just d                                  -> astError (nodeInfo ident) (wrongKindErrMsg d)
+        Nothing                             -> astError (nodeInfo ident) "unbound typedef"
+        Just (Left (Typedef _ident ty _ _)) -> return ty
+        Just (Right d)                      -> astError (nodeInfo ident) (wrongKindErrMsg d)
     where
     wrongKindErrMsg d = "wrong kind of object: excepcted typedef but found: "++(objKindDescr d)
 

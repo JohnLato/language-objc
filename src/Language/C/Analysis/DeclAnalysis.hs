@@ -112,8 +112,8 @@ analyseVarDecl handle_sue_def declspecs (CDeclr name_opt derived_declrs asmname_
 
 
 -- return @True@ if the declarations is a type def
-isTypeDef :: [CDeclSpec] -> Bool
-isTypeDef declspecs = not $ null [ n | (CStorageSpec (CTypedef n)) <- declspecs ]
+isTypedef :: [CDeclSpec] -> Bool
+isTypedef declspecs = not $ null [ n | (CStorageSpec (CTypedef n)) <- declspecs ]
 
 
 -- | analysis of constant expressions
@@ -193,7 +193,7 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
                     Right intType  -> TyIntegral intType
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
-        TSNonBasic (CTypeDef name t_node)    -> liftM TypeDefType $ typeDefRef t_node name
+        TSNonBasic (CTypeDef name t_node)    -> liftM TypedefType $ typedefRef t_node name
         TSNonBasic (CTypeOfExpr expr _tnode) -> liftM (TypeOfExpr) (analyseConstExpr expr)
         TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
         TSNonBasic _ -> astError node "Unexpected typespec" 
@@ -216,8 +216,8 @@ mergeTypeAttributes node_info quals attrs typ =
     where
     merge quals' attrs' tyf = return $ tyf (mergeTypeQuals quals quals') (attrs' ++ attrs)
 
-typeDefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypeDefRef
-typeDefRef t_node name = lookupTypeDef name >>= \ty -> return (TypeDefRef name (Just ty) t_node)
+typedefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypedefRef
+typedefRef t_node name = lookupTypedef name >>= \ty -> return (TypedefRef name (Just ty) t_node)
   
 -- extract a struct\/union
 -- we emit @declStructUnion@ and @defStructUnion@ actions

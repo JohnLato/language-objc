@@ -184,7 +184,7 @@ instance Pretty CDecl where
             -- possible hint for AST improvement - (declr, initializer, expr, attrs)
             -- currently there are no sensible attributes for unnamed bitfields though
             p (declr, initializer, expr) =
-                maybeP (prettyDeclr False 10) declr <+>
+                maybeP (prettyDeclr False 0) declr <+>
                 maybeP ((text ":" <+>) . pretty) expr <+>
                 attrlistP (getAttrs declr) <+>
                 maybeP ((text "=" <+>) . pretty) initializer

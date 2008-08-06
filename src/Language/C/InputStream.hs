@@ -55,4 +55,5 @@ readInputStream = readFile
 inputStreamToString = id
 inputStreamFromString = id
 countLines = length . lines
-#endif    
+#endif
+

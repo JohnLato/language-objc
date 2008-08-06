@@ -228,3 +228,4 @@ lookupIdentInner ident deftbl = lookupInnermostScope (identDecls deftbl) ident
 -- | lookup an identifier in the innermost scope
 lookupTagInner :: SUERef -> DefTable -> Maybe TagDef
 lookupTagInner sue_ref deftbl = lookupInnermostScope (tagDecls deftbl) sue_ref
+

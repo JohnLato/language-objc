@@ -91,3 +91,4 @@ redefinition lvl ctx kind new old = RedefError lvl (RedefInfo ctx kind new old)
 -- ~~~~~~~~~
 mkErrInfo :: ErrorLevel -> String -> NodeInfo -> ErrorInfo
 mkErrInfo lvl msg node = ErrorInfo lvl (posOfNode node) (lines msg)
+

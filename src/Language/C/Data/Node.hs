@@ -70,3 +70,4 @@ mkNodeInfoOnlyPos pos  = OnlyPos pos
 -- identifier
 mkNodeInfo :: Position -> Name -> NodeInfo
 mkNodeInfo pos name  = NodeInfo pos name
+

@@ -31,3 +31,4 @@ namesStartingFrom k = [Name k..]
 type NameMap = IntMap
 emptyNameMap :: NameMap v
 emptyNameMap = IntMap.empty
+

@@ -107,7 +107,7 @@ data GlobalDecls = GlobalDecls {
                      gObjs     :: Map Ident ObjDef,
                      gFuns     :: Map Ident FunDef,
                      gTags     :: Map SUERef TagDef,
-                     gTypedefs :: Map Ident TypeDef
+                     gTypedefs :: Map Ident Typedef
                    }
 -- some boilerplate for the user
 emptyGlobalDecls :: GlobalDecls
@@ -253,8 +253,11 @@ hasLinkage _ = False
 -- * types
 
 -- | Typedefs
-data TypeDef = TypeDef' Ident Type Attributes NodeInfo
+data Typedef = Typedef Ident Type Attributes NodeInfo
                deriving (Typeable, Data {-! CNode !-} )
+
+identOfTypedef :: Typedef -> Ident
+identOfTypedef (Typedef ide _ _ _) = ide
 
 -- | types of c objects
 data Type =
@@ -266,7 +269,7 @@ data Type =
      -- ^ array type
      | FunctionType FunType
      -- ^ function type
-     | TypeDefType TypeDefRef
+     | TypedefType TypedefRef
      -- ^ a defined type
      | TypeOfExpr Expr
      -- ^ (GNU) typeof (/broken/ and should be remove, because we do not have expression type analysis)
@@ -275,13 +278,17 @@ data Type =
 data FunType = FunType Type [ParamDecl] Bool Attributes 
                deriving (Typeable, Data)
 
+derefTypedef :: Type -> Type
+derefTypedef (TypedefType (TypedefRef _ (Just actual_ty) _)) = derefTypedef actual_ty
+derefTypedef ty = ty
+
 -- may not be called on undefined typedefs or typeof(expr)
 referencedType :: Type -> Maybe Type
 referencedType (PtrType ty _ _) = Just ty
 referencedType (FunctionType (FunType ty _ _ _)) = Just ty
 referencedType (ArrayType ty _ _ _) = Just ty
-referencedType (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = Just actual_ty
-referencedType (DirectType _ _ _) = Nothing
+referencedType (TypedefType (TypedefRef _ (Just actual_ty) _)) = Just actual_ty
+referencedType (DirectType _ _) = Nothing
 referencedType _ = error "referencedType: failed to resolve type"
 
 
@@ -292,8 +299,8 @@ hasTypeOfExpr ty = maybe False hasTypeOfExpr (referencedType ty)
 -- | note that this cannot be answered in the presence of typedefs and, even worse, typeOfExpr types
 isFunctionType :: Type -> Bool
 isFunctionType ty = 
-    case ty of  TypeDefType (TypeDefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
-                TypeDefType _ -> error "isFunctionType: unresolved typedef"
+    case ty of  TypedefType (TypedefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
+                TypedefType _ -> error "isFunctionType: unresolved typedef"
                 TypeOfExpr _  -> error "isFunctionType: typeof(expr)"
                 FunctionType _ -> True
                 _ -> False
@@ -320,7 +327,7 @@ data BuiltinType = TyVaList
 
 -- | typdef references
 -- If the actual type is known, it is attached for convenience
-data TypeDefRef = TypeDefRef Ident (Maybe Type) NodeInfo
+data TypedefRef = TypedefRef Ident (Maybe Type) NodeInfo
                deriving (Typeable, Data {-! CNode !-})
 
 -- | qualifiers for floating types (gnu complex extensions, other gnu extensions may follow)
@@ -501,6 +508,7 @@ instance Pos TagDef
 instance CNode DeclEvent
     where nodeInfo (TagEvent d) = nodeInfo d
           nodeInfo (DeclEvent d) = nodeInfo d
+          nodeInfo (TypedefEvent d) = nodeInfo d
           nodeInfo (AsmEvent d) = nodeInfo d
 instance Pos DeclEvent
     where posOf x = posOfNode (nodeInfo x)
@@ -531,14 +539,14 @@ instance CNode MemberDecl
 instance Pos MemberDecl
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode TypeDef
-    where nodeInfo (TypeDef' _ _ _ nodeinfo) = nodeinfo
-instance Pos TypeDef
+instance CNode Typedef
+    where nodeInfo (Typedef _ _ _ nodeinfo) = nodeinfo
+instance Pos Typedef
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode TypeDefRef
-    where nodeInfo (TypeDefRef _ _ nodeinfo) = nodeinfo
-instance Pos TypeDefRef
+instance CNode TypedefRef
+    where nodeInfo (TypedefRef _ _ nodeinfo) = nodeinfo
+instance Pos TypedefRef
     where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CompTypeDecl

@@ -27,6 +27,18 @@ data CAssignOp = CAssignOp
                | CXorAssOp
                | COrAssOp
                deriving (Eq, Ord,Data,Typeable)
+instance Show CAssignOp where
+  show CAssignOp = "="
+  show CMulAssOp = "*="
+  show CDivAssOp = "/="
+  show CRmdAssOp = "%="
+  show CAddAssOp = "+="
+  show CSubAssOp = "-="
+  show CShlAssOp = "<<="
+  show CShrAssOp = ">>="
+  show CAndAssOp = "&="
+  show CXorAssOp = "^="
+  show COrAssOp  = "|="
 
 -- | C binary operators (K&R A7.6-15)
 --
@@ -49,6 +61,25 @@ data CBinaryOp = CMulOp
                | CLndOp                 -- ^ logical and
                | CLorOp                 -- ^ logical or
                deriving (Eq,Ord,Data,Typeable)
+instance Show CBinaryOp where
+  show CMulOp = "*"
+  show CDivOp = "/"
+  show CRmdOp = "%"
+  show CAddOp = "+"
+  show CSubOp = "-"
+  show CShlOp = "<<"
+  show CShrOp = ">>"
+  show CLeOp  = "<"
+  show CGrOp  = ">"
+  show CLeqOp = "<="
+  show CGeqOp = ">="
+  show CEqOp  = "=="
+  show CNeqOp = "!="
+  show CAndOp = "&"
+  show CXorOp = "^"
+  show COrOp  = "|"
+  show CLndOp = "&&"
+  show CLorOp = "||"
 
 -- | C unary operator (K&R A7.3-4)
 --
@@ -63,3 +94,14 @@ data CUnaryOp = CPreIncOp               -- ^ prefix increment operator
               | CCompOp                 -- ^ one's complement
               | CNegOp                  -- ^ logical negation
               deriving (Eq,Ord,Data,Typeable)
+instance Show CUnaryOp where
+  show CPreIncOp  = "++"
+  show CPreDecOp  = "--"
+  show CPostIncOp = "++"
+  show CPostDecOp = "--"
+  show CAdrOp     = "&"
+  show CIndOp     = "*"
+  show CPlusOp    = "+"
+  show CMinOp     = "-"
+  show CCompOp    = "~"
+  show CNegOp     = "!"

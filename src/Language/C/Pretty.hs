@@ -424,49 +424,13 @@ instance Pretty CBuiltin where
         (parens $ pretty ty1 <> comma <+> pretty ty2)
 
 instance Pretty CAssignOp where
-    pretty CAssignOp = text "="
-    pretty CMulAssOp = text "*="
-    pretty CDivAssOp = text "/="
-    pretty CRmdAssOp = text "%="
-    pretty CAddAssOp = text "+="
-    pretty CSubAssOp = text "-="
-    pretty CShlAssOp = text "<<="
-    pretty CShrAssOp = text ">>="
-    pretty CAndAssOp = text "&="
-    pretty CXorAssOp = text "^="
-    pretty COrAssOp  = text "|="
+    pretty = text . show
 
 instance Pretty CBinaryOp where
-    pretty CMulOp = text "*"
-    pretty CDivOp = text "/"
-    pretty CRmdOp = text "%"
-    pretty CAddOp = text "+"
-    pretty CSubOp = text "-"
-    pretty CShlOp = text "<<"
-    pretty CShrOp = text ">>"
-    pretty CLeOp  = text "<"
-    pretty CGrOp  = text ">"
-    pretty CLeqOp = text "<="
-    pretty CGeqOp = text ">="
-    pretty CEqOp  = text "=="
-    pretty CNeqOp = text "!="
-    pretty CAndOp = text "&"
-    pretty CXorOp = text "^"
-    pretty COrOp  = text "|"
-    pretty CLndOp = text "&&"
-    pretty CLorOp = text "||"
+    pretty = text . show
 
 instance Pretty CUnaryOp where
-    pretty CPreIncOp  = text "++"
-    pretty CPreDecOp  = text "--"
-    pretty CPostIncOp = text "++"
-    pretty CPostDecOp = text "--"
-    pretty CAdrOp     = text "&"
-    pretty CIndOp     = text "*"
-    pretty CPlusOp    = text "+"
-    pretty CMinOp     = text "-"
-    pretty CCompOp    = text "~"
-    pretty CNegOp     = text "!"
+    pretty = text . show
 
 instance Pretty CConst where
     pretty (CIntConst   int_const _) = text (show int_const)

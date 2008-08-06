@@ -19,9 +19,9 @@ module Language.C.Data.Error (
     ErrorLevel(..), isHardError,
     Error(..), errorPos, errorLevel, errorMsgs,
     CError(..), 
-    ErrorInfo(..),showError,showErrorInfo,
+    ErrorInfo(..),showError,showErrorInfo,mkErrorInfo,
     -- * default errors
-    UnsupportedFeature, unsupported, unsupported_,
+    UnsupportedFeature, unsupportedFeature, unsupportedFeature_,
     UserError, userErr,
     -- * internal errors
     internalErr,
@@ -29,7 +29,7 @@ module Language.C.Data.Error (
 where
 import Data.Typeable
 import Data.Generics
-
+import Language.C.Data.Node
 import Language.C.Data.Position
 
 -- | Error levels (priorities)
@@ -49,11 +49,15 @@ isHardError = ( > LevelWarn) . errorLevel
 
 -- | information attached to every error in Language.C
 data ErrorInfo = ErrorInfo ErrorLevel Position [String] deriving Typeable
+
 -- to faciliate newtype deriving
 instance Show ErrorInfo where show = showErrorInfo "error"
 instance Error ErrorInfo where
     errorInfo = id
     changeErrorLevel (ErrorInfo _ pos msgs) lvl' = ErrorInfo lvl' pos msgs
+mkErrorInfo :: ErrorLevel -> String -> NodeInfo -> ErrorInfo
+mkErrorInfo lvl msg node = ErrorInfo lvl (posOfNode node) (lines msg)
+    
 -- | `superclass' of all errors
 data CError 
     = forall err. (Error err) => CError err 
@@ -94,10 +98,10 @@ data UnsupportedFeature = UnsupportedFeature String Position deriving Typeable
 instance Error UnsupportedFeature where
     errorInfo (UnsupportedFeature msg pos) = ErrorInfo LevelError pos (lines msg)
 instance Show UnsupportedFeature where show = showError "Unsupported Feature"
-unsupported :: String -> Position -> UnsupportedFeature
-unsupported = UnsupportedFeature
-unsupported_ :: String -> UnsupportedFeature
-unsupported_ msg = UnsupportedFeature msg internalPos
+unsupportedFeature :: (Pos a) => String -> a -> UnsupportedFeature
+unsupportedFeature msg a = UnsupportedFeature msg (posOf a)
+unsupportedFeature_ :: String -> UnsupportedFeature
+unsupportedFeature_ msg = UnsupportedFeature msg internalPos
 
 -- | unspecified error raised by the user (in case the user does not want to define)
 --   her own error types.

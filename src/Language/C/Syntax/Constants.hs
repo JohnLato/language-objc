@@ -15,7 +15,7 @@ module Language.C.Syntax.Constants (
   escapeChar, unescapeChar, unescapeString,
   Flags(..), noFlags, setFlag, clearFlag, testFlag,
   -- * C char constants (and multi-character character constants)
-  cchar, cchar_w, cchars, CChar(..), getCChar, isWideChar, showCharConst,
+  cchar, cchar_w, cchars, CChar(..), getCChar, getCCharAsInt, isWideChar, showCharConst,
   -- * C integral constants
   CIntFlag(..), cinteger, CInteger(..), getCInteger,readCInteger,
   -- * C floating point constants
@@ -56,6 +56,12 @@ _showWideFlag flag = if flag then showString "L" else id
 getCChar :: CChar -> [Char]
 getCChar (CChar  c _)   = [c]
 getCChar (CChars  cs _) = cs
+
+-- | get integer value of a C char constant 
+-- undefined result for multi-char char constants
+getCCharAsInt :: CChar -> Integer
+getCCharAsInt (CChar c _) = fromIntegral (fromEnum c)
+getCCharAsInt (CChars _cs _) = error "integer value of multi-character character constants is implementation defined"
 
 -- | return @true@ if the character constant is /wide/.
 isWideChar :: CChar -> Bool

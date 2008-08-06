@@ -27,7 +27,9 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Data.Ident (
-    Ident(..), SUERef(..), mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
+    Ident(..), 
+    SUERef(..), isAnonymousType,
+    mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
 where
 
 import Data.Char
@@ -42,6 +44,10 @@ data SUERef =  AnonymousType Name
 instance Show SUERef where
     show (AnonymousType name) = "$" ++ show (nameId name)
     show (NamedType ident) = identToString ident
+
+isAnonymousType :: SUERef -> Bool
+isAnonymousType (AnonymousType _) = True
+isAnonymousType _ = False
 
 -- simple identifier representation (EXPORTED)
 --

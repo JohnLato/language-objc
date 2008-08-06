@@ -11,7 +11,7 @@
 -----------------------------------------------------------------------------
 module Language.C.Data (
      -- * Identifiers
-     SUERef(..),
+     SUERef(..), isAnonymousType,
      Ident,mkIdent, identToString, internalIdent, isInternalIdent, builtinIdent,
      -- * Unqiue names
      Name(..),namesStartingFrom,

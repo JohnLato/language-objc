@@ -18,7 +18,7 @@ module Language.C.Analysis.TravMonad (
     -- * AST traversal monad
     MonadTrav(..),
     -- * handling declarations
-    handleTagDef,handleEnumeratorDef,handleTypeDef,
+    handleTagDef,handleEnumeratorDef,handleTypedef,
     handleFunDef,handleVarDecl,handleObjectDef,
     handleAsmBlock,
     -- * symbol table scope modification
@@ -84,7 +84,7 @@ checkRedef subject new_decl redecl_status =
             redefinition LevelError subject DuplicateDef (nodeInfo new_decl) (nodeInfo old_def)
         KindMismatch old_def -> throwTravError $
             redefinition LevelError subject DiffKindRedecl (nodeInfo new_decl) (nodeInfo old_def)
-        Shadowed old_def     ->  return ()
+        Shadowed _old_def     ->  return ()
             -- warn $ 
             -- redefinition LevelWarn subject ShadowedDef (nodeInfo new_decl) (nodeInfo old_def)
         KeepDef _old_def      -> return ()
@@ -97,46 +97,55 @@ handleTagDef def = do
     checkRedef (show $ sueRef def) def redecl
     handleDecl (TagEvent def)
 
-handleEnumeratorDef :: (MonadTrav m) => Enumerator -> SUERef -> m ()
-handleEnumeratorDef enumerator@(ident,_) enum_ref = do
-    redecl <- withDefTable $ defineScopedIdent ident (EnumDef enumerator enum_ref)
+handleEnumeratorDef :: (MonadTrav m) => Enumerator -> EnumType -> m ()
+handleEnumeratorDef enumerator@(ident,_) enum = do
+    redecl <- withDefTable $ defineScopedIdent ident (EnumeratorDef enumerator enum)
     checkRedef (show ident) ident redecl
     return ()
     
-handleTypeDef :: (MonadTrav m) => TypeDef -> m ()
-handleTypeDef typedef@(TypeDef' ident _ _ _) = do
-    let def = TypeDef typedef
-    redecl <- withDefTable $ defineScopedIdent ident def
-    checkRedef (show ident) def redecl
-    handleDecl (DeclEvent def)
+handleTypedef :: (MonadTrav m) => Typedef -> m ()
+handleTypedef typedef@(Typedef ident _ _ _) = do
+    redecl <- withDefTable $ defineTypedef ident typedef
+    checkRedef (show ident) typedef redecl
+    handleDecl (TypedefEvent typedef)
     return ()
     
 handleAsmBlock :: (MonadTrav m) => AsmBlock -> m ()
 handleAsmBlock asm = handleDecl (AsmEvent asm)
 
-checkVarRedef :: (MonadTrav m) => IdentDecl -> (DeclarationStatus IdentDecl) -> m ()
+redefErr :: (MonadTrav m, CNode old, CNode new) => Ident -> ErrorLevel -> new -> old -> RedefKind -> m ()
+redefErr name lvl new old kind =
+  throwTravError $ redefinition lvl (show name) kind (nodeInfo new) (nodeInfo old)
+
+
+checkIdentTyRedef :: (MonadTrav m) => IdentTyDecl -> (DeclarationStatus IdentTyDecl) -> m ()
+checkIdentTyRedef (Right decl) status = checkVarRedef decl status
+checkIdentTyRedef (Left tydef) (KindMismatch old_def) =
+  redefErr (identOfTypedef tydef) LevelError tydef old_def DiffKindRedecl
+checkIdentTyRedef (Left tydef) (Redeclared old_def) =
+  redefErr (identOfTypedef tydef) LevelError tydef old_def DuplicateDef
+checkIdentTyRedef (Left _tydef) _ = return ()
+
+checkVarRedef :: (MonadTrav m) => IdentDecl -> (DeclarationStatus IdentTyDecl) -> m ()
 checkVarRedef def redecl =
-    case redecl of 
+    case redecl of
         -- always an error
-        KindMismatch old_def -> throwTravError $ redef LevelError old_def DiffKindRedecl
-        -- types have to match, it is pointless though to declare something already defined
-        KeepDef old_def -> do -- when (isDecl def) $ warn (redef LevelWarn old_def DuplicateDef)
-                              throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)
+        KindMismatch old_def -> redefVarErr old_def DiffKindRedecl
+        -- types have to match
+        KeepDef (Right old_def) -> throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)
         -- redeclaration: old entry has to be a declaration or tentative, type have to match
-        Redeclared old_def | isTentativeG old_def -> 
-                             throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)                                   
-                           | otherwise -> throwTravError $ redef LevelError old_def DuplicateDef
+        Redeclared (Right old_def) | isTentativeG old_def ->
+                                      throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)
+                                   | otherwise -> redefVarErr old_def DuplicateDef
         -- NewDecl/Shadowed is ok
         _ -> return ()
     where
-    redef lvl old_def kind = redefinition lvl (show$ identOfDecl def) kind (nodeInfo def) (nodeInfo old_def)
+    redefVarErr old_def kind = redefErr (identOfDecl def) LevelError def old_def kind
     new_ty = getTy def
     getTy (Declaration vd) = declType vd
     getTy (ObjectDef od) = declType od
     getTy (FunctionDef fd) = declType fd
-    getTy _ = error "checkVarRedef: not an object or function"
-    isDecl (Declaration _) = True
-    isDecl _ = False
+    getTy (EnumeratorDef _ed enum) = DirectType (typeOfEnumDef enum) noTypeQuals
     isTentativeG (Declaration _) = True
     isTentativeG (ObjectDef od)  = isTentative od
     isTentativeG _               = False
@@ -231,41 +240,27 @@ lookupTypedef ident =
     where
     wrongKindErrMsg d = "wrong kind of object: excepcted typedef but found: "++(objKindDescr d)
 
--- | lookup an arbitrary variable declaration (delegates to symboltable)
-lookupVarDecl :: (MonadTrav m) => Ident -> m (Maybe IdentDecl)
-lookupVarDecl ident = liftM (lookupIdent ident) getDefTable
 
--- | lookup an object declaration or definition
-lookupObject :: (MonadTrav m) => Ident -> m (Maybe (Either VarDecl ObjDef))
+-- | lookup an object, function or enumerator
+lookupObject :: (MonadTrav m) => Ident -> m (Maybe IdentDecl)
 lookupObject ident = do
-    old_decl <- lookupVarDecl ident
+    old_decl <- liftM (lookupIdent ident) getDefTable
     mapMaybeM old_decl $ \obj ->
-        let noFunDecl = not . isFunctionType . declType in
         case obj of
-           Declaration (Decl vardecl _) | noFunDecl vardecl -> return (Left vardecl)
-           ObjectDef objdef                                 -> return (Right objdef)
-           bad_obj -> astError (nodeInfo ident) (mismatchErr "lookupObject" "an object" bad_obj) 
+        Right objdef -> return objdef
+        Left _tydef  -> astError (nodeInfo ident) (mismatchErr "lookupObject" "an object" "a typedef")
 
-lookupFun :: (MonadTrav m) => Ident -> m (Maybe (Either VarDecl FunDef))
-lookupFun ident = do
-    old_decl <- lookupVarDecl ident
-    mapMaybeM old_decl $ \obj ->
-        let isFunDecl = isFunctionType . declType in
-        case obj of
-           Declaration (Decl vardecl _) | isFunDecl vardecl -> return (Left vardecl)
-           FunctionDef fundef                               -> return (Right fundef)
-           bad_obj -> astError (nodeInfo ident) (mismatchErr "lookupFun" "a function" bad_obj)
 
-mismatchErr :: String -> String -> IdentDecl -> String
-mismatchErr ctx expect found = ctx ++ ": Expected " ++ expect ++ ", but found: " ++ objKindDescr found
+mismatchErr :: String -> String -> String -> String
+mismatchErr ctx expect found = ctx ++ ": Expected " ++ expect ++ ", but found: " ++ found
             
 -- * inserting declarations
 
 -- | create a reference to a struct\/union\/enum
 --
--- /TODO/ This currently depends on the fact the structs are tagged with unique names
--- we rather would want to use the name generation of TravMonad, but this requires
--- some restructuring of the analysis code
+-- This currently depends on the fact the structs are tagged with unique names.
+-- We could use the name generation of TravMonad as well, which might be the better
+-- choice when dealing with autogenerated code.
 createSUERef :: (MonadTrav m) => NodeInfo -> Maybe Ident -> m SUERef
 createSUERef _node_info (Just ident) = return$ NamedType ident
 createSUERef node_info Nothing | (Just name) <- nameOfNode node_info = return $ AnonymousType name
@@ -304,12 +299,12 @@ runTrav state traversal =
         Right (v, ts) | hadHardErrors (travErrors ts) -> Left (travErrors ts)
                       | otherwise                     -> Right (v,ts)
     where
-    action = do withDefTable $ defineScopedIdent (identOfDecl va_list) va_list
+    action = do withDefTable $ defineTypedef (identOfTypedef va_list) va_list
                 traversal
-    va_list = TypeDef (TypeDef' (internalIdent "__builtin_va_list") 
-                                (DirectType (TyBuiltin TyVaList) noTypeQuals [])
-                                []
-                                (internalNode))
+    va_list = (Typedef (internalIdent "__builtin_va_list")
+                       (DirectType (TyBuiltin TyVaList) noTypeQuals)
+                       []
+                       (internalNode))
 
 runTrav_ :: Trav () a -> Either [CError] (a,[CError])
 runTrav_ t = fmap fst . runTrav () $
@@ -371,8 +366,6 @@ initTravState userst =
         doHandleExtDecl = const (return ()),
         userState = userst 
       }
-initTravState_ :: TravState ()
-initTravState_ = initTravState ()
 
 -- * Trav specific operations
 modifyUserState :: (s -> s) -> Trav s ()
@@ -397,7 +390,3 @@ mapSndM f (a,b) = liftM ((,) a) (f b)
 
 concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
 concatMapM f = liftM concat . mapM f
-
-getNodeName :: NodeInfo -> Name
-getNodeName (NodeInfo _ name) = name
-getNodeName (OnlyPos _)       = error "getNodeName: unnamed"

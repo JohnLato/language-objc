@@ -150,7 +150,7 @@ computeFunDefStorage _ NoStorageSpec = return$ Static ExternalLinkage False
 computeFunDefStorage _ ThreadSpec    = return$ Static ExternalLinkage True
 computeFunDefStorage _ (StaticSpec b)  = return$ Static InternalLinkage b
 computeFunDefStorage ident (ExternSpec b)  = do
-     obj_opt <- lookupFun ident
+     obj_opt <- lookupObject ident
      return$ case obj_opt of
                 Just vardecl -> declStorage $ vardecl
                 _ -> Static ExternalLinkage b
@@ -159,7 +159,7 @@ computeFunDefStorage _ bad_spec = error $ "unexpected storage specifier: "++show
 -- | handle a function prototype
 extFunProto :: (MonadTrav m) => VarDeclInfo -> m ()
 extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) = 
-    do  old_fun <- lookupFun (identOfVarName var_name)
+    do  old_fun <- lookupObject (identOfVarName var_name)
         checkValidFunDecl
         let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) typ
         handleVarDecl (Decl decl node_info)

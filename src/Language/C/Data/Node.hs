@@ -14,7 +14,7 @@ module Language.C.Data.Node (
    NodeInfo(..), internalNode,mkNodeInfoOnlyPos,mkNodeInfo,
    CNode(nodeInfo), fileOfNode,
    posOfNode, nameOfNode,
-   eqByName, 
+   eqByName,
 ) where
 import Language.C.Data.Position
 import Language.C.Data.Name     (Name)
@@ -28,13 +28,13 @@ data NodeInfo = OnlyPos   Position           -- only pos (for internal stuff onl
 -- name equality of attributes, used to define (name) equality of objects
 instance Eq NodeInfo where
   (NodeInfo   _ id1) == (NodeInfo   _ id2) = id1 == id2
-  _               == _               = 
+  _               == _               =
     error "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 -- attribute ordering
 instance Ord NodeInfo where
   (NodeInfo   _ id1) <= (NodeInfo   _ id2) = id1 <= id2
-  _               <= _               = 
+  _               <= _               =
     error "Attributes: Attempt to compare `OnlyPos' attributes!"
 
 instance Pos NodeInfo where

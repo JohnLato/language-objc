@@ -37,7 +37,7 @@ maybeP = maybe empty
 -- pretty print when flag is true
 ifP :: Bool -> Doc -> Doc
 ifP flag doc = if flag then doc else empty
-                 
+
 -- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
 mlistP :: ([p] -> Doc) -> [p] -> Doc
 mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
@@ -72,11 +72,11 @@ prettyUsingInclude (CTranslUnit edecls _) =
   where
     (headerFiles,mappedDecls) = foldr addDecl (Set.empty,[]) $ map tagIncludedDecls edecls
     tagIncludedDecls edecl | isHeaderFile ((posFile . posOf) edecl) = Left ((posFile . posOf) edecl)
-                           | otherwise = Right edecl          
-    addDecl decl@(Left headerRef) (headerSet, ds) 
+                           | otherwise = Right edecl
+    addDecl decl@(Left headerRef) (headerSet, ds)
       | Set.member headerRef headerSet = (headerSet, ds)
       | otherwise = (Set.insert headerRef headerSet, decl : ds)
-    addDecl decl (headerSet,ds) = (headerSet, decl : ds)                                        
+    addDecl decl (headerSet,ds) = (headerSet, decl : ds)
     includeHeader hFile = text "#include" <+> doubleQuotes (text hFile)
     isHeaderFile = (".h" `isSuffixOf`)
     includeWarning hs | Set.null hs = empty
@@ -94,7 +94,7 @@ instance Pretty CFunDef where
             hsep (map pretty declspecs)                      -- __attribute__((noreturn)) static long
         <+> pretty declr                                     -- foo(b)
         $+$ (ii . vcat . map (<> semi) . map pretty) decls   --     register long b;
-        $$ prettyPrec (-1) stat                              -- {  ... 
+        $$ prettyPrec (-1) stat                              -- {  ...
                                                              -- }
 
 instance Pretty CStat where
@@ -107,7 +107,7 @@ instance Pretty CStat where
     pretty (CDefault stat _) = text "default:" $$ pretty stat
     pretty (CExpr expr _) = ii $ maybeP pretty expr <> semi
     pretty c@(CCompound _ _ _) = prettyPrec 0 c
-    pretty (CIf expr stat estat _) = 
+    pretty (CIf expr stat estat _) =
         ii $  text "if" <+> text "(" <> pretty expr <> text ")"
                 $+$ prettyPrec (-1) stat
               $$ maybeP prettyElse estat
@@ -143,16 +143,16 @@ instance Pretty CStat where
     prettyPrec p (CCompound localLabels bis _) =
         let inner = text "{" $+$ mlistP ppLblDecls localLabels $+$ vcat (map pretty bis) $$ text "}"
         in  if p == -1 then inner else ii inner
-        where ppLblDecls =  vcat . map (\l -> text "__label__" <+> identP l <+> semi) 
+        where ppLblDecls =  vcat . map (\l -> text "__label__" <+> identP l <+> semi)
     prettyPrec _ p = pretty p
 
 instance Pretty CAsmStmt where
     pretty (CAsmStmt tyQual expr outOps inOps clobbers _) =
-        ii $ text "__asm__" <+> 
+        ii $ text "__asm__" <+>
              maybeP pretty tyQual <>
              parens asmStmt <> semi
       where
-        asmStmt = pretty expr <+> 
+        asmStmt = pretty expr <+>
                   (if all null [inOps,outOps] && null clobbers then empty else ops)
         ops     =  text ":" <+> hcat (punctuate comma (map pretty outOps)) <+>
                    text ":" <+> hcat (punctuate comma (map pretty inOps)) <+>
@@ -160,12 +160,12 @@ instance Pretty CAsmStmt where
         clobs   =  text ":" <+> hcat (punctuate comma (map pretty clobbers))
 
 instance Pretty CAsmOperand where
-    -- asm_operand :~ [operand-name] "constraint" ( expr )  
+    -- asm_operand :~ [operand-name] "constraint" ( expr )
     pretty (CAsmOperand mArgName cnstr expr _) =
         maybeP (\argName -> text "[" <> identP argName <> text "]") mArgName <+>
         pretty cnstr <+>
         parens (pretty expr)
-        
+
 -- TODO: Check need of __extension__
 instance Pretty CBlockItem where
     pretty (CBlockStmt stat) = pretty stat
@@ -188,9 +188,9 @@ instance Pretty CDecl where
                 maybeP ((text ":" <+>) . pretty) expr <+>
                 attrlistP (getAttrs declr) <+>
                 maybeP ((text "=" <+>) . pretty) initializer
-            checked_specs = 
+            checked_specs =
                 case any isAttrAfterSUE  (zip specs (tail specs)) of
-                    True -> trace 
+                    True -> trace
                               ("Warning: AST Invariant violated: __attribute__ specifier following struct/union/enum:"++
                                (show $ map pretty specs))
                             specs
@@ -199,7 +199,7 @@ instance Pretty CDecl where
             isAttrAfterSUE _ = False
             getAttrs Nothing = []
             getAttrs (Just (CDeclr _ _ _ cattrs _)) = cattrs
-    
+
 instance Pretty CDeclSpec where
     pretty (CStorageSpec sp) = pretty sp
     pretty (CTypeSpec sp) = pretty sp
@@ -237,7 +237,7 @@ instance Pretty CTypeQual where
 
 instance Pretty CStructUnion where
     pretty (CStruct tag ident Nothing cattrs _) = pretty tag <+> attrlistP cattrs <+> maybeP identP ident
-    pretty (CStruct tag ident (Just []) cattrs _) = 
+    pretty (CStruct tag ident (Just []) cattrs _) =
         pretty tag <+> attrlistP cattrs <+> maybeP identP ident <+> text "{ }"
     pretty (CStruct tag ident (Just decls) cattrs _) = vcat [
         pretty tag <+> attrlistP cattrs <+> maybeP identP ident <+> text "{",
@@ -259,18 +259,18 @@ instance Pretty CEnum where
 --  Analyze a declarator and return a human-readable description
 --   See C99 Spec p 115ff.
 -- describeDeclr :: CDeclr -> Doc
--- describeDeclr declr = 
+-- describeDeclr declr =
 --     let declrs = reverse (declrChain declr) in
 --     endDescr (foldl descrDeclr undefined declrs)
--- 
---   where 
+--
+--   where
 --   declrChain declr@(CVarDeclr _ _ _ _) = [declr]
 --   declrChain declr@(CPtrDeclr _ ideclr _)   = declr : declrChain ideclr
---   declrChain declr@(CArrDeclr ideclr _ _ _) = declr : declrChain ideclr 
+--   declrChain declr@(CArrDeclr ideclr _ _ _) = declr : declrChain ideclr
 --   declrChain declr@(CFunDeclr ideclr _ _ _)   = declr : declrChain ideclr
--- 
+--
 --   descrDeclr _ (CVarDeclr ident asm cattrs _) = single False $ \_ ->
---       maybe (text "<anonymous>") identP ident <+> 
+--       maybe (text "<anonymous>") identP ident <+>
 --       maybeP (\asmname -> parens (text "asm:" <+> pretty asmname)) asm <+>
 --       text "is" <+> (if null cattrs then empty else prettyList (map CAttrQual cattrs) <> comma)
 --   descrDeclr (pre,isPlural) (CPtrDeclr quals declr _) = single isPlural $ \pluralize ->
@@ -285,12 +285,12 @@ instance Pretty CEnum where
 --   plural :: Bool -> ( (String -> String -> Doc) -> a ) -> (a, Bool)
 --   plural isPlural mkDescr = (mkDescr (pluralize isPlural), True)
 --   indefArticle isPlural  = text$ if isPlural then "" else "a "
---   indefArticle' isPlural = text$ if isPlural then "" else "an " 
+--   indefArticle' isPlural = text$ if isPlural then "" else "an "
 --   pluralize isPlural s p = text (if isPlural then p else s)
 --   prettyList :: (Pretty a) => [a] -> Doc
 --   prettyList = hsep . punctuate comma . map pretty
 instance Pretty CDeclr where
-    prettyPrec prec declr = prettyDeclr True prec declr 
+    prettyPrec prec declr = prettyDeclr True prec declr
 
 prettyDeclr :: Bool -> Int -> CDeclr -> Doc
 prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
@@ -312,11 +312,11 @@ prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
     prettyParams (Right (decls, isVariadic)) =
      sep (punctuate comma (map pretty decls))
      <> (if isVariadic then text "," <+> text "..." else empty)
-    prettyParams (Left oldStyleIds) = 
+    prettyParams (Left oldStyleIds) =
      hsep (punctuate comma (map identP oldStyleIds))
     prettyAsmName asm_name_opt
         = maybe empty (\asm_name -> text "__asm__" <> parens (pretty asm_name)) asm_name_opt
-    
+
 instance Pretty CArrSize where
   pretty (CNoArrSize completeType) = ifP completeType (text "*")
   pretty (CArrSize staticMod expr) = ifP staticMod (text "static") <+> pretty expr
@@ -329,7 +329,7 @@ instance Pretty CInit where
         text "{" <+> hsep (punctuate comma (map p initl)) <+> text "}" where
         p ([], initializer)     = pretty initializer
         p (desigs, initializer) = hsep (map pretty desigs) <+> text "=" <+> pretty initializer
-        
+
 -- designation :- designator_list '='
 --             | array_range_designator
 -- arr_designator :- '[' constant_expression ']'
@@ -395,29 +395,29 @@ instance Pretty CExpr where
     prettyPrec _p (CConst constant _) = pretty constant
     prettyPrec _p (CCompoundLit decl initl _) =
         parens (pretty decl) <+> (braces . hsep . punctuate comma) (map p initl) where
-        p ([], initializer)           = pretty initializer  
-        p ([struct_mem], initializer) = pretty struct_mem <+> text "=" <+> pretty initializer  
-        p (badDecls , initializer)  = 
+        p ([], initializer)           = pretty initializer
+        p ([struct_mem], initializer) = pretty struct_mem <+> text "=" <+> pretty initializer
+        p (badDecls , initializer)  =
             error $ "Inconsistent AST: more than one left-hand-side in CCompoundLit init-list entry" ++
                     (show $ (hsep $ punctuate comma $ map pretty badDecls) <+> text "=" <+> pretty initializer)
-        
+
     prettyPrec _p (CStatExpr stat _) =
         text "(" <> pretty stat <> text ")"
-    
+
     -- unary_expr :- && ident  {- address of label -}
     prettyPrec _p (CLabAddrExpr ident _) = text "&&" <> identP ident
-    
+
     prettyPrec _p (CBuiltinExpr builtin) = pretty builtin
 
 instance Pretty CBuiltin where
-    pretty (CBuiltinVaArg expr ty_name _) = 
+    pretty (CBuiltinVaArg expr ty_name _) =
         text "__builtin_va_arg" <+>
         (parens $ pretty expr <> comma <+> pretty ty_name)
     -- The first desig has to be a member field.
-    pretty (CBuiltinOffsetOf ty_name (CMemberDesig field1 _ : desigs) _) = 
+    pretty (CBuiltinOffsetOf ty_name (CMemberDesig field1 _ : desigs) _) =
         text "__builtin_offsetof" <+>
         (parens $ pretty ty_name <> comma <+> identP field1 <> hcat (map pretty desigs) )
-    pretty (CBuiltinOffsetOf _ty_name otherDesigs _) = 
+    pretty (CBuiltinOffsetOf _ty_name otherDesigs _) =
         error $ "Inconsistent AST: Cannot interpret designators in offsetOf: "++ show (hcat$ map pretty otherDesigs)
     pretty (CBuiltinTypesCompatible ty1 ty2 _) =
         text "__builtin_types_compatible_p" <+>
@@ -440,7 +440,7 @@ instance Pretty CConst where
 
 instance Pretty CStrLit where
     pretty (CStrLit   str _) = text (show str)
-    
+
 -- precedence of C operators
 binPrec :: CBinaryOp -> Int
 binPrec CMulOp = 20

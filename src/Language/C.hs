@@ -1,8 +1,8 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C
--- Copyright   :  (c) 2008 Benedikt Huber 
---                [1995..2007] 
+-- Copyright   :  (c) 2008 Benedikt Huber
+--                [1995..2007]
 --                   Manuel M. T. Chakravarty
 --                   Duncan Coutts
 --                   Betram Felgenhauer
@@ -24,7 +24,7 @@ where
 import Language.C.Data
 import Language.C.Syntax
 import Language.C.Pretty
-import Language.C.Parser    
+import Language.C.Parser
 import Language.C.InputStream
 import Language.C.System.Preprocess
 

@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeSynonymInstances, FlexibleContexts,FlexibleInstances,
-             PatternSignatures, PatternGuards, RankNTypes, ScopedTypeVariables #-} 
+             PatternSignatures, PatternGuards, RankNTypes, ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Analysis.TravMonad
@@ -9,7 +9,7 @@
 -- Portability :  non-portable (mtl)
 --
 -- Monad for Traversals of the C AST.
--- 
+--
 -- For the traversal, we maintain a symboltable and need MonadError and unique
 -- name generation facilities.
 -- Furthermore, the user may provide callbacks to handle declarations and definitions.
@@ -26,7 +26,7 @@ module Language.C.Analysis.TravMonad (
     enterFunctionScope,leaveFunctionScope,
     enterBlockScope,leaveBlockScope,
     -- * symbol table lookup (delegate)
-    lookupTypedef, lookupObject, 
+    lookupTypedef, lookupObject,
     -- * symbol table modification
     createSUERef,
     -- * additional error handling facilities
@@ -74,7 +74,7 @@ class (Monad m) => MonadTrav m where
 
     -- handling declarations and definitions
     handleDecl :: DeclEvent -> m ()
-    
+
 -- * handling declarations
 checkRedef :: (MonadTrav m, CNode t, CNode t1) => String -> t -> (DeclarationStatus t1) -> m ()
 checkRedef subject new_decl redecl_status =
@@ -85,7 +85,7 @@ checkRedef subject new_decl redecl_status =
         KindMismatch old_def -> throwTravError $
             redefinition LevelError subject DiffKindRedecl (nodeInfo new_decl) (nodeInfo old_def)
         Shadowed _old_def     ->  return ()
-            -- warn $ 
+            -- warn $
             -- redefinition LevelWarn subject ShadowedDef (nodeInfo new_decl) (nodeInfo old_def)
         KeepDef _old_def      -> return ()
 
@@ -102,14 +102,14 @@ handleEnumeratorDef enumerator@(ident,_) enum = do
     redecl <- withDefTable $ defineScopedIdent ident (EnumeratorDef enumerator enum)
     checkRedef (show ident) ident redecl
     return ()
-    
+
 handleTypedef :: (MonadTrav m) => Typedef -> m ()
 handleTypedef typedef@(Typedef ident _ _ _) = do
     redecl <- withDefTable $ defineTypedef ident typedef
     checkRedef (show ident) typedef redecl
     handleDecl (TypedefEvent typedef)
     return ()
-    
+
 handleAsmBlock :: (MonadTrav m) => AsmBlock -> m ()
 handleAsmBlock asm = handleDecl (AsmEvent asm)
 
@@ -149,7 +149,7 @@ checkVarRedef def redecl =
     isTentativeG (Declaration _) = True
     isTentativeG (ObjectDef od)  = isTentative od
     isTentativeG _               = False
-    
+
 -- | handle variable declarations (external object declarations and function prototypes)
 -- variable declarations are either function prototypes, or external declarations, and not very
 -- interesting on their own. we only put them in the symbol table and call the handle.
@@ -157,11 +157,11 @@ checkVarRedef def redecl =
 handleVarDecl :: (MonadTrav m) => Decl -> m ()
 handleVarDecl decl = do
     let def = Declaration decl
-    redecl <- withDefTable $ 
+    redecl <- withDefTable $
               defineScopedIdentWhen (const False) (identOfDecl def) def
     checkVarRedef def redecl
     handleDecl (DeclEvent def)
-    
+
 -- | handle function definitions
 handleFunDef :: (MonadTrav m) => Ident -> FunDef -> m ()
 handleFunDef ident fun_def = do
@@ -178,13 +178,13 @@ isDeclaration _ = False
 checkCompatibleTypes :: Type -> Type -> Either TypeMismatch ()
 checkCompatibleTypes _ _ = Right ()
 
--- | handle object defintions (maybe tentative)    
+-- | handle object defintions (maybe tentative)
 handleObjectDef :: (MonadTrav m) => Ident -> ObjDef -> m ()
 handleObjectDef ident obj_def = do
     let def = ObjectDef obj_def
     redecl <- withDefTable $
               defineScopedIdentWhen (\o -> shouldOverride def o) ident def
-    checkVarRedef def redecl          
+    checkVarRedef def redecl
     handleDecl (DeclEvent def)
     where
     isTentativeDef (ObjectDef object_def) = isTentative object_def
@@ -193,7 +193,7 @@ handleObjectDef ident obj_def = do
                          | not (isTentativeDef def) = True
                          | isTentativeDef o = True
                          | otherwise = False
-    
+
 -- * scope manipulation
 --
 --  * file scope: outside of parameter lists and blocks (outermost)
@@ -253,7 +253,7 @@ lookupObject ident = do
 
 mismatchErr :: String -> String -> String -> String
 mismatchErr ctx expect found = ctx ++ ": Expected " ++ expect ++ ", but found: " ++ found
-            
+
 -- * inserting declarations
 
 -- | create a reference to a struct\/union\/enum
@@ -293,7 +293,7 @@ warn err = recordError (changeErrorLevel err LevelWarn)
 newtype Trav s a = Trav { unTrav :: (StateT (TravState s) (Either CError)) a }
 
 runTrav :: forall s a. s -> Trav s a -> Either [CError] (a, TravState s)
-runTrav state traversal = 
+runTrav state traversal =
     case runStateT (unTrav action) (initTravState state) of
         Left trav_err                                 -> Left [trav_err]
         Right (v, ts) | hadHardErrors (travErrors ts) -> Left (travErrors ts)
@@ -333,7 +333,7 @@ instance MonadTrav (Trav s) where
     -- error handling facilities
     throwTravError = MtlError.throwError . toError
     catchTravError a handler =  a `MtlError.catchError` handler
-    recordError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` toError e } 
+    recordError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` toError e }
     getErrors = gets (RList.reverse . rerrors)
     -- symbol table handling
     getDefTable = gets symbolTable
@@ -347,24 +347,24 @@ instance MonadTrav (Trav s) where
     -- handling declarations and definitions
     handleDecl d = ($ d) =<< gets doHandleExtDecl
 
-data TravState s = 
+data TravState s =
     TravState {
-        symbolTable :: DefTable, 
-        rerrors :: RList CError, 
+        symbolTable :: DefTable,
+        rerrors :: RList CError,
         nameGenerator :: [Name],
         doHandleExtDecl :: (DeclEvent -> Trav s ()),
-        userState :: s 
+        userState :: s
       }
 travErrors :: TravState s -> [CError]
 travErrors = RList.reverse . rerrors
 initTravState :: s -> TravState s
-initTravState userst = 
-    TravState { 
-        symbolTable = emptyDefTable, 
-        rerrors = RList.empty, 
+initTravState userst =
+    TravState {
+        symbolTable = emptyDefTable,
+        rerrors = RList.empty,
         nameGenerator = namesStartingFrom 0,
         doHandleExtDecl = const (return ()),
-        userState = userst 
+        userState = userst
       }
 
 -- * Trav specific operations
@@ -372,9 +372,9 @@ modifyUserState :: (s -> s) -> Trav s ()
 modifyUserState f = modify $ \ts -> ts { userState = f (userState ts) }
 
 generateName :: Trav s Name
-generateName = 
-    get >>= \ts -> 
-    do let (new_name : gen') = nameGenerator ts 
+generateName =
+    get >>= \ts ->
+    do let (new_name : gen') = nameGenerator ts
        put $ ts { nameGenerator = gen'}
        return new_name
 

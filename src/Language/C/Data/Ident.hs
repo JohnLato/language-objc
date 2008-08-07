@@ -9,10 +9,10 @@
 -- Portability :  portable
 --
 -- This module provides the notion of identifiers in C, speed up using hashing.
--- Identifiers are associated with a 'NodeInfo', i.e. with a unique 'Name' and 
+-- Identifiers are associated with a 'NodeInfo', i.e. with a unique 'Name' and
 -- a source code position 'Pos'
 
--- 
+--
 --  * We speed up the equality test between identifiers by keeping a hash
 --
 --  * The ordering relation on identifiers is also based on the hash and,
@@ -27,7 +27,7 @@
 --  * Hashing is not 8bit clean.
 --
 module Language.C.Data.Ident (
-    Ident(..), 
+    Ident(..),
     SUERef(..), isAnonymousType,
     mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
 where
@@ -55,7 +55,7 @@ data Ident = Ident String       -- lexeme
                    {-# UNBOXED #-}   !Int         -- hash to speed up equality check
                    NodeInfo        -- attributes of this ident. incl. position
              deriving (Data,Typeable)
-    
+
 -- the definition of the equality allows identifiers to be equal that are
 -- defined at different source text positions, and aims at speeding up the
 -- equality test, by comparing the lexemes only if the two numbers are equal
@@ -83,15 +83,15 @@ instance Pos Ident where
 -- identifiers lexeme and store it in the identifiers representation
 
 -- hash function from the dragon book pp437; assumes 7 bit characters and needs
--- the (nearly) full range of values guaranteed for `Int' by the Haskell 
--- language definition; can handle 8 bit characters provided we have 29 bit 
+-- the (nearly) full range of values guaranteed for `Int' by the Haskell
+-- language definition; can handle 8 bit characters provided we have 29 bit
 -- for the `Int's without sign
 --
 quad                 :: String -> Int
 quad (c1:c2:c3:c4:s)  = ((ord c4 * bits21
-                          + ord c3 * bits14 
+                          + ord c3 * bits14
                           + ord c2 * bits7
-                          + ord c1) 
+                          + ord c1)
                          `mod` bits28)
                         + (quad s `mod` bits28)
 quad (c1:c2:c3:[]  )  = ord c3 * bits14 + ord c2 * bits7 + ord c1
@@ -139,4 +139,4 @@ identToString (Ident s _ _)  = s
 
 -- | dump the lexeme and its positions into a string for debugging purposes
 dumpIdent     :: Ident -> String
-dumpIdent ide  = identToString ide ++ " at " ++ show (posOf ide) 
+dumpIdent ide  = identToString ide ++ " at " ++ show (posOf ide)

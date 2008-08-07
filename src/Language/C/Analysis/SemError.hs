@@ -19,7 +19,7 @@ RedefError(..), RedefInfo(..), RedefKind(..), redefinition,
 where
 import Data.Typeable
 -- this means we cannot use SemError in SemRep, but use rich types here
-import Language.C.Analysis.SemRep 
+import Language.C.Analysis.SemRep
 import Language.C.Data.Error
 import Language.C.Data.Node
 
@@ -63,17 +63,17 @@ typeMismatchInfo (TypeMismatch reason (node1,_ty2) _t2) =
 -- Redefinitions
 -- ~~~~~~~~~~~~~
 
-instance Show RedefError  where 
+instance Show RedefError  where
     show (RedefError lvl info) = showErrorInfo (redefErrLabel info) (redefErrorInfo lvl info)
 instance Error RedefError where
     errorInfo (RedefError lvl info) = redefErrorInfo lvl info
-    changeErrorLevel (RedefError _lvl info) lvl' = RedefError lvl' info 
+    changeErrorLevel (RedefError _lvl info) lvl' = RedefError lvl' info
 
 redefErrLabel :: RedefInfo -> String
 redefErrLabel  (RedefInfo ident _ _ _) = ident ++ " redefined"
 
 redefErrorInfo :: ErrorLevel -> RedefInfo -> ErrorInfo
-redefErrorInfo lvl info@(RedefInfo _ _ node old_node) = 
+redefErrorInfo lvl info@(RedefInfo _ _ node old_node) =
     ErrorInfo lvl (posOfNode node) ([redefErrReason info] ++ prevDeclMsg old_node)
 
 redefErrReason :: RedefInfo -> String

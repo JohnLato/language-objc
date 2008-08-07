@@ -9,7 +9,7 @@
 -- Stability   :  provisional
 -- Portability :  CPP, BangPatterns
 --
--- Compile time InputStream abstraction for the parser. 
+-- Compile time InputStream abstraction for the parser.
 -- Supports either ByteString or String.
 -------------------------------------------------------------------------------
 module Language.C.InputStream (
@@ -56,4 +56,3 @@ inputStreamToString = id
 inputStreamFromString = id
 countLines = length . lines
 #endif
-

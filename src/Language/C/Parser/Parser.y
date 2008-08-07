@@ -2160,11 +2160,11 @@ funDeclr (CDeclrR ident derivedDeclrs asmname dcattrs dat) params cattrs at
 arrDeclr :: CDeclrR -> [CTypeQual] -> Bool -> Bool -> Maybe CExpr -> NodeInfo -> CDeclrR
 arrDeclr (CDeclrR ident derivedDeclrs asmname cattrs dat) tyquals var_sized static_size size_expr_opt at
     = arr_sz `seq` ( CDeclrR ident (derivedDeclrs `snoc` CArrDeclr tyquals arr_sz at) asmname cattrs dat )
-    where 
+    where
     arr_sz = case size_expr_opt of
                  Just e  -> CArrSize static_size e
                  Nothing -> CNoArrSize var_sized
-    
+
 liftTypeQuals :: Reversed [CTypeQual] -> [CDeclSpec]
 liftTypeQuals (Reversed tyqs) = revmap [] tyqs
   where revmap a []     = a
@@ -2206,11 +2206,11 @@ doDeclIdent :: [CDeclSpec] -> CDeclrR -> P ()
 doDeclIdent declspecs (CDeclrR mIdent _ _ _ _) =
   case mIdent of
     Nothing -> return ()
-    Just ident | any isTypeDef declspecs -> addTypedef ident
+    Just ident | any iypedef declspecs -> addTypedef ident
                | otherwise               -> shadowTypedef ident
 
-  where isTypeDef (CStorageSpec (CTypedef _)) = True
-        isTypeDef _                           = False
+  where iypedef (CStorageSpec (CTypedef _)) = True
+        iypedef _                           = False
 
 doFuncParamDeclIdent :: CDeclr -> P ()
 doFuncParamDeclIdent (CDeclr _ (CFunDeclr params _ _ : _) _ _ _) =

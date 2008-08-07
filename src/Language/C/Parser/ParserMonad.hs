@@ -5,7 +5,7 @@
 --                (c) 2005-2007 Duncan Coutts
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable 
+-- Portability :  portable
 --
 -- Monad for the C lexer and parser
 --
@@ -18,8 +18,8 @@
 --  typedef'ed type identifiers. We also must deal correctly with scope so we
 --  keep a list of sets of identifiers so we can save the outer scope when we
 --  enter an inner scope.
-module Language.C.Parser.ParserMonad ( 
-  P, 
+module Language.C.Parser.ParserMonad (
+  P,
   execParser,
   failP,
   getNewName,        -- :: P Name
@@ -34,7 +34,7 @@ module Language.C.Parser.ParserMonad (
   setInput,          -- :: String -> P ()
   getLastToken,      -- :: P CToken
   setLastToken,      -- :: CToken -> P ()
-  ParseError(..),    
+  ParseError(..),
   ) where
 import Language.C.Data.Error (internalErr, showErrorInfo,ErrorInfo(..),ErrorLevel(..))
 import Language.C.Data.Position  (Position(..))
@@ -49,13 +49,13 @@ import qualified Data.Set as Set (fromList, insert, member, delete)
 newtype ParseError = ParseError ([String],Position)
 instance Show ParseError where
     show (ParseError (msgs,pos)) = showErrorInfo "Syntax Error !" (ErrorInfo LevelError pos msgs)
-        
+
 
 data ParseResult a
   = POk !PState a
   | PFailed [String] Position   -- The error message and position
 
-data PState = PState { 
+data PState = PState {
         curPos     :: !Position,        -- position at current input location
         curInput   :: !InputStream,      -- the current input
         prevToken  ::  CToken,          -- the previous token

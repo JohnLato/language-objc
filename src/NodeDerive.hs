@@ -9,16 +9,16 @@ makeCNode = derivation genNodeInst "CNode"
 nodeInfoTypeName = "Language.C.Data.Node.NodeInfo"
 genNodeInst :: DataDef -> [Dec]
 genNodeInst dat = [
-    instance_context ["CNode"] "CNode" dat 
+    instance_context ["CNode"] "CNode" dat
       [ FunD (mkName "nodeInfo") (nodeInfoDefs dat) ],
     instance_context [] "Pos" dat
       [ FunD (mkName "posOf") (posOfDef) ]
     ]
 posOfDef :: [Clause]
-posOfDef = [Clause [VarP (mkName "x")] 
-                   (NormalB$ AppE (VarE$ mkName "posOfNode") (AppE (VarE$ mkName "nodeInfo") (VarE$ mkName "x")))  
+posOfDef = [Clause [VarP (mkName "x")]
+                   (NormalB$ AppE (VarE$ mkName "posOfNode") (AppE (VarE$ mkName "nodeInfo") (VarE$ mkName "x")))
                    []]
-    
+
 -- If we have a data constructor
 -- X a_1 .. a_n, and execatly one a_k is a Language.C.Data.NodeInfo, then return that a_k
 -- If we have a data constructor
@@ -26,18 +26,18 @@ posOfDef = [Clause [VarP (mkName "x")]
 -- otherwise fail Dec
 nodeInfoDefs :: DataDef -> [Clause]
 nodeInfoDefs dat = map nodeInfoImpl (dataCtors dat) where
-    nodeInfoImpl ctor = 
+    nodeInfoImpl ctor =
         case matchNodeInfo ctor of
-            Right (pat,expr) -> 
+            Right (pat,expr) ->
                 Clause [pat] (NormalB expr) []
             Left err ->
                 error $ "Failed to derive NodeInfo for " ++ ctorName ctor ++ ": " ++ err
-    matchNodeInfo ctor = 
+    matchNodeInfo ctor =
         case filter (isNodeInfo.snd.snd) ctorArgs  of
             []       -> tryDelegate ctor
             [(ix,_)] -> Right (mkNodeInfoPat ix, VarE (mkName "nodeinfo"))
             _        -> Left "more than one NodeInfo type"
-        where 
+        where
             ctorArgs = zip [(1::Integer)..] (ctorStrictTypes ctor)
             isNodeInfo (ConT name) | show name == nodeInfoTypeName = True
                                    | otherwise = False

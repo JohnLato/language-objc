@@ -30,43 +30,43 @@ newGCC = GCC
 
 instance Preprocessor GCC where
     parseCPPArgs _ = gccParseCPPArgs
-    runCPP gcc cpp_args = 
+    runCPP gcc cpp_args =
         do  -- copy the input to the outputfile, because in case the input is preprocessed,
             -- gcc -E will do nothing.
             maybe (return()) (copyFile (inputFile cpp_args)) (outputFile cpp_args)
             rawSystem (gccPath gcc) (buildCppArgs cpp_args)
-    
+
 -- | Parse arguments for preprocessing via GCC.
 --   At least one .c, .hc or .h file has to be present.
 --   For now we only support the most important gcc options.
---  
+--
 --   1) Parse all flags relevant to CppArgs
 --   2) Move -c,-S,-M? to other_args
 --   3) Strip -E
 --   4) The rest goes into extra_args
 gccParseCPPArgs :: [String] -> Either String (CppArgs, [String])
-gccParseCPPArgs args = 
+gccParseCPPArgs args =
     case mungeArgs ((Nothing,Nothing,RList.empty),(RList.empty,RList.empty)) args of
         Left err                   -> Left err
         Right ((Nothing,_,_),_)  -> Left "No .c / .hc / .h source file given"
         Right ((Just input_file,output_file_opt,cpp_opts),(extra_args,other_args))
-            -> Right ((simpleCppArgs (RList.reverse extra_args) input_file) 
+            -> Right ((simpleCppArgs (RList.reverse extra_args) input_file)
                       { outputFile = output_file_opt, cppOptions = RList.reverse cpp_opts },
                       RList.reverse other_args)
     where
     mungeArgs :: ParseArgsState -> [String] -> Either String ParseArgsState
     mungeArgs parsed@( cpp_args@(inp,out,cpp_opts),
-                          unparsed@(extra,other)) 
+                          unparsed@(extra,other))
               unparsed_args =
         case unparsed_args of
             ("-E":rest) -> mungeArgs parsed rest
 
             (flag:rest) |  flag == "-c"
                         || flag == "-S"
-                        || "-M" `isPrefixOf` flag 
+                        || "-M" `isPrefixOf` flag
                         -> mungeArgs (cpp_args,(extra,other `snoc` flag)) rest
 
-            ("-o":file:rest)   | isJust out -> Left "two output files given" 
+            ("-o":file:rest)   | isJust out -> Left "two output files given"
                                | otherwise          -> mungeArgs ((inp,Just file,cpp_opts),unparsed) rest
 
             (cpp_opt:rest)     | Just (opt,rest') <- getArgOpt cpp_opt rest
@@ -87,9 +87,9 @@ gccParseCPPArgs args =
     getArgOpt "-include" (f:rest')                     = Just (IncludeFile f, rest')
     getArgOpt _ _ = Nothing
     getDefine opt = let (key,val) = break (== '=') opt in Define key (if null val then "" else tail val)
-                               
+
 type ParseArgsState = ((Maybe FilePath, Maybe FilePath, RList CppOption), (RList String, RList String))
-        
+
 
 buildCppArgs :: CppArgs -> [String]
 buildCppArgs (CppArgs options extra_args _tmpdir input_file output_file_opt) = do

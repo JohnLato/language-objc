@@ -32,7 +32,7 @@ import Language.C.Data.Position
 import Data.Generics
 
 -- | C char constants (abstract)
-data CChar = CChar 
+data CChar = CChar
               {-# UNPACK #-} !Char
               {-# UNPACK #-} !Bool  -- wide flag
            | CChars
@@ -57,7 +57,7 @@ getCChar :: CChar -> [Char]
 getCChar (CChar  c _)   = [c]
 getCChar (CChars  cs _) = cs
 
--- | get integer value of a C char constant 
+-- | get integer value of a C char constant
 -- undefined result for multi-char char constants
 getCCharAsInt :: CChar -> Integer
 getCCharAsInt (CChar c _) = fromIntegral (fromEnum c)
@@ -82,18 +82,18 @@ cchars :: [Char] -> Bool -> CChar
 cchars = CChars
 
 -- | datatype representing type flags for integers
-data CIntFlag = FlagUnsigned | FlagLong | FlagLongLong | FlagImag deriving (Eq,Ord,Enum,Bounded,Data,Typeable) 
+data CIntFlag = FlagUnsigned | FlagLong | FlagLongLong | FlagImag deriving (Eq,Ord,Enum,Bounded,Data,Typeable)
 instance Show CIntFlag where
     show FlagUnsigned = "u"
     show FlagLong = "L"
     show FlagLongLong = "LL"
     show FlagImag = "i"
-    
+
 {-# SPECIALIZE setFlag :: CIntFlag -> Flags CIntFlag -> Flags CIntFlag #-}
 {-# SPECIALIZE clearFlag :: CIntFlag -> Flags CIntFlag -> Flags CIntFlag #-}
 {-# SPECIALIZE testFlag :: CIntFlag -> Flags CIntFlag -> Bool #-}
 
-data CInteger = CInteger 
+data CInteger = CInteger
                  {-# UNPACK #-} !Integer
                  {-# UNPACK #-} !(Flags CIntFlag)  -- integer flags
                  deriving (Eq,Ord,Data,Typeable)
@@ -104,17 +104,17 @@ instance Show CInteger where
 -- To be used in the lexer
 -- Note that the flag lexer won't scale
 readCInteger :: ReadS Integer -> String -> Either String CInteger
-readCInteger readNum str = 
+readCInteger readNum str =
   case readNum str of
     [(n,suffix)] -> mkCInt n suffix
     parseFailed  -> Left $ "Bad Integer literal: "++show parseFailed
   where
     mkCInt n suffix = either Left (Right . CInteger n)  $ readSuffix suffix
-    readSuffix = parseFlags noFlags 
+    readSuffix = parseFlags noFlags
     parseFlags flags [] = Right flags
     parseFlags flags ('l':'l':fs) = parseFlags (setFlag FlagLongLong flags) fs
     parseFlags flags ('L':'L':fs) = parseFlags (setFlag FlagLongLong flags) fs
-    parseFlags flags (f:fs) = 
+    parseFlags flags (f:fs) =
       let go1 flag = parseFlags (setFlag flag flags) fs in
       case f of
         'l' -> go1 FlagLong ; 'L' -> go1 FlagLong
@@ -130,7 +130,7 @@ cinteger :: Integer -> CInteger
 cinteger i = CInteger i noFlags
 
 -- | Floats (represented as strings)
-data CFloat = CFloat 
+data CFloat = CFloat
                 {-# UNPACK #-} !String
                  deriving (Eq,Ord,Data,Typeable)
 instance Show CFloat where
@@ -144,8 +144,8 @@ readCFloat :: String -> CFloat
 readCFloat = CFloat
 
 -- | C String literals
-data CString = CString 
-                [Char]    -- characters 
+data CString = CString
+                [Char]    -- characters
                 Bool      -- wide flag
                 deriving (Eq,Ord,Data,Typeable)
 instance Show CString where
@@ -205,7 +205,7 @@ isSChar '\"' = False
 isSChar '\n' = False
 isSChar c = isAsciiSourceChar c
 
-escapeChar :: Char -> String                     
+escapeChar :: Char -> String
 escapeChar '\\' = "\\\\"
 escapeChar '\a' = "\\a"
 escapeChar '\b' = "\\b"
@@ -244,7 +244,7 @@ unescapeString :: String -> String
 unescapeString [] = []
 unescapeString cs = case unescapeChar cs of
                         (c, cs') -> c : unescapeString cs'
-                        
+
 -- helpers
 sQuote :: String -> ShowS
 sQuote s t = "'" ++ s ++ "'" ++ t

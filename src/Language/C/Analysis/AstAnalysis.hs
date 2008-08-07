@@ -57,11 +57,11 @@ analyseAST (CTranslUnit decls _file_node) = do
 
 -- | Analyse an top-level declaration
 analyseExt :: (MonadTrav m) => CExtDecl -> m ()
-analyseExt (CAsmExt asm)     
+analyseExt (CAsmExt asm)
     = handleAsmBlock (convertStringLit asm)
-analyseExt (CFDefExt fundef) 
-    = analyseFunDef fundef 
-analyseExt (CDeclExt decls) 
+analyseExt (CFDefExt fundef)
+    = analyseFunDef fundef
+analyseExt (CDeclExt decls)
     = analyseExtDecls decls
 
 -- | Analyse a function definition
@@ -80,11 +80,11 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     stmt' <- analyseFunctionBody var_decl stmt
     -- define the function
     handleFunDef ident (FunDef var_decl stmt' node_info)
-    
+
 -- | Analyse a top-level declaration other than a function definition
 analyseExtDecls :: (MonadTrav m) => CDecl -> m ()
-analyseExtDecls decl@(CDecl declspecs declrs node) 
-    | (Just declspecs') <- isTypedef declspecs = 
+analyseExtDecls decl@(CDecl declspecs declrs node)
+    | (Just declspecs') <- isTypedef declspecs =
         case declrs of
             [(Just tydeclr,Nothing,Nothing)] -> analyseTypedef declspecs' tydeclr node
             _ -> astError node "bad typdef declaration: declarator missing or bitfieldsize/initializer present"
@@ -97,14 +97,14 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
         -- declare / define the object
         init_opt' <- mapMaybeM init_opt tInit
         when (isTypeOfExpr typ) $ astError node "we cannot analyse typeof(expr) yet"
-        if (isFunctionType typ) 
+        if (isFunctionType typ)
             then extFunProto vardeclInfo
             else extVarDecl vardeclInfo init_opt'
     convertVarDeclr _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
     convertVarDeclr _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
     isTypeOfExpr (TypeOfExpr _) = True
     isTypeOfExpr _ = False
-    
+
 -- convert typedef
 analyseTypedef :: (MonadTrav m) => [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
 analyseTypedef declspecs declr node_info = do
@@ -119,7 +119,7 @@ analyseTypedef declspecs declr node_info = do
     checkValidTypedef _ _ (_:_) = astError node_info "attributes for typedefs aren't supported"
     checkValidTypedef _ NoStorageSpec _ = return ()
     checkValidTypedef _ bad_storage _ = astError node_info $ "storage specified for typedef: " ++ show bad_storage
-    
+
 -- | analyse declarators
 analyseVarDecl :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> [CDecl] -> m VarDeclInfo
 analyseVarDecl handle_sue_def declspecs declr oldstyle_params = do
@@ -158,7 +158,7 @@ computeFunDefStorage _ bad_spec = error $ "unexpected storage specifier: "++show
 
 -- | handle a function prototype
 extFunProto :: (MonadTrav m) => VarDeclInfo -> m ()
-extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) = 
+extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
     do  old_fun <- lookupObject (identOfVarName var_name)
         checkValidFunDecl
         let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) typ
@@ -175,9 +175,9 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
     checkValidFunDecl
         | isThreadLocalSpec storage_spec = astError node_info "thread local storage specified for function"
         | RegSpec <- storage_spec        = astError node_info "invalid `register' storage specified for function"
-        | (not $ isFunctionType typ)     = error "function prototype without function type"      
+        | (not $ isFunctionType typ)     = error "function prototype without function type"
         | otherwise                      = return ()
-        
+
 -- | handle a object declaration \/ definition
 --
 -- We have to check the storage specifiers here, as they determine wheter we're dealing with decalartions
@@ -186,16 +186,16 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
 extVarDecl :: (MonadTrav m) => VarDeclInfo -> (Maybe Initializer) -> m ()
 extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) init_opt =
     do let ident = identOfVarName var_name
-       old_decl <- lookupObject ident    
+       old_decl <- lookupObject ident
        checkValidVarDeclStorage
        let vardecl linkage = VarDecl var_name (DeclAttrs is_inline linkage attrs) typ
        let decl linkage = Decl (vardecl linkage) node_info
        case storage_spec of
-           NoStorageSpec           -- tentative if there is no initializer, external               
-               -> handleObjectDef ident $ ObjDef (vardecl (Static ExternalLinkage False)) init_opt node_info 
-           StaticSpec thread_local -- tentative if there is no initializer, internal 
+           NoStorageSpec           -- tentative if there is no initializer, external
+               -> handleObjectDef ident $ ObjDef (vardecl (Static ExternalLinkage False)) init_opt node_info
+           StaticSpec thread_local -- tentative if there is no initializer, internal
                -> handleObjectDef ident $ ObjDef (vardecl (Static InternalLinkage thread_local)) init_opt node_info
-           ExternSpec thread_local 
+           ExternSpec thread_local
              | Nothing <- init_opt  -- declaration with either external or old storage
                -> handleVarDecl $ decl $ maybe (Static ExternalLinkage thread_local) declStorage old_decl
              | otherwise            -- warning, external definition
@@ -225,7 +225,7 @@ tInit = return
 
 -- return @Just declspecs\\typedef@ if the declaration is a typedef
 isTypedef :: [CDeclSpec] -> Maybe [CDeclSpec]
-isTypedef declspecs = 
+isTypedef declspecs =
     case foldr isTypedefSpec (False,[]) declspecs of
         (True,specs') -> Just specs'
         (False,_)     -> Nothing

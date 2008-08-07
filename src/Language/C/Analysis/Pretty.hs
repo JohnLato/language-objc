@@ -53,7 +53,7 @@ globalDeclStats file_filter gmap =
       ("Function Definitions", Map.size funDefs),
       ("Tag definitions", Map.size tagDefs),
       ("Typedefs", Map.size typedefs)
-    ] 
+    ]
     where
     gmap' = filterGlobalDecls filterFile gmap
     (enumerators, decls,objDefs,funDefs) = splitIdentDecls (gObjs gmap')
@@ -80,7 +80,7 @@ instance Pretty IdentDecl where
     pretty (FunctionDef fdef) = pretty fdef
     pretty (EnumeratorDef enumerator sueref) = pretty enumerator <+> brackets (pretty sueref)
 instance Pretty Decl where
-    pretty (Decl vardecl _) = 
+    pretty (Decl vardecl _) =
         text "DECL" <+>
         pretty vardecl
 instance Pretty Typedef where
@@ -92,21 +92,21 @@ instance Pretty ObjDef where
         text "OBJ_DEF" <+>
         pretty vardecl <+> maybe empty (((text "=") <+>) . pretty) init_opt
 instance Pretty FunDef where
-    pretty (FunDef vardecl _stmt _) = 
+    pretty (FunDef vardecl _stmt _) =
         text "FUN_DEF" <+>
         pretty vardecl
 instance Pretty VarDecl where
-    pretty (VarDecl name attrs ty) = 
+    pretty (VarDecl name attrs ty) =
         ((hsep . punctuate (text " |")) [pretty name, pretty attrs, pretty ty])
 instance Pretty ParamDecl where
-    pretty (ParamDecl (VarDecl name declattrs ty) _) = 
+    pretty (ParamDecl (VarDecl name declattrs ty) _) =
         pretty declattrs <+> prettyType (show $ pretty name) ty
 instance Pretty DeclAttrs where
     pretty (DeclAttrs inline storage attrs) =
         (if inline then (text "inline") else empty) <+>
         (hsep $ [ pretty storage, pretty attrs])
 
-instance Pretty Type  where  
+instance Pretty Type  where
     pretty ty = prettyType "<?>" ty
 prettyType declr_name ty = prettyTy (text declr_name) ty
     where
@@ -116,12 +116,12 @@ prettyType declr_name ty = prettyTy (text declr_name) ty
         text "typeref" <> parens (pretty ident) <+> declr_name
     prettyTy declr_name (TypeOfExpr expr) =
         text "typeof" <> parens (pretty expr) <+> declr_name
-    prettyTy declr_name (PtrType ty quals attrs) = 
+    prettyTy declr_name (PtrType ty quals attrs) =
         prettyTy empty ty <+>  text "*" <+> pretty attrs <+> pretty quals <+> declr_name
-    prettyTy declr_name (ArrayType ty sz quals attrs) = 
+    prettyTy declr_name (ArrayType ty sz quals attrs) =
         prettyTy empty ty <+> declr_name <+> (brackets (pretty quals <+> pretty attrs <+> pretty sz))
-    prettyTy declr_name (FunctionType (FunType ty params variadic attrs)) = 
-        prettyTy empty ty <+> 
+    prettyTy declr_name (FunctionType (FunType ty params variadic attrs)) =
+        prettyTy empty ty <+>
         declr_name <+>
         parens (hsep . punctuate comma $ (map pretty params ++ (if variadic then [text ",..."] else []))) <+>
         pretty attrs
@@ -134,7 +134,7 @@ instance Pretty ArraySize where
     pretty (UnknownArraySize False) = empty
     pretty (UnknownArraySize True)  = text "*"
     pretty (ArraySize static expr) = (if static then text "static" else empty) <+> pretty expr
-    
+
 instance Pretty TypeName where
     pretty TyVoid = text "void"
     pretty (TyIntegral int_type) = text (show int_type)
@@ -146,18 +146,18 @@ instance Pretty TypeName where
 
 instance Pretty CompType where
     pretty (CompType sue_ref tag members attrs node) =
-        (text.show) tag <+> pretty sue_ref <+> 
+        (text.show) tag <+> pretty sue_ref <+>
         braces (terminateSemi members) <+>
         pretty attrs
 instance Pretty MemberDecl where
-    pretty (MemberDecl (VarDecl name declattrs ty) bitfield _) = 
+    pretty (MemberDecl (VarDecl name declattrs ty) bitfield _) =
         pretty declattrs <+> prettyType (show $ pretty name) ty <+>
         (maybe empty (\bf -> text ":" <+> pretty bf) bitfield)
     pretty (AnonBitField ty bitfield_sz _) =
         pretty ty <+> text ":" <+> pretty bitfield_sz
 
 instance Pretty EnumType where
-    pretty (EnumType sue_ref enumerators attrs _) = 
+    pretty (EnumType sue_ref enumerators attrs _) =
         text "enum" <+> pretty sue_ref <+> braces (terminateSemi enumerators) <+> pretty attrs
 instance Pretty Enumerator where
     pretty (ident,expr) = text "enumerator" <+> pretty ident
@@ -165,13 +165,13 @@ instance Pretty Storage where
     pretty NoStorage = empty
     pretty Auto      = text "automatic storage"
     pretty Register  = text "register"
-    pretty (Static linkage thread_local) = 
+    pretty (Static linkage thread_local) =
         (hcat . punctuate (text "/") $ [ text "static",pretty linkage ])
         <+> (if thread_local then text ", __thread" else empty)
     pretty (FunLinkage linkage) = text "function/" <> pretty linkage
 instance Pretty Linkage where
     pretty InternalLinkage = text "internal"
-    pretty ExternalLinkage = text "external"    
+    pretty ExternalLinkage = text "external"
 instance Pretty VarName where
     pretty NoName = text "<anonymous>"
     pretty (VarName ident asmname_opt) = pretty ident <+> (maybe empty pAsmName asmname_opt)
@@ -180,7 +180,7 @@ instance Pretty Attributes where
     pretty = joinComma
 instance Pretty Attr where
     pretty (Attr ident es _) = pretty ident <+> (if null es then empty else text "(...)")
-    
+
 joinComma :: (Pretty a) => [a] -> Doc
 joinComma = hsep . punctuate comma . map pretty
 terminateSemi :: (Pretty a) => [a] -> Doc

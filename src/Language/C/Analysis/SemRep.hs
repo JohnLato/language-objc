@@ -215,14 +215,14 @@ instance Declaration VarDecl where
     declType  (VarDecl _ _ ty)  = ty
     declAttrs (VarDecl _ declattrs _)  = declattrs
 isExtDecl :: VarDecl -> Bool
-isExtDecl = hasLinkage . storage . declAttrs
+isExtDecl = hasLinkage . declStorage
     
 -- | attributes of a declared object have the form @DeclAttrs isInlineFunction storage linkage attrs@.
 data DeclAttrs = DeclAttrs Bool Storage Attributes
                  -- ^ @DeclAttrs inline storage attrs@
                deriving (Typeable, Data)
-storage :: DeclAttrs -> Storage
-storage (DeclAttrs _ st _) = st
+declStorage :: (Declaration d) => d -> Storage
+declStorage d = case declAttrs d of (DeclAttrs _ st _) -> st
 
 -- In C we have
 --  Identifiers can either have internal, external or no linkage

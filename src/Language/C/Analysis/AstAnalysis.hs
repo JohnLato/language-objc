@@ -152,7 +152,7 @@ computeFunDefStorage _ (StaticSpec b)  = return$ Static InternalLinkage b
 computeFunDefStorage ident (ExternSpec b)  = do
      obj_opt <- lookupFun ident
      return$ case obj_opt of
-                Just vardecl -> storage . declAttrs $ vardecl
+                Just vardecl -> declStorage $ vardecl
                 _ -> Static ExternalLinkage b
 computeFunDefStorage _ bad_spec = error $ "unexpected storage specifier: "++show bad_spec
 
@@ -170,7 +170,7 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
             StaticSpec False -> FunLinkage InternalLinkage -- prototype declaration / internal linkage
             ExternSpec False -> case old_fun of
                                     Nothing -> FunLinkage ExternalLinkage
-                                    Just f  -> (storage.declAttrs) f
+                                    Just f  -> declStorage f
             _ -> error $ "funDeclLinkage: " ++ show storage_spec
     checkValidFunDecl
         | isThreadLocalSpec storage_spec = astError node_info "thread local storage specified for function"
@@ -197,7 +197,7 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
                -> handleObjectDef ident $ ObjDef (vardecl (Static InternalLinkage thread_local)) init_opt node_info
            ExternSpec thread_local 
              | Nothing <- init_opt  -- declaration with either external or old storage
-               -> handleVarDecl $ decl $ maybe (Static ExternalLinkage thread_local) (storage.declAttrs) old_decl
+               -> handleVarDecl $ decl $ maybe (Static ExternalLinkage thread_local) declStorage old_decl
              | otherwise            -- warning, external definition
                -> do warn $ badSpecifierError node_info
                             "Both initializer and `extern` specifier given - treating as definition"

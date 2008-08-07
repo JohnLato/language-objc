@@ -9,7 +9,7 @@
 -- Portability :  non-portable (ExistentialQuantification)
 --
 -- Base type for errors occuring in parsing, analysing and pretty-printing.
--- With ideas from Simon Marlow's 
+-- With ideas from Simon Marlow's
 -- "An extensible dynamically-typed hierarchy of execeptions [2006]"
 --
 -- Errors in the C library do provide a standard way of printing and source
@@ -18,7 +18,7 @@
 module Language.C.Data.Error (
     ErrorLevel(..), isHardError,
     Error(..), errorPos, errorLevel, errorMsgs,
-    CError(..), 
+    CError(..),
     ErrorInfo(..),showError,showErrorInfo,mkErrorInfo,
     -- * default errors
     UnsupportedFeature, unsupportedFeature, unsupportedFeature_,
@@ -41,7 +41,7 @@ instance Show ErrorLevel where
     show LevelWarn  = "WARNING"
     show LevelError = "ERROR"
     show LevelFatal = "FATAL ERROR"
-    
+
 -- | return @True@ when the given error makes it impossible to continue
 --   analysis or compilation.
 isHardError :: (Error ex) => ex -> Bool
@@ -57,10 +57,10 @@ instance Error ErrorInfo where
     changeErrorLevel (ErrorInfo _ pos msgs) lvl' = ErrorInfo lvl' pos msgs
 mkErrorInfo :: ErrorLevel -> String -> NodeInfo -> ErrorInfo
 mkErrorInfo lvl msg node = ErrorInfo lvl (posOfNode node) (lines msg)
-    
+
 -- | `superclass' of all errors
-data CError 
-    = forall err. (Error err) => CError err 
+data CError
+    = forall err. (Error err) => CError err
     deriving Typeable
 
 -- | errors in Language.C are instance of the class 'Error'
@@ -72,11 +72,11 @@ class (Typeable e, Show e) => Error e where
     -- default implementation
     fromError (CError e) = cast e
     toError = CError
-    changeErrorLevel e lvl = 
-        if errorLevel e == lvl 
-            then e 
+    changeErrorLevel e lvl =
+        if errorLevel e == lvl
+            then e
             else error $ "changeErrorLevel: not possible for " ++ show e
-            
+
 instance Show CError where
     show (CError e) = show e
 instance Error CError where
@@ -121,13 +121,13 @@ showError short_msg = showErrorInfo short_msg . errorInfo
 --
 -- * the format is
 --
--- >    <fname>:<row>: (column <col>) [<err lvl>] 
+-- >    <fname>:<row>: (column <col>) [<err lvl>]
 -- >      >>> <line_1>
 -- >      <line_2>
 -- >        ...
 -- >      <line_n>
 showErrorInfo :: String -> ErrorInfo -> String
-showErrorInfo short_msg (ErrorInfo level pos msgs) = 
+showErrorInfo short_msg (ErrorInfo level pos msgs) =
     header ++ showMsgLines (if null short_msg then msgs else short_msg:msgs)
     where
     header = (posFile pos) ++ ":" ++ show (posRow pos) ++ ": " ++
@@ -140,7 +140,7 @@ showErrorInfo short_msg (ErrorInfo level pos msgs) =
 -- internal errors
 internalErrPrefix :: String
 internalErrPrefix = unlines [ "Language.C : Internal Error" ,
-                              "This is propably a bug, and should be reported at "++     
+                              "This is propably a bug, and should be reported at "++
                               "http://www.sivity.net/projects/language.c/newticket"]
 
 -- | raise a fatal internal error; message may have multiple lines

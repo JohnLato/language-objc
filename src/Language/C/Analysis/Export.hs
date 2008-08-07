@@ -30,13 +30,13 @@ import Data.Maybe
 exportDeclr :: [CDeclSpec] -> Type -> Attributes -> VarName -> ([CDeclSpec],CDeclr)
 exportDeclr other_specs ty attrs name =
     (other_specs ++ specs, CDeclr ident derived asmname (exportAttrs attrs) ni)
-    where 
+    where
     (specs,derived) = exportType ty
     (ident,asmname) = case name of (VarName ident asmname_opt) -> (Just ident, asmname_opt)
                                    _ -> (Nothing,Nothing)
 
 exportTypeDecl :: Type -> CDecl
-exportTypeDecl ty = 
+exportTypeDecl ty =
   CDecl declspecs declrs ni
   where
   (declspecs,derived) = exportType ty
@@ -49,19 +49,19 @@ exportTypedef (Typedef ident ty attrs node_info) =
   where
   (declspecs,derived) = exportType ty
   declr = (Just $ CDeclr (Just ident) derived Nothing (exportAttrs attrs) ni, Nothing, Nothing)
-  
+
 exportType :: Type -> ([CDeclSpec],[CDerivedDeclr])
 exportType ty = exportTy [] ty
     where
     exportTy dd (PtrType ty tyquals attrs) = exportTy (ptr_declr : dd) ty where
         ptr_declr = CPtrDeclr (exportTypeQuals tyquals) ni
     exportTy dd (ArrayType ty array_sz tyquals attrs) = exportTy (arr_declr : dd) ty where
-        arr_declr = CArrDeclr (exportTypeQuals tyquals) (exportArraySize array_sz) ni 
+        arr_declr = CArrDeclr (exportTypeQuals tyquals) (exportArraySize array_sz) ni
     exportTy dd (FunctionType (FunType ty params variadic attrs)) = exportTy (fun_declr : dd) ty where
         fun_declr = CFunDeclr (Right (map exportParamDecl params,variadic)) (exportAttrs attrs) ni
     exportTy dd (TypedefType (TypedefRef ty_ident _ node)) = ([CTypeSpec (CTypeDef ty_ident node)], reverse dd)
-    exportTy dd (DirectType ty quals) = (map CTypeQual (exportTypeQuals quals) ++ 
-                                        map CTypeSpec (exportTypeSpec ty), reverse dd) 
+    exportTy dd (DirectType ty quals) = (map CTypeQual (exportTypeQuals quals) ++
+                                        map CTypeSpec (exportTypeSpec ty), reverse dd)
 exportTypeQuals :: TypeQuals -> [CTypeQual]
 exportTypeQuals quals = mapMaybe (select quals) [(constant,CConstQual ni),(volatile,CVolatQual ni),(restrict,CRestrQual ni)]
     where
@@ -82,10 +82,10 @@ exportTypeSpec tyname =
         TyEnum enum -> exportEnumTypeDecl enum
         TyBuiltin TyVaList -> [CTypeDef (ident "va_list") ni]
 exportIntType :: IntType -> [CTypeSpec]
-exportIntType ty = 
+exportIntType ty =
     case ty of
       TyBool    -> [CBoolType ni]
-      TyChar    -> [CCharType ni] 
+      TyChar    -> [CCharType ni]
       TySChar   -> [CSignedType ni,CCharType ni]
       TyUChar   -> [CUnsigType ni,CCharType ni]
       TyShort   -> [CShortType ni]
@@ -127,17 +127,17 @@ exportCompType (CompType sue_ref comp_tag members attrs node_info) = [CSUType co
                    (exportAttrs attrs)
                    node_info
 exportCompTypeRef :: CompType -> [CTypeSpec]
-exportCompTypeRef (CompType sue_ref com_tag  _ _ node_info) = exportCompTypeDecl (CompTypeDecl sue_ref com_tag node_info) 
+exportCompTypeRef (CompType sue_ref com_tag  _ _ node_info) = exportCompTypeDecl (CompTypeDecl sue_ref com_tag node_info)
 
 exportEnumTypeRef :: EnumType -> [CTypeSpec]
 exportEnumTypeRef (EnumType sue_ref _ _ node_info) = exportEnumTypeDecl (EnumTypeDecl sue_ref node_info)
-                   
-exportSUERef = Just . ident . show -- relies on a the source program not having any $'s in it                   
+
+exportSUERef = Just . ident . show -- relies on a the source program not having any $'s in it
 
 exportMemberDecl :: MemberDecl -> CDecl
-exportMemberDecl (AnonBitField ty expr node_info) = 
+exportMemberDecl (AnonBitField ty expr node_info) =
     CDecl (map CTypeSpec $ exportTypeSpec $ fromDirectType ty) [(Nothing,Nothing,Just expr)] node_info
-exportMemberDecl (MemberDecl vardecl bitfieldsz node_info) = 
+exportMemberDecl (MemberDecl vardecl bitfieldsz node_info) =
     let (specs,declarator) = exportVarDecl vardecl
     in  CDecl specs [(Just declarator, Nothing, bitfieldsz)] node_info
 exportVarDecl :: VarDecl -> ([CDeclSpec],CDeclr)
@@ -147,7 +147,7 @@ exportParamDecl :: ParamDecl -> CDecl
 exportParamDecl (ParamDecl vardecl node_info) =
     let (specs,declr) = exportVarDecl vardecl
     in CDecl specs [(Just declr, Nothing , Nothing) ] node_info
-    
+
 -- this is just a stub - it depends on the type of declaration who to export attributes
 exportDeclAttrs :: DeclAttrs -> [CDeclSpec]
 exportDeclAttrs (DeclAttrs inline storage attrs) =

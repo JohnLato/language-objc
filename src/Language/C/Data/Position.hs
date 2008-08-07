@@ -29,9 +29,9 @@ data Position = Position String         -- file name
         {-# UNPACK #-}   !Int           -- row
         {-# UNPACK #-}   !Int           -- column
   deriving (Eq, Ord, Typeable, Data)
-    
+
 instance Show Position where
-  show pos@(Position fname row col) 
+  show pos@(Position fname row col)
     | isNopos pos = "<no file>"
     | isBuiltinPos pos = "<builtin>"
     | isInternalPos pos = "<internal>"
@@ -39,17 +39,17 @@ instance Show Position where
 instance Read Position where
     readsPrec p s = case s of
                        '<' : _  -> readInternal s
-                       _        -> map (\((file,row,pos),r) -> (Position file row pos,r)) . readsPrec p $ s 
+                       _        -> map (\((file,row,pos),r) -> (Position file row pos,r)) . readsPrec p $ s
 readInternal :: ReadS Position
 readInternal s | (Just rest) <- readString "<no file>" s = [(nopos,rest)]
                | (Just rest) <- readString "<builtin>" s = [(builtinPos,rest)]
                | (Just rest) <- readString "<internal>" s = [(internalPos,rest)]
-               | otherwise                             = []  
+               | otherwise                             = []
     where readString [] r = return r
           readString (c:cs) (c':cs') | c == c'    = readString cs cs'
                                      | otherwise = Nothing
           readString (_:_) [] = Nothing
-                                   
+
 -- | get the source file of the specified position. Fails unless @isSourcePos pos@.
 posFile :: Position -> String
 posFile (Position fname _ _) = fname
@@ -64,12 +64,12 @@ posColumn (Position _ _ col) = col
 
 class Pos a where
     posOf :: a -> Position
-      
+
 -- | returns @True@ if the given position refers to an actual source file
 isSourcePos :: Position -> Bool
-isSourcePos (Position _ row col) = row >= 0 && col >= 0      
+isSourcePos (Position _ row col) = row >= 0 && col >= 0
 
--- | no position (for unknown position information) 
+-- | no position (for unknown position information)
 nopos :: Position
 nopos  = Position "<no file>" (-1) 0
 

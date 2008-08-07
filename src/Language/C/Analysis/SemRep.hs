@@ -14,9 +14,9 @@
 -- /Ideas/
 --
 --  1. Pretty Printing anonymous SUE
--- 
+--
 --    * when pretty printing, use a unique name generator to un-anonymize structs
---    
+--
 --    * use $ names
 --
 --    * use GNU typeOf extension (together with the next one)
@@ -24,7 +24,7 @@
 --    * (maybe): Keep ref counts, if an anonymous struct is only ref'd one, pp it anonymously
 --
 --    * (rather not): Try to merge declarations, s.t. we still can use an anonymous struct
---    
+--
 -- /TODO/  At the moment, we do not analyse function bodies.
 --         This will change in the future of course, when we've implemented more analysis steps
 ---------------------------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ identOfDecl ident_decl = identOfVarName (declName ident_decl)
 
 instance CNode IdentDecl where
     nodeInfo (Declaration decl) = nodeInfo decl
-    nodeInfo (ObjectDef od) = nodeInfo od       
+    nodeInfo (ObjectDef od) = nodeInfo od
     nodeInfo (FunctionDef fd) = nodeInfo fd
     nodeInfo (EnumeratorDef (ident,_) _) = nodeInfo ident
 
@@ -131,7 +131,7 @@ mergeGlobalDecls gmap1 gmap2 = GlobalDecls
     {
         gObjs  = Map.union (gObjs gmap1) (gObjs gmap2),
         gTags  = Map.union  (gTags gmap1) (gTags gmap2),
-        gTypedefs = Map.union (gTypedefs gmap1) (gTypedefs gmap2)    
+        gTypedefs = Map.union (gTypedefs gmap1) (gTypedefs gmap2)
     }
 
 -- * Events
@@ -169,16 +169,17 @@ data Decl = Decl VarDecl NodeInfo
 instance Declaration Decl where
     declName  (Decl vd _) = declName vd
     declType  (Decl vd _) = declType vd
-    declAttrs (Decl vd _) = declAttrs vd             
-    
--- | Object Definitions 
+    declAttrs (Decl vd _) = declAttrs vd
+
+-- | Object Definitions
 -- A object defintion is of the form @ObjDec vardecl initializer? node@
 data ObjDef = ObjDef VarDecl (Maybe Initializer) NodeInfo
              deriving (Typeable, Data {-! CNode !-})
 instance Declaration ObjDef where
     declName  (ObjDef vd _ _) = declName vd
     declType  (ObjDef vd _ _) = declType vd
-    declAttrs  (ObjDef vd _ _) = declAttrs vd             
+    declAttrs  (ObjDef vd _ _) = declAttrs vd
+
 isTentative :: ObjDef -> Bool
 isTentative (ObjDef decl init_opt _) | isExtDecl decl = maybe True (const False) init_opt
                                      | otherwise = False
@@ -189,7 +190,7 @@ instance Declaration FunDef where
     declName  (FunDef vd _ _) = declName vd
     declType  (FunDef vd _ _) = declType vd
     declAttrs  (FunDef vd _ _) = declAttrs vd
-             
+
 -- | Parameter declaration @ParamDecl maybeIdent type attrs node@
 data ParamDecl = ParamDecl VarDecl NodeInfo
     deriving (Typeable, Data {-! CNode !-} )
@@ -197,8 +198,8 @@ instance Declaration ParamDecl where
     declName (ParamDecl ld _) = declName ld
     declType (ParamDecl ld _) = declType ld
     declAttrs (ParamDecl ld _) = declAttrs ld
-    
--- | Struct\/Union member declaration 
+
+-- | Struct\/Union member declaration
 data MemberDecl = MemberDecl VarDecl (Maybe ConstExpr) NodeInfo
                   -- ^ @MemberDecl vardecl bitfieldsize node@
                 | AnonBitField Type ConstExpr NodeInfo
@@ -221,7 +222,7 @@ instance Declaration VarDecl where
     declAttrs (VarDecl _ declattrs _)  = declattrs
 isExtDecl :: VarDecl -> Bool
 isExtDecl = hasLinkage . declStorage
-    
+
 -- | attributes of a declared object have the form @DeclAttrs isInlineFunction storage linkage attrs@.
 data DeclAttrs = DeclAttrs Bool Storage Attributes
                  -- ^ @DeclAttrs inline storage attrs@
@@ -280,7 +281,7 @@ data Type =
      -- ^ (GNU) typeof (/broken/ and should be remove, because we do not have expression type analysis)
      deriving (Typeable, Data)
 -- | Function types @FunType params isVariadic attrs type@
-data FunType = FunType Type [ParamDecl] Bool Attributes 
+data FunType = FunType Type [ParamDecl] Bool Attributes
                deriving (Typeable, Data)
 
 derefTypedef :: Type -> Type
@@ -303,7 +304,7 @@ hasTypeOfExpr ty = maybe False hasTypeOfExpr (referencedType ty)
 
 -- | note that this cannot be answered in the presence of typedefs and, even worse, typeOfExpr types
 isFunctionType :: Type -> Bool
-isFunctionType ty = 
+isFunctionType ty =
     case ty of  TypedefType (TypedefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
                 TypedefType _ -> error "isFunctionType: unresolved typedef"
                 TypeOfExpr _  -> error "isFunctionType: typeof(expr)"
@@ -315,7 +316,7 @@ isFunctionType ty =
 -- In a function prototype, the size may be `Unspecified variable size' (@[*]@).
 data ArraySize =  UnknownArraySize Bool
                 | ArraySize Bool Expr
-                -- ^ @FixedSizeArray static@      
+                -- ^ @FixedSizeArray static@
                deriving (Typeable, Data)
 
 -- | normalized type representation
@@ -328,7 +329,9 @@ data TypeName =
     | TyEnum EnumTypeDecl
     | TyBuiltin BuiltinType
     deriving (Typeable, Data)
-data BuiltinType = TyVaList 
+
+-- | Builtin type (va_list)
+data BuiltinType = TyVaList
                    deriving (Typeable, Data)
 
 -- | typdef references
@@ -364,7 +367,7 @@ instance Show IntType where
     show TyULong = "unsigned long"
     show TyLLong = "long long"
     show TyULLong = "unsigned long long"
-    
+
 -- | floating point type (C99 6.7.2.2)
 data FloatType =
       TyFloat
@@ -375,11 +378,11 @@ instance Show FloatType where
     show TyFloat = "float"
     show TyDouble = "double"
     show TyLDouble = "long double"
-    
+
 -- | accessor class : struct\/union\/enum names
 class HasSUERef a where
     sueRef  :: a -> SUERef
-    
+
 -- | accessor class : composite type tags (struct or enum)
 class HasCompTyKind a where
     compTag :: a -> CompTyKind
@@ -391,8 +394,8 @@ instance HasCompTyKind CompTypeDecl where compTag (CompTypeDecl _ tag _)  = tag
 
 data EnumTypeDecl = EnumTypeDecl SUERef NodeInfo
     deriving (Typeable, Data {-! CNode !-})
-instance HasSUERef  EnumTypeDecl where sueRef  (EnumTypeDecl ref _) = ref
-              
+instance HasSUERef  EnumTypeRef where sueRef  (EnumTypeRef ref _) = ref
+
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
 data CompType =  CompType SUERef CompTyKind [MemberDecl] Attributes NodeInfo
@@ -447,7 +450,7 @@ data TypeQuals = TypeQuals { constant :: Bool, volatile :: Bool, restrict :: Boo
 noTypeQuals :: TypeQuals
 noTypeQuals = TypeQuals False False False
 mergeTypeQuals :: TypeQuals -> TypeQuals -> TypeQuals
-mergeTypeQuals (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) 
+mergeTypeQuals (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2)
     = TypeQuals (c1 && c2) (v1 && v2) (r1 && r2)
 
 -- * statements and expressions (/TODO/)
@@ -469,10 +472,10 @@ type AsmBlock = CStrLit
 
 -- | Assembler name
 type AsmName = CStrLit
-               
+
 -- | @__attribute__@ annotations
 --
--- Those are of the form @Attr attribute-name attribute-parameters@, 
+-- Those are of the form @Attr attribute-name attribute-parameters@,
 -- and serve as generic properties of some syntax tree elements.
 --
 -- Some examples:
@@ -484,7 +487,7 @@ type AsmName = CStrLit
 -- * declarations can be attributed with /deprecated/
 --
 -- * function declarations can be attributes with /noreturn/ to tell the compiler that the function will never return,
---  
+--
 -- * or with /const/ to indicate that it is a pure function
 --
 -- /TODO/: ultimatively, we want to parse attributes and represent them in a typed way

@@ -3,7 +3,7 @@
 -- |
 -- Module      :  Language.C.Parser.Tokens
 -- Copyright   :  [1999..2004] Manuel M T Chakravarty
---                2005 Duncan Coutts 
+--                2005 Duncan Coutts
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
@@ -11,7 +11,7 @@
 --  C Tokens for the C lexer.
 --
 -----------------------------------------------------------------------------
-module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where 
+module Language.C.Parser.Tokens (CToken(..), GnuCTok(..)) where
 
 import Language.C.Data.Position  (Position, Pos(..))
 import Language.C.Data.Ident    (Ident, identToString)
@@ -68,8 +68,8 @@ data CToken = CTokLParen   !Position            -- `('
             | CTokLBrace   !Position            -- `{'
             | CTokRBrace   !Position            --
             | CTokEllipsis !Position            -- `...'
-            | CTokAlignof  !Position            -- `alignof' 
-                                                -- (or `__alignof', 
+            | CTokAlignof  !Position            -- `alignof'
+                                                -- (or `__alignof',
                                                 -- `__alignof__')
             | CTokAsm      !Position            -- `asm'
                                                 -- (or `__asm',
@@ -79,10 +79,10 @@ data CToken = CTokLParen   !Position            -- `('
             | CTokBool     !Position            -- `_Bool'
             | CTokCase     !Position            -- `case'
             | CTokChar     !Position            -- `char'
-            | CTokConst    !Position            -- `const' 
+            | CTokConst    !Position            -- `const'
                                                 -- (or `__const', `__const__')
-            | CTokContinue !Position            -- `continue' 
-            | CTokComplex  !Position            -- `_Complex' 
+            | CTokContinue !Position            -- `continue'
+            | CTokComplex  !Position            -- `_Complex'
             | CTokDefault  !Position            -- `default'
             | CTokDo       !Position            -- `do'
             | CTokDouble   !Position            -- `double'
@@ -94,19 +94,19 @@ data CToken = CTokLParen   !Position            -- `('
             | CTokGoto     !Position            -- `goto'
             | CTokIf       !Position            -- `if'
             | CTokInline   !Position            -- `inline'
-                                                -- (or `__inline', 
+                                                -- (or `__inline',
                                                 -- `__inline__')
             | CTokInt      !Position            -- `int'
             | CTokLong     !Position            -- `long'
             | CTokLabel    !Position            -- `__label__'
             | CTokRegister !Position            -- `register'
             | CTokRestrict !Position            -- `restrict'
-                                                -- (or `__restrict', 
+                                                -- (or `__restrict',
                                                 -- `__restrict__')
             | CTokReturn   !Position            -- `return'
             | CTokShort    !Position            -- `short'
             | CTokSigned   !Position            -- `signed'
-                                                -- (or `__signed', 
+                                                -- (or `__signed',
                                                 -- `__signed__')
             | CTokSizeof   !Position            -- `sizeof'
             | CTokStatic   !Position            -- `static'
@@ -119,7 +119,7 @@ data CToken = CTokLParen   !Position            -- `('
             | CTokUnsigned !Position            -- `unsigned'
             | CTokVoid     !Position            -- `void'
             | CTokVolatile !Position            -- `volatile'
-                                                -- (or `__volatile', 
+                                                -- (or `__volatile',
                                                 -- `__volatile__')
             | CTokWhile    !Position            -- `while'
             | CTokCLit     !Position !CChar     -- character constant
@@ -341,4 +341,3 @@ instance Show CToken where
   showsPrec _ (CTokGnuC GnuCOffsetof _) = showString "__builtin_offsetof"
   showsPrec _ (CTokGnuC GnuCTyCompat _) = showString "__builtin_types_compatible_p"
   showsPrec _ CTokEof = error "show CToken : CTokEof"
-

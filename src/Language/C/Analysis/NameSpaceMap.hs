@@ -15,20 +15,20 @@
 --    scopes. A name space map, at any moment, always has a global scope and may
 --    have several local scopes. Definitions in inner scopes hide definitions
 --    of the same identifier in outer scopes.
--- 
+--
 module Language.C.Analysis.NameSpaceMap (
     -- * name space maps
     NameSpaceMap, nameSpaceMap, nsMapToList,
     globalNames,localNames,hasLocalNames,
     -- * scope modification
-    defGlobal, 
+    defGlobal,
     enterNewScope, leaveScope,
-    defLocal, 
-    lookupName,lookupGlobal,lookupInnermostScope, 
+    defLocal,
+    lookupName,lookupGlobal,lookupInnermostScope,
     )
 where
 import Prelude hiding (lookup)
-import qualified Prelude 
+import qualified Prelude
 import qualified Data.Map as Map (empty, insert, lookup, toList)
 import Data.Map   (Map)
 import Language.C.Data.Ident     (Ident)
@@ -76,13 +76,13 @@ nameSpaceMap  = NsMap Map.empty []
 
 -- | Add global definition
 --
--- @(ns',oldDef) = defGlobal ns ident def@ 
+-- @(ns',oldDef) = defGlobal ns ident def@
 --   adds a global definition @ident := def@ to the namespace.
 --   It returns the modified namespace @ns'@. If the identifier is
 --   already declared in the global namespace, the definition is overwritten
 --   and the old definition @oldDef@ is returned.
 defGlobal :: (Ord k) => NameSpaceMap k a -> k -> a -> (NameSpaceMap k a, Maybe a)
-defGlobal (NsMap gs lss) ident def  
+defGlobal (NsMap gs lss) ident def
     = (NsMap (Map.insert ident def gs) lss, Map.lookup ident gs)
 
 -- | Enter new local scope
@@ -91,7 +91,7 @@ defGlobal (NsMap gs lss) ident def
 enterNewScope :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 enterNewScope (NsMap gs lss)  = NsMap gs ([]:lss)
 
--- | Leave innermost local scope 
+-- | Leave innermost local scope
 --
 -- @(ns',defs) = leaveScope ns@ pops leaves the innermost local scope.
 --  and returns its definitions
@@ -99,25 +99,25 @@ leaveScope :: (Ord k) => NameSpaceMap k a -> (NameSpaceMap k a, [(k, a)])
 leaveScope (NsMap _ [])         = error "NsMaps.leaveScope: No local scope!"
 leaveScope (NsMap gs (ls:lss))  = (NsMap gs lss, ls)
 
--- | Add local definition 
+-- | Add local definition
 --
 -- @(ns',oldDef) = defLocal ns ident def@ adds the local definition
---   @ident := def@ to the innermost local scope, if there is a local scope, 
---     and to the global scope otherwise. 
+--   @ident := def@ to the innermost local scope, if there is a local scope,
+--     and to the global scope otherwise.
 --   It returns the modified name space @ns'@ and the old  binding of
 --   the identifier @oldDef@, which is overwritten.
 defLocal :: (Ord k) => NameSpaceMap k a -> k -> a -> (NameSpaceMap k a, Maybe a)
 defLocal ns@(NsMap _ []) ident def = defGlobal ns ident def
-defLocal (NsMap    gs (ls:lss)) ident def = 
+defLocal (NsMap    gs (ls:lss)) ident def =
   (NsMap gs (((ident, def):ls):lss),
    Prelude.lookup ident ls)
-       
--- | Search for a definition 
+
+-- | Search for a definition
 --
 -- @def = find ns ident@ returns the definition in some scope (inner to outer),
 -- if there is one.
 lookupName :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
-lookupName ns@(NsMap _ localDefs) ident  
+lookupName ns@(NsMap _ localDefs) ident
     = case (lookupLocal localDefs) of
         Nothing  -> lookupGlobal ns ident
         Just def -> Just def
@@ -131,11 +131,11 @@ lookupGlobal :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
 lookupGlobal (NsMap gs _) ident = Map.lookup ident gs
 
 lookupInnermostScope :: (Ord k) => NameSpaceMap k a -> k -> Maybe a
-lookupInnermostScope nsm@(NsMap _gs localDefs) ident  = 
+lookupInnermostScope nsm@(NsMap _gs localDefs) ident  =
     case localDefs of
         (ls : _lss) -> Prelude.lookup ident ls
         [] -> lookupGlobal nsm ident
-        
+
 -- | flatten a namespace into a assoc list
 --
 --  @nameSpaceToList ns = (localDefInnermost ns ++ .. ++ localDefsOutermost ns) ++ globalDefs ns@

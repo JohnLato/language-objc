@@ -9,7 +9,7 @@
 --
 --  Lexer for C files, after being processed by the C preprocessor
 --
---  We assume that the input already went through cpp.  Thus, we do not handle 
+--  We assume that the input already went through cpp.  Thus, we do not handle
 --  comments and preprocessor directives here.  It supports the
 --  C99 `restrict' extension: <http://www.lysator.liu.se/c/restrict.html> as
 --  well as inline functions.
@@ -21,12 +21,12 @@
 --
 --  * We add `typedef-name' (K&R 8.9) as a token, as proposed in K&R A13.
 --    However, as these tokens cannot be recognized lexically, but require a
---    context analysis, they are never produced by the lexer, but instead have 
+--    context analysis, they are never produced by the lexer, but instead have
 --    to be introduced in a later phase (by converting the corresponding
---    identifiers). 
+--    identifiers).
 --
 --  * We also recognize GNU C `__attribute__', `__extension__', `__complex__',
---    `__const',  `__const__', `__imag', `__imag__', `__inline', `__inline__', 
+--    `__const',  `__const__', `__imag', `__imag__', `__inline', `__inline__',
 --    `__real', `__real__, `__restrict', and `__restrict__'.
 --
 --  * Any line starting with `#pragma' is ignored.
@@ -122,10 +122,10 @@ $infname  = \ -\127 # [ \\ \" ]             -- valid character in a filename
 
 tokens :-
 
--- whitespace (follows K&R A2.1) 
+-- whitespace (follows K&R A2.1)
 --
 -- * horizontal and vertical tabs, newlines, and form feeds are filter out by
---   `Lexers.ctrlLexer' 
+--   `Lexers.ctrlLexer'
 --
 -- * comments are not handled, as we assume the input already went through cpp
 --
@@ -157,7 +157,7 @@ $white+         ;
 --
 $identletter($identletter|$digit)*  { \pos len str -> idkwtok (takeChars len str) pos }
 
--- constants (follows K&R A2.5) 
+-- constants (follows K&R A2.5)
 --
 -- * K&R,C99 explicitly mention `enumeration-constants'; however, as they are
 --   lexically identifiers, we do not have an extra case for them
@@ -185,7 +185,7 @@ L\'($inchar|@charesc){2,}\' { token CTokCLit (flip cchars True . unescapeMultiCh
 --         They generate a lexer error, because they are hard to recognize in the parser.
 (@mantpart@exppart?|@intpart@exppart)@floatgnusuffix?  { token CTokFLit readCFloat }
 @hexprefix(@hexmant|@hexdigits)@binexp@floatgnusuffix? { token CTokFLit readCFloat }
-@hexprefix@hexmant                                     { token_fail "Hexadecimal floating constant requires an exponent" }  
+@hexprefix@hexmant                                     { token_fail "Hexadecimal floating constant requires an exponent" }
 
 -- string literal (follows K&R A2.6)
 -- C99: 6.4.5.
@@ -361,11 +361,11 @@ adjustPos str (Position fname row _) = Position fname' row' 0
      | otherwise             = fnameStr
     --
     dropWhite = dropWhile (\c -> c == ' ' || c == '\t')
-    
+
 -- special utility for the lexer
 unescapeMultiChars :: String -> [Char]
 unescapeMultiChars cs@(_ : _ : _) = case unescapeChar cs of (c,cs') -> c : unescapeMultiChars cs'
-unescapeMultiChars ('\'' : []) = [] 
+unescapeMultiChars ('\'' : []) = []
 unescapeMultiChars _ = error "Unexpected end of multi-char constant"
 
 {-# INLINE token_ #-}
@@ -375,7 +375,7 @@ token_ tok pos _ _ = return (tok pos)
 
 {-# INLINE token_fail #-}
 -- error token
-token_fail :: String -> Position -> 
+token_fail :: String -> Position ->
               Int -> InputStream -> P CToken
 token_fail errmsg pos _ _ =   failP pos [ "Lexical Error !", errmsg ]
 
@@ -390,7 +390,7 @@ token tok read pos len str = return (tok pos (read $ takeChars len str))
 -- token that may fail
 token_plus :: (Position -> a -> CToken) -> (String -> Either String a)
       -> Position -> Int -> InputStream -> P CToken
-token_plus tok read pos len str = 
+token_plus tok read pos len str =
   case read (takeChars len str) of Left err -> failP pos [ "Lexical error ! ", err ]
                                    Right ok -> return $! tok pos ok
 

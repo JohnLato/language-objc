@@ -44,22 +44,22 @@ data CppOption =
       | Define String String
       | Undefine String
       | IncludeFile FilePath
-      
+
 -- | Generic arguments for the preprocessor
-data CppArgs = CppArgs { 
+data CppArgs = CppArgs {
         cppOptions :: [CppOption],
         extraOptions :: [String],
         cppTmpDir  :: Maybe FilePath,
         inputFile  :: FilePath,
         outputFile :: Maybe FilePath
     }
-    
+
 simpleCppArgs :: [String] -> FilePath -> CppArgs
-simpleCppArgs opts input_file = 
+simpleCppArgs opts input_file =
     CppArgs { inputFile = input_file, cppOptions = [], extraOptions = opts, outputFile = Nothing, cppTmpDir = Nothing }
 
 addCppOption :: CppArgs -> CppOption -> CppArgs
-addCppOption cpp_args opt = 
+addCppOption cpp_args opt =
     cpp_args { cppOptions = opt : (cppOptions cpp_args) }
 
 addExtraOption :: CppArgs -> String -> CppArgs
@@ -84,7 +84,7 @@ runPreprocessor cpp cpp_args = do
             ExitSuccess   -> liftM Right (readInputStream actual_out_file)
             ExitFailure _ -> return $ Left exit_code
     removeTmpOutFile out_file = maybe (removeFile out_file) (\_ -> return ()) (outputFile cpp_args)
-        
+
 -- | create an output file, given  @Maybe tmpdir@ and @inputfile@
 mkOutputFile :: Maybe FilePath -> FilePath -> IO FilePath
 mkOutputFile tmp_dir_opt input_file =
@@ -112,4 +112,3 @@ mkTmpFile tmp_dir file_templ = do
 -- | guess whether a file is preprocessed (file end with .i)
 isPreprocessed :: FilePath -> Bool
 isPreprocessed = (".i" `isSuffixOf`)
-

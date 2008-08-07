@@ -274,8 +274,9 @@ tEnumTypeDecl handle_def (CEnum ident_opt enumerators_opt attrs node_info)
 tEnumType :: (MonadTrav m) => SUERef -> [(Ident, Maybe CExpr)] -> Attributes -> NodeInfo -> m EnumType
 tEnumType sue_ref enumerators attrs node = do
     enumerators' <- mapM (mapSndM (T.mapM analyseConstExpr)) enumerators
-    mapM_ (flip handleEnumeratorDef sue_ref) enumerators'
-    return $ EnumType sue_ref enumerators' attrs node
+    let ty = EnumType sue_ref enumerators' attrs node
+    mapM_ (flip handleEnumeratorDef ty) enumerators'
+    return ty
 
 
 -- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier

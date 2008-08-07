@@ -54,83 +54,86 @@ instance HasSUERef TagDef where
     sueRef (EnumDef et) = sueRef et
 
 typeOfTagDef :: TagDef -> TypeName
-typeOfTagDef (CompDef comptype) =  typeOfCompTypeDef comptype
-typeOfTagDef (EnumDef enumtype) =  typeOfEnumTypeDef enumtype
+typeOfTagDef (CompDef comptype) =  typeOfCompDef comptype
+typeOfTagDef (EnumDef enumtype) =  typeOfEnumDef enumtype
   
 -- identifiers, typedefs and enumeration constants (namespace sum)
 data IdentDecl = Declaration Decl           -- ^ object or function declaration
 	             | ObjectDef ObjDef           -- ^ object definition
 	             | FunctionDef FunDef         -- ^ function definition
-	             | EnumDef Enumerator SUERef  -- ^ definition of an enumerator
-               | TypeDef TypeDef            -- ^ typedef declaration
+	             | EnumeratorDef Enumerator EnumType  -- ^ definition of an enumerator
                deriving (Typeable, Data)
 
+instance Declaration IdentDecl where
+  declName (EnumeratorDef ed _) = VarName (fst ed) Nothing
+  declName (Declaration decl) = declName decl
+  declName (ObjectDef decl) = declName decl
+  declName (FunctionDef decl) = declName decl
+  declType (EnumeratorDef _ t) = DirectType (typeOfEnumDef t) noTypeQuals
+  declType (Declaration decl) = declType decl
+  declType (ObjectDef def) = declType def
+  declType (FunctionDef def) = declType def
+  declAttrs (EnumeratorDef _ _) = DeclAttrs False NoStorage []
+  declAttrs (Declaration decl) = declAttrs decl
+  declAttrs (ObjectDef def) = declAttrs def
+  declAttrs (FunctionDef def) = declAttrs def
+
 identOfDecl :: IdentDecl -> Ident
-identOfDecl ident_decl =
-    case ident_decl of
-        Declaration vd  -> declIdent vd
-        ObjectDef od -> declIdent od
-        FunctionDef fd  -> declIdent fd
-        EnumDef enumerator _sue_ref -> fst $ enumerator
-        TypeDef (TypeDef' ident _ty _attrs _node) -> ident
-    where
-    declIdent :: (Declaration d) => d -> Ident
-    declIdent = identOfVarName . declName
+identOfDecl ident_decl = identOfVarName (declName ident_decl)
 
 instance CNode IdentDecl where
     nodeInfo (Declaration decl) = nodeInfo decl
-    nodeInfo (ObjectDef od) = nodeInfo od             
-    nodeInfo (FunctionDef fd) = nodeInfo fd             
-    nodeInfo (EnumDef (ident,_) _) = nodeInfo ident 
-    nodeInfo (TypeDef tydef) = nodeInfo tydef 
+    nodeInfo (ObjectDef od) = nodeInfo od       
+    nodeInfo (FunctionDef fd) = nodeInfo fd
+    nodeInfo (EnumeratorDef (ident,_) _) = nodeInfo ident
 
 objKindDescr :: IdentDecl -> String
 objKindDescr  (Declaration _ ) = "declaration"
 objKindDescr (ObjectDef _) = "object definition"
 objKindDescr (FunctionDef _) = "function definition"
-objKindDescr (EnumDef _ _) = "enumerator definition"
-objKindDescr (TypeDef _) = "typedef"
+objKindDescr (EnumeratorDef _ _) = "enumerator definition"
 
 compatibleObjKind :: IdentDecl -> IdentDecl -> Bool
-compatibleObjKind (TypeDef _) (TypeDef _) = True
-compatibleObjKind _ (TypeDef _) = False
-compatibleObjKind (TypeDef _) _ = False
-compatibleObjKind (EnumDef _ _) (EnumDef _ _) = True
-compatibleObjKind (EnumDef _ _) _ = False
-compatibleObjKind _ (EnumDef _ _) = False
+compatibleObjKind (EnumeratorDef _ _) (EnumeratorDef _ _) = True
+compatibleObjKind (EnumeratorDef _ _) _ = False
+compatibleObjKind _ (EnumeratorDef _ _) = False
 compatibleObjKind _ _ = True
-    
+
+splitIdentDecls :: Map Ident IdentDecl -> (Map Ident (Enumerator,EnumType) , Map Ident Decl,
+                                           Map Ident ObjDef, Map Ident FunDef)
+splitIdentDecls = Map.foldWithKey deal (Map.empty,Map.empty,Map.empty,Map.empty)
+  where
+  deal ident (EnumeratorDef e ety) (es,ds,os,fs) = (Map.insert ident (e,ety) es, ds, os ,fs)
+  deal ident (Declaration d) (es,ds,os,fs) = (es, Map.insert ident d ds, os ,fs)
+  deal ident (ObjectDef o) (es,ds,os,fs) = (es, ds, Map.insert ident o os ,fs)
+  deal ident (FunctionDef f) (es,ds,os,fs) = (es, ds, os ,Map.insert ident f fs)
+
 
 -- * global declarations and definitions
 data GlobalDecls = GlobalDecls {
-                     gDecls    :: Map Ident Decl, 
-                     gObjs     :: Map Ident ObjDef,
-                     gFuns     :: Map Ident FunDef,
+                     gObjs     :: Map Ident IdentDecl,
                      gTags     :: Map SUERef TagDef,
                      gTypedefs :: Map Ident Typedef
                    }
 -- some boilerplate for the user
 emptyGlobalDecls :: GlobalDecls
-emptyGlobalDecls = GlobalDecls Map.empty Map.empty Map.empty Map.empty Map.empty
+emptyGlobalDecls = GlobalDecls Map.empty Map.empty Map.empty
 
 filterGlobalDecls :: (DeclEvent -> Bool) -> GlobalDecls -> GlobalDecls
 filterGlobalDecls decl_filter gmap = GlobalDecls
     {
-        gDecls = Map.filter (decl_filter . DeclEvent . Declaration) (gDecls gmap),
-        gObjs  = Map.filter (decl_filter . DeclEvent . ObjectDef) (gObjs gmap),
-        gFuns  = Map.filter (decl_filter . DeclEvent . FunctionDef) (gFuns gmap),
+        gObjs  = Map.filter (decl_filter . DeclEvent) (gObjs gmap),
         gTags  = Map.filter (decl_filter . TagEvent) (gTags gmap),
-        gTypedefs = Map.filter (decl_filter . DeclEvent .TypeDef) (gTypedefs gmap)
+        gTypedefs = Map.filter (decl_filter . TypedefEvent) (gTypedefs gmap)
     }
 mergeGlobalDecls :: GlobalDecls -> GlobalDecls -> GlobalDecls
 mergeGlobalDecls gmap1 gmap2 = GlobalDecls
     {
-        gDecls = Map.union (gDecls gmap1) (gDecls gmap2),
         gObjs  = Map.union (gObjs gmap1) (gObjs gmap2),
-        gFuns  = Map.union (gFuns gmap1) (gFuns gmap2),
         gTags  = Map.union  (gTags gmap1) (gTags gmap2),
         gTypedefs = Map.union (gTypedefs gmap1) (gTypedefs gmap2)    
     }
+
 -- * Events
 
 -- | declaration events
@@ -141,6 +144,8 @@ data DeclEvent =
        -- ^ file-scope struct\/union\/enum event
      | DeclEvent IdentDecl
        -- ^ file-scope declaration or definition
+     | TypedefEvent Typedef
+       -- ^ a type definition
      | AsmEvent AsmBlock
        -- ^ assembler block
      deriving ({-! CNode !-})
@@ -395,8 +400,8 @@ data CompType =  CompType SUERef CompTyKind [MemberDecl] Attributes NodeInfo
 instance HasSUERef  CompType where sueRef  (CompType ref _ _ _ _) = ref
 instance HasCompTyKind CompType where compTag (CompType _ tag _ _ _) = tag
 
-typeOfCompTypeDef :: CompType -> TypeName
-typeOfCompTypeDef (CompType ref tag _ _ _) = TyComp (CompTypeDecl ref tag internalNode)
+typeOfCompDef :: CompType -> TypeName
+typeOfCompDef (CompType ref tag _ _ _) = TyComp (CompTypeDecl ref tag internalNode)
 
 -- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CCompType'.
 data CompTyKind =  StructTag
@@ -408,12 +413,12 @@ instance Show CompTyKind where
 -- | C enumeration specifier (K&R A8.4, C99 6.7.2.2)
 --
 data EnumType = EnumType SUERef [Enumerator] Attributes NodeInfo
-                 -- ^ @EnumDef name enumeration-constants(-value)? attrs node@
+                 -- ^ @EnumType name enumeration-constants(-value)? attrs node@
                  deriving (Typeable, Data {-! CNode !-} )
 instance HasSUERef EnumType where sueRef  (EnumType ref _ _ _) = ref
 
-typeOfEnumTypeDef :: EnumType -> TypeName
-typeOfEnumTypeDef (EnumType ref _ _ _) = TyEnum (EnumTypeDecl ref internalNode)
+typeOfEnumDef :: EnumType -> TypeName
+typeOfEnumDef (EnumType ref _ _ _) = TyEnum (EnumTypeDecl ref internalNode)
 
 type Enumerator = (Ident,Maybe Expr)
 type Initializer = CInit
@@ -493,10 +498,10 @@ type Attributes = [Attr]
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 1153782254
+-- CHECKSUM: 742172418
 
 instance CNode TagDef
-    where nodeInfo (CompTyKind d) = nodeInfo d
+    where nodeInfo (CompDef d) = nodeInfo d
           nodeInfo (EnumDef d) = nodeInfo d
 instance Pos TagDef
     where posOf x = posOfNode (nodeInfo x)

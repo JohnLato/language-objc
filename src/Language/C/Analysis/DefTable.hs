@@ -16,13 +16,14 @@
 -- labels and structure members.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.DefTable (
+    IdentTyDecl, identOfTyDecl,
     DefTable(..),
     emptyDefTable,
     globalDefs,
     enterFunctionScope,leaveFunctionScope,enterBlockScope,leaveBlockScope,
     enterMemberDecl,leaveMemberDecl,
     DeclarationStatus(..),
-    defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
+    defineTypedef, defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
     defineTag,defineLabel,lookupIdent,
     lookupTag,lookupLabel,lookupIdentInner,lookupTagInner,
 )
@@ -65,29 +66,30 @@ import Data.Generics
    <http://www.embedded.com/design/206901036>
    C99 6
 -}
+type IdentTyDecl = Either Typedef IdentDecl
+
+identOfTyDecl :: IdentTyDecl -> Ident
+identOfTyDecl = either identOfTypedef identOfDecl
+
 data DefTable = DefTable 
     {
-        identDecls   :: NameSpaceMap Ident IdentDecl,      -- ^ defined `ordinary identifiers'
+        identDecls   :: NameSpaceMap Ident IdentTyDecl,    -- ^ defined `ordinary identifiers'
         tagDecls   :: NameSpaceMap SUERef TagDef,          -- ^ defined struct/union/enum  tags
         labelDefs  :: NameSpaceMap Ident Ident,            -- ^ defined labels
         memberDecls :: NameSpaceMap Ident MemberDecl,      -- ^ member declarations (only local)
         refTable   :: NameMap Name                         -- ^ link names with definitions
     }
+
 emptyDefTable :: DefTable
 emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap emptyNameMap
     
 globalDefs :: DefTable -> GlobalDecls
-globalDefs deftbl = Map.foldWithKey insertDecl (GlobalDecls e e e gtags e) (globalNames $ identDecls deftbl)
+globalDefs deftbl = Map.foldWithKey insertDecl (GlobalDecls e gtags e) (globalNames $ identDecls deftbl)
     where
     e = Map.empty
     gtags =   globalNames (tagDecls deftbl)
-    insertDecl ident def ds =
-        case def of
-            TypeDef tydef         -> ds { gTypedefs = Map.insert ident tydef (gTypedefs ds)}
-            EnumDef _ _sueref     -> ds -- ignored, because the information is present in the enumeration anyway
-            Declaration decl      -> ds { gDecls = Map.insert ident decl (gDecls ds) }
-            FunctionDef funDef    -> ds { gFuns = Map.insert ident funDef (gFuns ds) }
-            ObjectDef objDef      -> ds { gObjs = Map.insert ident objDef (gObjs ds) }
+    insertDecl ident (Left tydef) ds = ds { gTypedefs = Map.insert ident tydef (gTypedefs ds)}
+    insertDecl ident (Right obj) ds = ds { gObjs = Map.insert ident obj (gObjs ds) }
             
 leaveScope_ :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 leaveScope_ = fst . leaveScope
@@ -137,12 +139,16 @@ data DeclarationStatus t =
     | KindMismatch t
     deriving (Data,Typeable)
     
+compatIdentTyDecl :: IdentTyDecl -> IdentTyDecl -> Bool
+compatIdentTyDecl (Left _) = either (const True) (const False)
+compatIdentTyDecl (Right def) = either (const False) (compatibleObjKind def)
+
 defRedeclStatus :: (t -> t -> Bool) -> t -> Maybe t -> DeclarationStatus t
-defRedeclStatus sameKind def oldDecl
-    = case oldDecl of
-          Just def' | def `sameKind` def' -> Redeclared def'
-                    | otherwise           -> KindMismatch def'
-          Nothing                         -> NewDecl
+defRedeclStatus sameKind def oldDecl =
+    case oldDecl of
+        Just def' | def `sameKind` def' -> Redeclared def'
+                  | otherwise           -> KindMismatch def'
+        Nothing                         -> NewDecl
 defRedeclStatusLocal :: (Ord k) =>
                         (t -> t -> Bool) -> k -> t -> Maybe t -> NameSpaceMap k t -> DeclarationStatus t
 defRedeclStatusLocal sameKind ident def oldDecl nsm = 
@@ -152,21 +158,26 @@ defRedeclStatusLocal sameKind ident def oldDecl nsm =
                      Nothing       -> NewDecl
         redecl  -> redecl
 
+defineTypedef :: Ident -> Typedef -> DefTable -> (DeclarationStatus IdentTyDecl, DefTable)
+defineTypedef ident tydef deftbl =
+  (defRedeclStatus compatIdentTyDecl (Left tydef) oldDecl, deftbl { identDecls = decls' })
+  where
+  (decls', oldDecl) = defGlobal (identDecls deftbl) ident (Left tydef)
+
 -- | declare\/define a global object\/function\/typedef
 --
 --  returns @Redeclared def@ if there is already an object\/function\/typedef
 --  in global scope, or @DifferentKindRedec def@ if the old declaration is of a different kind.
-defineGlobalIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
-defineGlobalIdent ident def deftbl
-    = (defRedeclStatus compatibleObjKind def oldDecl, deftbl { identDecls = decls' })
+defineGlobalIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentTyDecl, DefTable)
+defineGlobalIdent ident def deftbl =
+    (defRedeclStatus compatIdentTyDecl (Right def) oldDecl, deftbl { identDecls = decls' })
     where
-    (decls',oldDecl) = defGlobal (identDecls deftbl) ident def
-
+    (decls',oldDecl) = defGlobal (identDecls deftbl) ident (Right def)
 -- | declare\/define a object\/function\/typedef with lexical scope
 --
 --  returns @Redeclared def@ or @DifferentKindRedec def@  if there is already an object\/function\/typedef
 --  in the same scope.
-defineScopedIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentDecl, DefTable)
+defineScopedIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentTyDecl, DefTable)
 defineScopedIdent = defineScopedIdentWhen (const True)
 
 -- | declare\/define a object\/function\/typedef with lexical scope, if the given predicate holds on the old
@@ -175,20 +186,23 @@ defineScopedIdent = defineScopedIdentWhen (const True)
 --  returns @Keep old_def@ if the old definition shouldn't be overwritten, and otherwise @Redeclared def@ or
 --  @DifferentKindRedec def@  if there is already an object\/function\/typedef in the same scope.
 defineScopedIdentWhen :: (IdentDecl -> Bool) -> Ident -> IdentDecl -> DefTable -> 
-                           (DeclarationStatus IdentDecl, DefTable)
-defineScopedIdentWhen do_override ident def deftbl
+                           (DeclarationStatus IdentTyDecl, DefTable)
+defineScopedIdentWhen override_def ident def deftbl
     = (redecl_status, deftbl { identDecls = decls' })
     where
+    new_def = Right def
     old_decls = identDecls deftbl
     old_decl_opt = lookupInnermostScope old_decls ident
-    (decls',redecl_status)  | (Just old_decl) <- old_decl_opt, not (old_decl `compatibleObjKind` def) 
+    (decls',redecl_status)  | (Just old_decl) <- old_decl_opt, not (old_decl `compatIdentTyDecl` new_def)
                               = (new_decls, KindMismatch old_decl)
-                            | maybe True do_override old_decl_opt
+                            | maybe True doOverride old_decl_opt
                               = (new_decls, redeclStatus' old_decl_opt)
                             | otherwise
                               = (old_decls, maybe NewDecl KeepDef old_decl_opt)
-    new_decls = fst (defLocal old_decls ident def)
-    redeclStatus' overriden_decl = defRedeclStatusLocal compatibleObjKind ident def overriden_decl old_decls
+    new_decls = fst (defLocal old_decls ident new_def)
+    doOverride (Left _) = False
+    doOverride (Right old_def) = (override_def old_def)
+    redeclStatus' overriden_decl = defRedeclStatusLocal compatIdentTyDecl ident new_def overriden_decl old_decls
 
 -- | declare\/define an tag
 --
@@ -210,7 +224,7 @@ defineLabel ident deftbl =
         
 
 -- | lookup identifier (object, function, typedef, enumerator)
-lookupIdent :: Ident -> DefTable -> Maybe IdentDecl
+lookupIdent :: Ident -> DefTable -> Maybe IdentTyDecl
 lookupIdent ident deftbl = lookupName (identDecls deftbl) ident
     
 -- | lookup tag
@@ -222,7 +236,7 @@ lookupLabel :: Ident -> DefTable -> Maybe Ident
 lookupLabel ident deftbl = lookupName (labelDefs deftbl) ident
 
 -- | lookup an object in the innermost scope
-lookupIdentInner :: Ident -> DefTable -> Maybe IdentDecl
+lookupIdentInner :: Ident -> DefTable -> Maybe IdentTyDecl
 lookupIdentInner ident deftbl = lookupInnermostScope (identDecls deftbl) ident
 
 -- | lookup an identifier in the innermost scope

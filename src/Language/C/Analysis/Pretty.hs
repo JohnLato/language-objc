@@ -39,22 +39,25 @@ prettyAssocsWith label prettyKey prettyVal theMap =
 instance Pretty GlobalDecls where
     pretty gd = text "Global Declarations" $$ (nest 4 $ vcat declMaps)
         where
-        declMaps = [ prettyMap "declarations" $ gDecls gd,
-                     prettyMap "objects" $ gObjs gd,  prettyMap "functions" $ gFuns gd, 
+        declMaps = [ prettyMap "enumerators" (Map.map fst theEnums), prettyMap "declarations" theDecls,
+                     prettyMap "objects" theObjs,  prettyMap "functions" theFuns,
                      prettyMap "tags"    $ gTags gd,  prettyMap "typedefs"  $ gTypedefs gd ]
         prettyMap :: (Pretty t, Pretty k) => String -> Map k t -> Doc
         prettyMap label = prettyAssocs label . Map.assocs
-
+        (theEnums, theDecls, theFuns, theObjs) = splitIdentDecls (gObjs gd)
 globalDeclStats :: (FilePath -> Bool) -> GlobalDecls -> [(String,Int)]
 globalDeclStats file_filter gmap =
-    [ ("Object/Function Declarations",Map.size decls),
+    [ ("Enumeration Constants",Map.size enumerators),
+      ("Object/Function Declarations",Map.size decls),
+      ("Object definitions", Map.size objDefs),
       ("Function Definitions", Map.size funDefs),
       ("Tag definitions", Map.size tagDefs),
-      ("Typedefs", Map.size typeDefs)
+      ("Typedefs", Map.size typedefs)
     ] 
     where
     gmap' = filterGlobalDecls filterFile gmap
-    (decls,objDefs,funDefs,tagDefs,typeDefs) = (gDecls gmap', gObjs gmap', gFuns gmap', gTags gmap', gTypedefs gmap')
+    (enumerators, decls,objDefs,funDefs) = splitIdentDecls (gObjs gmap')
+    (tagDefs,typedefs) = (gTags gmap', gTypedefs gmap')
     filterFile :: (CNode n) => n -> Bool
     filterFile = file_filter . posFile . posOfNode . nodeInfo
 
@@ -69,25 +72,24 @@ instance Pretty SUERef where
     pretty (AnonymousType name)   = text $ "$sue_" ++ show (nameId name)
     pretty (NamedType ident)      = pretty ident
 instance Pretty TagDef where
-    pretty (CompTyKind compty) = pretty compty
+    pretty (CompDef compty) = pretty compty
     pretty (EnumDef enumty) = pretty enumty
 instance Pretty IdentDecl where
     pretty (Declaration decl) = pretty decl
     pretty (ObjectDef odef) = pretty odef
     pretty (FunctionDef fdef) = pretty fdef
-    pretty (EnumDef enumerator sueref) = pretty enumerator <+> brackets (pretty sueref)
-    pretty (TypeDef tydef) = pretty tydef
+    pretty (EnumeratorDef enumerator sueref) = pretty enumerator <+> brackets (pretty sueref)
 instance Pretty Decl where
     pretty (Decl vardecl _) = 
         text "DECL" <+>
         pretty vardecl
-instance Pretty TypeDef where
-    pretty (TypeDef' ident ty attrs _) = 
-        text "typedef" <+> pretty ident <+> text "as"  <+> 
+instance Pretty Typedef where
+    pretty (Typedef ident ty attrs _) =
+        text "typedef" <+> pretty ident <+> text "as"  <+>
         pretty attrs <+> pretty ty
 instance Pretty ObjDef where
-    pretty (ObjDef vardecl init_opt _) = 
-        text "OBJ_DEF" <+> 
+    pretty (ObjDef vardecl init_opt _) =
+        text "OBJ_DEF" <+>
         pretty vardecl <+> maybe empty (((text "=") <+>) . pretty) init_opt
 instance Pretty FunDef where
     pretty (FunDef vardecl _stmt _) = 
@@ -110,9 +112,9 @@ prettyType declr_name ty = prettyTy (text declr_name) ty
     where
     prettyTy declr_name (DirectType ty_name quals) =
         pretty quals <+> pretty ty_name <+> declr_name
-    prettyTy declr_name (TypedefType (TypedefRef ident _ _)) = 
+    prettyTy declr_name (TypedefType (TypedefRef ident _ _)) =
         text "typeref" <> parens (pretty ident) <+> declr_name
-    prettyTy declr_name (TypeOfExpr expr) = 
+    prettyTy declr_name (TypeOfExpr expr) =
         text "typeof" <> parens (pretty expr) <+> declr_name
     prettyTy declr_name (PtrType ty quals attrs) = 
         prettyTy empty ty <+>  text "*" <+> pretty attrs <+> pretty quals <+> declr_name

@@ -37,7 +37,7 @@ data TypeMismatch = TypeMismatch String (NodeInfo,Type) (NodeInfo,Type) deriving
 instance Show InvalidASTError  where show = showError "AST invariant violated"
 
 invalidAST :: NodeInfo -> String -> InvalidASTError
-invalidAST node_info msg = InvalidAST (mkErrInfo LevelError msg node_info)
+invalidAST node_info msg = InvalidAST (mkErrorInfo LevelError msg node_info)
 
 -- Bad specifier (e.g. static for a parameter, or extern when there is an initializer)
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,7 +45,7 @@ invalidAST node_info msg = InvalidAST (mkErrInfo LevelError msg node_info)
 instance Show BadSpecifier     where show = showError "Bad specifier"
 
 badSpecifierError :: NodeInfo -> String -> BadSpecifier
-badSpecifierError node_info msg = BadSpecifier (mkErrInfo LevelError msg node_info)
+badSpecifierError node_info msg = BadSpecifier (mkErrorInfo LevelError msg node_info)
 
 -- Type mismatch
 -- ~~~~~~~~~~~~~
@@ -86,9 +86,4 @@ prevDeclMsg old_node = ["The previous declaration was here: ", show (posOfNode o
 
 redefinition :: ErrorLevel -> String -> RedefKind -> NodeInfo -> NodeInfo -> RedefError
 redefinition lvl ctx kind new old = RedefError lvl (RedefInfo ctx kind new old)
-
--- (helpers)
--- ~~~~~~~~~
-mkErrInfo :: ErrorLevel -> String -> NodeInfo -> ErrorInfo
-mkErrInfo lvl msg node = ErrorInfo lvl (posOfNode node) (lines msg)
 

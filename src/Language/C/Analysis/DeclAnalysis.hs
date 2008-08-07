@@ -211,13 +211,15 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
 mergeTypeAttributes :: (MonadTrav m) => NodeInfo -> TypeQuals -> [Attr] -> Type -> m Type
 mergeTypeAttributes node_info quals attrs typ =
     case typ of
-        DirectType ty_name quals' attrs' -> merge quals' attrs' $ DirectType ty_name
-        PtrType ty quals' attrs'        -> merge quals' attrs' $ PtrType ty
+        DirectType ty_name quals' -> merge quals' [] $ mkDirect ty_name
+        PtrType ty quals' attrs'  -> merge quals' attrs' $ PtrType ty
         ArrayType ty array_sz quals' attrs' -> merge quals' attrs' $ ArrayType ty array_sz
         FunctionType (FunType return_ty params inline attrs')
             | not (null attrs) -> astError node_info "type qualifiers for function type"
             | otherwise        -> return$ FunctionType (FunType return_ty params inline (attrs' ++ attrs))
     where
+    mkDirect ty_name quals' attrs' | null attrs' = DirectType ty_name quals'
+                                   | otherwise   = error "_attribute__ s for DirectType"
     merge quals' attrs' tyf = return $ tyf (mergeTypeQuals quals quals') (attrs' ++ attrs)
 
 typedefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypedefRef

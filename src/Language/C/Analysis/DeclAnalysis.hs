@@ -114,8 +114,8 @@ analyseVarDecl handle_sue_def declspecs
 
 
 -- return @True@ if the declarations is a type def
-isTypedef :: [CDeclSpec] -> Bool
-isTypedef declspecs = not $ null [ n | (CStorageSpec (CTypedef n)) <- declspecs ]
+isTypeDef :: [CDeclSpec] -> Bool
+isTypeDef declspecs = not $ null [ n | (CStorageSpec (CTypedef n)) <- declspecs ]
 
 
 -- | analysis of constant expressions
@@ -178,7 +178,7 @@ tType handle_sue_def top_node typequals typespecs derived_declrs oldstyle_params
              return$ FunType return_ty params' is_variadic attrs'
 
 -- | translate a type without (syntactic) indirections
--- Due to the GNU @typeof@ extension and typedefs, this can be an arbitrary type
+-- Due to the GNU @typeof@ extension and typeDefs, this can be an arbitrary type
 tDirectType :: (MonadTrav m) => Bool -> NodeInfo -> [CTypeQual] -> [CTypeSpec] -> m Type
 tDirectType handle_sue_def node ty_quals ty_specs = do
     (quals,attrs) <- tTypeQuals ty_quals
@@ -197,7 +197,7 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
                     Right intType  -> TyIntegral intType
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
-        TSNonBasic (CTypeDef name t_node)    -> liftM TypedefType $ typedefRef t_node name
+        TSNonBasic (CTypeDef name t_node)    -> liftM TypeDefType $ typeDefRef t_node name
         TSNonBasic (CTypeOfExpr expr _tnode) -> liftM (TypeOfExpr) (analyseConstExpr expr)
         TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
         TSNonBasic _ -> astError node "Unexpected typespec"
@@ -222,8 +222,8 @@ mergeTypeAttributes node_info quals attrs typ =
                                    | otherwise   = error "_attribute__ s for DirectType"
     merge quals' attrs' tyf = return $ tyf (mergeTypeQuals quals quals') (attrs' ++ attrs)
 
-typedefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypedefRef
-typedefRef t_node name = lookupTypedef name >>= \ty -> return (TypedefRef name (Just ty) t_node)
+typeDefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypeDefRef
+typeDefRef t_node name = lookupTypeDef name >>= \ty -> return (TypeDefRef name (Just ty) t_node)
 
 -- extract a struct\/union
 -- we emit @declStructUnion@ and @defStructUnion@ actions

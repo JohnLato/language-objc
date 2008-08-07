@@ -16,7 +16,7 @@
 -----------------------------------------------------------------------------
 module Language.C.Analysis.Export (
 exportType, exportTypeDecl, exportTypeSpec,
-exportTypedef,
+exportTypeDef,
 exportCompType, exportCompTypeDecl, exportCompTypeRef,
 exportEnumTypeDecl, exportEnumTypeRef,
 )
@@ -43,8 +43,8 @@ exportTypeDecl ty =
   declrs | null derived = []
          | otherwise = [(Just $ CDeclr Nothing derived Nothing [] ni,Nothing,Nothing)]
 
-exportTypedef :: Typedef -> CDecl
-exportTypedef (Typedef ident ty attrs node_info) =
+exportTypeDef :: TypeDef -> CDecl
+exportTypeDef (TypeDef ident ty attrs node_info) =
   CDecl (CStorageSpec (CTypedef ni) : declspecs) [declr] node_info
   where
   (declspecs,derived) = exportType ty
@@ -59,7 +59,7 @@ exportType ty = exportTy [] ty
         arr_declr = CArrDeclr (exportTypeQuals tyquals) (exportArraySize array_sz) ni
     exportTy dd (FunctionType (FunType ty params variadic attrs)) = exportTy (fun_declr : dd) ty where
         fun_declr = CFunDeclr (Right (map exportParamDecl params,variadic)) (exportAttrs attrs) ni
-    exportTy dd (TypedefType (TypedefRef ty_ident _ node)) = ([CTypeSpec (CTypeDef ty_ident node)], reverse dd)
+    exportTy dd (TypeDefType (TypeDefRef ty_ident _ node)) = ([CTypeSpec (CTypeDef ty_ident node)], reverse dd)
     exportTy dd (DirectType ty quals) = (map CTypeQual (exportTypeQuals quals) ++
                                         map CTypeSpec (exportTypeSpec ty), reverse dd)
 exportTypeQuals :: TypeQuals -> [CTypeQual]
@@ -163,7 +163,7 @@ exportStorage _ = error "TODO"
 exportAttrs = map exportAttr where
     exportAttr (Attr ident es ni) = CAttr ident es ni
 fromDirectType (DirectType ty _) = ty
-fromDirectType (TypedefType (TypedefRef _ ref _)) = maybe (error "undefined typedef") fromDirectType ref
+fromDirectType (TypeDefType (TypeDefRef _ ref _)) = maybe (error "undefined typeDef") fromDirectType ref
 fromDirectType _ = error "fromDirectType"
 ni :: NodeInfo
 ni = internalNode

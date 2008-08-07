@@ -157,7 +157,7 @@ splitIdentDecls = Map.foldWithKey deal (Map.empty,Map.empty,Map.empty,Map.empty)
   deal ident (FunctionDef f) (es,ds,os,fs) = (es, ds, os ,Map.insert ident f fs)
 
 
--- | global declarations / definition table returned by the analysis
+-- | global declaration\/definition table returned by the analysis
 data GlobalDecls = GlobalDecls {
                      gObjs     :: Map Ident IdentDecl,
                      gTags     :: Map SUERef TagDef,

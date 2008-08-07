@@ -24,7 +24,6 @@ main
 import Language.C
 import Language.C.System.GCC
 import Language.C.Analysis
-import Language.C.Analysis.Pretty
 import Language.C.Test.Environment
 import Language.C.Test.GenericAST
 

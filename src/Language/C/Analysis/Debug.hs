@@ -140,8 +140,8 @@ instance Pretty TypeName where
     pretty (TyIntegral int_type) = text (show int_type)
     pretty (TyFloating float_type) = text (show float_type)
     pretty (TyComplex float_type) = text "__complex__" <+> text (show float_type)
-    pretty (TyComp (CompTypeDecl sue_ref tag _)) = text (show tag) <+> pretty sue_ref
-    pretty (TyEnum (EnumTypeDecl sue_ref _))     = text "enum" <+> pretty sue_ref
+    pretty (TyComp (CompTypeRef sue_ref tag _)) = text (show tag) <+> pretty sue_ref
+    pretty (TyEnum (EnumTypeRef sue_ref _))     = text "enum" <+> pretty sue_ref
     pretty (TyBuiltin TyVaList) = text "va_list"
 
 instance Pretty CompType where

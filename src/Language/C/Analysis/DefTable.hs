@@ -138,11 +138,15 @@ data DeclarationStatus t =
     | Shadowed t
     | KindMismatch t
     deriving (Data,Typeable)
-    
-compatIdentTyDecl :: IdentTyDecl -> IdentTyDecl -> Bool
-compatIdentTyDecl (Left _) = either (const True) (const False)
-compatIdentTyDecl (Right def) = either (const False) (compatibleObjKind def)
 
+compatIdentTyDecl :: IdentTyDecl -> IdentTyDecl -> Bool
+compatIdentTyDecl (Left _tydef) = either (const True) (const False)
+compatIdentTyDecl (Right def) = either (const False) $ 
+  \other_def -> case (def,other_def) of
+                  (EnumeratorDef _ _, EnumeratorDef _ _) -> True
+                  (EnumeratorDef _ _, _) -> True
+                  (_, EnumeratorDef _ _) -> True
+                  (_,_) -> True
 defRedeclStatus :: (t -> t -> Bool) -> t -> Maybe t -> DeclarationStatus t
 defRedeclStatus sameKind def oldDecl =
     case oldDecl of

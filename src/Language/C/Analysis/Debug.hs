@@ -2,7 +2,7 @@
 {-# OPTIONS -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.Analysis.Pretty
+-- Module      :  Language.C.Analysis.Debug
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
@@ -12,7 +12,7 @@
 -- Pretty printing the semantic analysis representation.
 -- This is currently only intended for debugging purposes.
 -----------------------------------------------------------------------------
-module Language.C.Analysis.Pretty (
+module Language.C.Analysis.Debug (
 globalDeclStats,
 prettyAssocs, prettyAssocsWith,
 -- and many pretty instances

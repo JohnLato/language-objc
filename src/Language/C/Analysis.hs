@@ -20,7 +20,7 @@ module Language.C.Analysis (
     module Language.C.Analysis.AstAnalysis,
     module Language.C.Analysis.DeclAnalysis,
 
-    module Language.C.Analysis.Pretty,
+    module Language.C.Analysis.Debug,
 )
 where
 import Language.C.Analysis.SemError
@@ -32,4 +32,4 @@ import Language.C.Analysis.TravMonad
 import Language.C.Analysis.AstAnalysis
 import Language.C.Analysis.DeclAnalysis
 
-import Language.C.Analysis.Pretty
+import Language.C.Analysis.Debug

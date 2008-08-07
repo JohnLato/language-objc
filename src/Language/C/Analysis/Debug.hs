@@ -41,7 +41,7 @@ instance Pretty GlobalDecls where
         where
         declMaps = [ prettyMap "enumerators" (Map.map fst theEnums), prettyMap "declarations" theDecls,
                      prettyMap "objects" theObjs,  prettyMap "functions" theFuns,
-                     prettyMap "tags"    $ gTags gd,  prettyMap "typedefs"  $ gTypedefs gd ]
+                     prettyMap "tags"    $ gTags gd,  prettyMap "typeDefs"  $ gTypeDefs gd ]
         prettyMap :: (Pretty t, Pretty k) => String -> Map k t -> Doc
         prettyMap label = prettyAssocs label . Map.assocs
         (theEnums, theDecls, theFuns, theObjs) = splitIdentDecls (gObjs gd)
@@ -52,12 +52,12 @@ globalDeclStats file_filter gmap =
       ("Object definitions", Map.size objDefs),
       ("Function Definitions", Map.size funDefs),
       ("Tag definitions", Map.size tagDefs),
-      ("Typedefs", Map.size typedefs)
+      ("TypeDefs", Map.size typeDefs)
     ]
     where
     gmap' = filterGlobalDecls filterFile gmap
     (enumerators, decls,objDefs,funDefs) = splitIdentDecls (gObjs gmap')
-    (tagDefs,typedefs) = (gTags gmap', gTypedefs gmap')
+    (tagDefs,typeDefs) = (gTags gmap', gTypeDefs gmap')
     filterFile :: (CNode n) => n -> Bool
     filterFile = file_filter . posFile . posOfNode . nodeInfo
 
@@ -83,9 +83,9 @@ instance Pretty Decl where
     pretty (Decl vardecl _) =
         text "DECL" <+>
         pretty vardecl
-instance Pretty Typedef where
-    pretty (Typedef ident ty attrs _) =
-        text "typedef" <+> pretty ident <+> text "as"  <+>
+instance Pretty TypeDef where
+    pretty (TypeDef ident ty attrs _) =
+        text "typeDef" <+> pretty ident <+> text "as"  <+>
         pretty attrs <+> pretty ty
 instance Pretty ObjDef where
     pretty (ObjDef vardecl init_opt _) =
@@ -112,7 +112,7 @@ prettyType declr_name ty = prettyTy (text declr_name) ty
     where
     prettyTy declr_name (DirectType ty_name quals) =
         pretty quals <+> pretty ty_name <+> declr_name
-    prettyTy declr_name (TypedefType (TypedefRef ident _ _)) =
+    prettyTy declr_name (TypeDefType (TypeDefRef ident _ _)) =
         text "typeref" <> parens (pretty ident) <+> declr_name
     prettyTy declr_name (TypeOfExpr expr) =
         text "typeof" <> parens (pretty expr) <+> declr_name

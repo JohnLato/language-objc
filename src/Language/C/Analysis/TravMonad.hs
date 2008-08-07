@@ -18,7 +18,7 @@ module Language.C.Analysis.TravMonad (
     -- * AST traversal monad
     MonadTrav(..),
     -- * handling declarations
-    handleTagDef,handleEnumeratorDef,handleTypedef,
+    handleTagDef,handleEnumeratorDef,handleTypeDef,
     handleFunDef,handleVarDecl,handleObjectDef,
     handleAsmBlock,
     -- * symbol table scope modification
@@ -26,7 +26,7 @@ module Language.C.Analysis.TravMonad (
     enterFunctionScope,leaveFunctionScope,
     enterBlockScope,leaveBlockScope,
     -- * symbol table lookup (delegate)
-    lookupTypedef, lookupObject,
+    lookupTypeDef, lookupObject,
     -- * symbol table modification
     createSUERef,
     -- * additional error handling facilities
@@ -103,11 +103,11 @@ handleEnumeratorDef enumerator@(ident,_) enum = do
     checkRedef (show ident) ident redecl
     return ()
 
-handleTypedef :: (MonadTrav m) => Typedef -> m ()
-handleTypedef typedef@(Typedef ident _ _ _) = do
-    redecl <- withDefTable $ defineTypedef ident typedef
-    checkRedef (show ident) typedef redecl
-    handleDecl (TypedefEvent typedef)
+handleTypeDef :: (MonadTrav m) => TypeDef -> m ()
+handleTypeDef typeDef@(TypeDef ident _ _ _) = do
+    redecl <- withDefTable $ defineTypeDef ident typeDef
+    checkRedef (show ident) typeDef redecl
+    handleDecl (TypeDefEvent typeDef)
     return ()
 
 handleAsmBlock :: (MonadTrav m) => AsmBlock -> m ()
@@ -121,9 +121,9 @@ redefErr name lvl new old kind =
 checkIdentTyRedef :: (MonadTrav m) => IdentTyDecl -> (DeclarationStatus IdentTyDecl) -> m ()
 checkIdentTyRedef (Right decl) status = checkVarRedef decl status
 checkIdentTyRedef (Left tydef) (KindMismatch old_def) =
-  redefErr (identOfTypedef tydef) LevelError tydef old_def DiffKindRedecl
+  redefErr (identOfTypeDef tydef) LevelError tydef old_def DiffKindRedecl
 checkIdentTyRedef (Left tydef) (Redeclared old_def) =
-  redefErr (identOfTypedef tydef) LevelError tydef old_def DuplicateDef
+  redefErr (identOfTypeDef tydef) LevelError tydef old_def DuplicateDef
 checkIdentTyRedef (Left _tydef) _ = return ()
 
 checkVarRedef :: (MonadTrav m) => IdentDecl -> (DeclarationStatus IdentTyDecl) -> m ()
@@ -228,17 +228,17 @@ leaveBlockScope = updDefTable (ST.leaveBlockScope)
 
 -- | lookup a type definition
 -- the 'wrong kind of object' is an internal error here,
--- because the parser should distinguish typedefs and other
+-- because the parser should distinguish typeDefs and other
 -- objects
-lookupTypedef :: (MonadTrav m) => Ident -> m Type
-lookupTypedef ident =
+lookupTypeDef :: (MonadTrav m) => Ident -> m Type
+lookupTypeDef ident =
     getDefTable >>= \symt ->
     case lookupIdent ident symt of
-        Nothing                             -> astError (nodeInfo ident) "unbound typedef"
-        Just (Left (Typedef _ident ty _ _)) -> return ty
+        Nothing                             -> astError (nodeInfo ident) "unbound typeDef"
+        Just (Left (TypeDef _ident ty _ _)) -> return ty
         Just (Right d)                      -> astError (nodeInfo ident) (wrongKindErrMsg d)
     where
-    wrongKindErrMsg d = "wrong kind of object: excepcted typedef but found: "++(objKindDescr d)
+    wrongKindErrMsg d = "wrong kind of object: excepcted typeDef but found: "++(objKindDescr d)
 
 
 -- | lookup an object, function or enumerator
@@ -248,7 +248,7 @@ lookupObject ident = do
     mapMaybeM old_decl $ \obj ->
         case obj of
         Right objdef -> return objdef
-        Left _tydef  -> astError (nodeInfo ident) (mismatchErr "lookupObject" "an object" "a typedef")
+        Left _tydef  -> astError (nodeInfo ident) (mismatchErr "lookupObject" "an object" "a typeDef")
 
 
 mismatchErr :: String -> String -> String -> String
@@ -299,9 +299,9 @@ runTrav state traversal =
         Right (v, ts) | hadHardErrors (travErrors ts) -> Left (travErrors ts)
                       | otherwise                     -> Right (v,ts)
     where
-    action = do withDefTable $ defineTypedef (identOfTypedef va_list) va_list
+    action = do withDefTable $ defineTypeDef (identOfTypeDef va_list) va_list
                 traversal
-    va_list = (Typedef (internalIdent "__builtin_va_list")
+    va_list = (TypeDef (internalIdent "__builtin_va_list")
                        (DirectType (TyBuiltin TyVaList) noTypeQuals)
                        []
                        (internalNode))

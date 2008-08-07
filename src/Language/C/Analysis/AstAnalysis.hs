@@ -84,9 +84,9 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
 -- | Analyse a top-level declaration other than a function definition
 analyseExtDecls :: (MonadTrav m) => CDecl -> m ()
 analyseExtDecls decl@(CDecl declspecs declrs node)
-    | (Just declspecs') <- isTypedef declspecs =
+    | (Just declspecs') <- isTypeDef declspecs =
         case declrs of
-            [(Just tydeclr,Nothing,Nothing)] -> analyseTypedef declspecs' tydeclr node
+            [(Just tydeclr,Nothing,Nothing)] -> analyseTypeDef declspecs' tydeclr node
             _ -> astError node "bad typdef declaration: declarator missing or bitfieldsize/initializer present"
     | null declrs = analyseTypeDecl decl >> return ()
     | otherwise   = mapM_ (uncurry convertVarDeclr) $ zip (True : repeat False) declrs
@@ -105,20 +105,20 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
     isTypeOfExpr (TypeOfExpr _) = True
     isTypeOfExpr _ = False
 
--- convert typedef
-analyseTypedef :: (MonadTrav m) => [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
-analyseTypedef declspecs declr node_info = do
+-- convert typeDef
+analyseTypeDef :: (MonadTrav m) => [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
+analyseTypeDef declspecs declr node_info = do
     -- analyse the declarator
     (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr []
     -- TODO: move attribute to the type
-    checkValidTypedef is_inline storage_spec attrs
+    checkValidTypeDef is_inline storage_spec attrs
     let ident = identOfVarName name
-    handleTypedef (Typedef ident ty attrs node_info)
+    handleTypeDef (TypeDef ident ty attrs node_info)
     where
-    checkValidTypedef True _ _ = astError node_info "inline specifier for typedef"
-    checkValidTypedef _ _ (_:_) = astError node_info "attributes for typedefs aren't supported"
-    checkValidTypedef _ NoStorageSpec _ = return ()
-    checkValidTypedef _ bad_storage _ = astError node_info $ "storage specified for typedef: " ++ show bad_storage
+    checkValidTypeDef True _ _ = astError node_info "inline specifier for typeDef"
+    checkValidTypeDef _ _ (_:_) = astError node_info "attributes for typeDefs aren't supported"
+    checkValidTypeDef _ NoStorageSpec _ = return ()
+    checkValidTypeDef _ bad_storage _ = astError node_info $ "storage specified for typeDef: " ++ show bad_storage
 
 -- | analyse declarators
 analyseVarDecl :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> [CDecl] -> m VarDeclInfo
@@ -223,12 +223,12 @@ tInit :: (MonadTrav m) => CInit -> m Initializer
 tInit = return
 
 
--- return @Just declspecs\\typedef@ if the declaration is a typedef
-isTypedef :: [CDeclSpec] -> Maybe [CDeclSpec]
-isTypedef declspecs =
-    case foldr isTypedefSpec (False,[]) declspecs of
+-- return @Just declspecs\\typeDef@ if the declaration is a typeDef
+isTypeDef :: [CDeclSpec] -> Maybe [CDeclSpec]
+isTypeDef declspecs =
+    case foldr isTypeDefSpec (False,[]) declspecs of
         (True,specs') -> Just specs'
         (False,_)     -> Nothing
     where
-    isTypedefSpec (CStorageSpec (CTypedef n)) (_,specs) = (True, specs)
-    isTypedefSpec spec (b,specs) = (b,spec:specs)
+    isTypeDefSpec (CStorageSpec (CTypedef n)) (_,specs) = (True, specs)
+    isTypeDefSpec spec (b,specs) = (b,spec:specs)

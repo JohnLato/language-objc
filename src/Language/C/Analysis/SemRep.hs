@@ -41,7 +41,7 @@ Decl(..),
 ObjDef(..),isTentative,
 FunDef(..),
 ParamDecl(..),MemberDecl(..),
-Typedef(..),identOfTypedef,
+TypeDef(..),identOfTypeDef,
 VarDecl(..),
 -- * Declaration attributes
 DeclAttrs(..),isExtDecl,
@@ -50,9 +50,9 @@ Linkage(..),
 -- * Types
 Type(..),
 FunType(..),isFunctionType,
-derefTypedef,referencedType,hasTypeOfExpr,
+derefTypeDef,referencedType,hasTypeOfExpr,
 ArraySize(..),
-TypedefRef(..),
+TypeDefRef(..),
 TypeName(..),BuiltinType(..),
 IntType(..),FloatType(..),
 HasSUERef(..),HasCompTyKind(..),
@@ -108,7 +108,7 @@ instance (Declaration a, Declaration b) => Declaration (Either a b) where
     declType = either declType declType
     declAttrs = either declAttrs declAttrs
 
--- | identifiers, typedefs and enumeration constants (namespace sum)
+-- | identifiers, typeDefs and enumeration constants (namespace sum)
 data IdentDecl = Declaration Decl           -- ^ object or function declaration
 	             | ObjectDef ObjDef           -- ^ object definition
 	             | FunctionDef FunDef         -- ^ function definition
@@ -161,7 +161,7 @@ splitIdentDecls = Map.foldWithKey deal (Map.empty,Map.empty,Map.empty,Map.empty)
 data GlobalDecls = GlobalDecls {
                      gObjs     :: Map Ident IdentDecl,
                      gTags     :: Map SUERef TagDef,
-                     gTypedefs :: Map Ident Typedef
+                     gTypeDefs :: Map Ident TypeDef
                    }
                    
 -- | empty global declaration table
@@ -174,7 +174,7 @@ filterGlobalDecls decl_filter gmap = GlobalDecls
     {
         gObjs  = Map.filter (decl_filter . DeclEvent) (gObjs gmap),
         gTags  = Map.filter (decl_filter . TagEvent) (gTags gmap),
-        gTypedefs = Map.filter (decl_filter . TypedefEvent) (gTypedefs gmap)
+        gTypeDefs = Map.filter (decl_filter . TypeDefEvent) (gTypeDefs gmap)
     }
 -- | merge global declarations
 mergeGlobalDecls :: GlobalDecls -> GlobalDecls -> GlobalDecls
@@ -182,7 +182,7 @@ mergeGlobalDecls gmap1 gmap2 = GlobalDecls
     {
         gObjs  = Map.union (gObjs gmap1) (gObjs gmap2),
         gTags  = Map.union  (gTags gmap1) (gTags gmap2),
-        gTypedefs = Map.union (gTypedefs gmap1) (gTypedefs gmap2)
+        gTypeDefs = Map.union (gTypeDefs gmap1) (gTypeDefs gmap2)
     }
 
 
@@ -196,7 +196,7 @@ data DeclEvent =
        -- ^ file-scope struct\/union\/enum event
      | DeclEvent IdentDecl
        -- ^ file-scope declaration or definition
-     | TypedefEvent Typedef
+     | TypeDefEvent TypeDef
        -- ^ a type definition
      | AsmEvent AsmBlock
        -- ^ assembler block
@@ -258,12 +258,12 @@ instance Declaration MemberDecl where
     declAttrs (MemberDecl ld _ _) = declAttrs ld
     declAttrs _ = DeclAttrs False NoStorage []
 
--- | Typedefs
-data Typedef = Typedef Ident Type Attributes NodeInfo
+-- | TypeDefs
+data TypeDef = TypeDef Ident Type Attributes NodeInfo
                deriving (Typeable, Data {-! CNode !-} )
 
-identOfTypedef :: Typedef -> Ident
-identOfTypedef (Typedef ide _ _ _) = ide
+identOfTypeDef :: TypeDef -> Ident
+identOfTypeDef (TypeDef ide _ _ _) = ide
 
 -- | Generic variable declarations
 data VarDecl = VarDecl VarName DeclAttrs Type
@@ -321,7 +321,7 @@ data Type =
      -- ^ array type
      | FunctionType FunType
      -- ^ function type
-     | TypedefType TypedefRef
+     | TypeDefType TypeDefRef
      -- ^ a defined type
      | TypeOfExpr Expr
      -- ^ (GNU) typeof (/broken/ and should be remove, because we do not have expression type analysis)
@@ -331,16 +331,16 @@ data Type =
 data FunType = FunType Type [ParamDecl] Bool Attributes
                deriving (Typeable, Data)
 
-derefTypedef :: Type -> Type
-derefTypedef (TypedefType (TypedefRef _ (Just actual_ty) _)) = derefTypedef actual_ty
-derefTypedef ty = ty
+derefTypeDef :: Type -> Type
+derefTypeDef (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = derefTypeDef actual_ty
+derefTypeDef ty = ty
 
--- may not be called on undefined typedefs or typeof(expr)
+-- may not be called on undefined typeDefs or typeof(expr)
 referencedType :: Type -> Maybe Type
 referencedType (PtrType ty _ _) = Just ty
 referencedType (FunctionType (FunType ty _ _ _)) = Just ty
 referencedType (ArrayType ty _ _ _) = Just ty
-referencedType (TypedefType (TypedefRef _ (Just actual_ty) _)) = Just actual_ty
+referencedType (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = Just actual_ty
 referencedType (DirectType _ _) = Nothing
 referencedType _ = error "referencedType: failed to resolve type"
 
@@ -350,11 +350,11 @@ hasTypeOfExpr ty = maybe False hasTypeOfExpr (referencedType ty)
 
 -- | return @True@ if the given type is a function type
 --
---   Result is undefined in the presence of TypeOfExpr or undefined typedefs
+--   Result is undefined in the presence of TypeOfExpr or undefined typeDefs
 isFunctionType :: Type -> Bool
 isFunctionType ty =
-    case ty of  TypedefType (TypedefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
-                TypedefType _ -> error "isFunctionType: unresolved typedef"
+    case ty of  TypeDefType (TypeDefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
+                TypeDefType _ -> error "isFunctionType: unresolved typeDef"
                 TypeOfExpr _  -> error "isFunctionType: typeof(expr)"
                 FunctionType _ -> True
                 _ -> False
@@ -384,7 +384,7 @@ data BuiltinType = TyVaList
 
 -- | typdef references
 -- If the actual type is known, it is attached for convenience
-data TypedefRef = TypedefRef Ident (Maybe Type) NodeInfo
+data TypeDefRef = TypeDefRef Ident (Maybe Type) NodeInfo
                deriving (Typeable, Data {-! CNode !-})
 
 -- | integral types (C99 6.7.2.2)
@@ -568,7 +568,7 @@ instance Pos TagDef
 instance CNode DeclEvent
     where nodeInfo (TagEvent d) = nodeInfo d
           nodeInfo (DeclEvent d) = nodeInfo d
-          nodeInfo (TypedefEvent d) = nodeInfo d
+          nodeInfo (TypeDefEvent d) = nodeInfo d
           nodeInfo (AsmEvent d) = nodeInfo d
 instance Pos DeclEvent
     where posOf x = posOfNode (nodeInfo x)
@@ -599,14 +599,14 @@ instance CNode MemberDecl
 instance Pos MemberDecl
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode Typedef
-    where nodeInfo (Typedef _ _ _ nodeinfo) = nodeinfo
-instance Pos Typedef
+instance CNode TypeDef
+    where nodeInfo (TypeDef _ _ _ nodeinfo) = nodeinfo
+instance Pos TypeDef
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode TypedefRef
-    where nodeInfo (TypedefRef _ _ nodeinfo) = nodeinfo
-instance Pos TypedefRef
+instance CNode TypeDefRef
+    where nodeInfo (TypeDefRef _ _ nodeinfo) = nodeinfo
+instance Pos TypeDefRef
     where posOf x = posOfNode (nodeInfo x)
 
 instance CNode CompTypeRef

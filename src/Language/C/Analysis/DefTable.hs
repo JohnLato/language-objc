@@ -23,7 +23,7 @@ module Language.C.Analysis.DefTable (
     enterFunctionScope,leaveFunctionScope,enterBlockScope,leaveBlockScope,
     enterMemberDecl,leaveMemberDecl,
     DeclarationStatus(..),
-    defineTypedef, defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
+    defineTypeDef, defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
     defineTag,defineLabel,lookupIdent,
     lookupTag,lookupLabel,lookupIdentInner,lookupTagInner,
 )
@@ -45,7 +45,7 @@ import Data.Generics
   * labels
   * tag names (@(struct|union|enum) tag-name@), where /all/ tag names live in one namespace
   * members of structures and unions
-  * ordinary identifiers, denoting objects, functions, typedefs and enumeration constants
+  * ordinary identifiers, denoting objects, functions, typeDefs and enumeration constants
 
  There are 4 kind of scopes:
 
@@ -66,10 +66,10 @@ import Data.Generics
    <http://www.embedded.com/design/206901036>
    C99 6
 -}
-type IdentTyDecl = Either Typedef IdentDecl
+type IdentTyDecl = Either TypeDef IdentDecl
 
 identOfTyDecl :: IdentTyDecl -> Ident
-identOfTyDecl = either identOfTypedef identOfDecl
+identOfTyDecl = either identOfTypeDef identOfDecl
 
 data DefTable = DefTable
     {
@@ -88,7 +88,7 @@ globalDefs deftbl = Map.foldWithKey insertDecl (GlobalDecls e gtags e) (globalNa
     where
     e = Map.empty
     gtags =   globalNames (tagDecls deftbl)
-    insertDecl ident (Left tydef) ds = ds { gTypedefs = Map.insert ident tydef (gTypedefs ds)}
+    insertDecl ident (Left tydef) ds = ds { gTypeDefs = Map.insert ident tydef (gTypeDefs ds)}
     insertDecl ident (Right obj) ds = ds { gObjs = Map.insert ident obj (gObjs ds) }
 
 leaveScope_ :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
@@ -162,33 +162,33 @@ defRedeclStatusLocal sameKind ident def oldDecl nsm =
                      Nothing       -> NewDecl
         redecl  -> redecl
 
-defineTypedef :: Ident -> Typedef -> DefTable -> (DeclarationStatus IdentTyDecl, DefTable)
-defineTypedef ident tydef deftbl =
+defineTypeDef :: Ident -> TypeDef -> DefTable -> (DeclarationStatus IdentTyDecl, DefTable)
+defineTypeDef ident tydef deftbl =
   (defRedeclStatus compatIdentTyDecl (Left tydef) oldDecl, deftbl { identDecls = decls' })
   where
   (decls', oldDecl) = defGlobal (identDecls deftbl) ident (Left tydef)
 
--- | declare\/define a global object\/function\/typedef
+-- | declare\/define a global object\/function\/typeDef
 --
---  returns @Redeclared def@ if there is already an object\/function\/typedef
+--  returns @Redeclared def@ if there is already an object\/function\/typeDef
 --  in global scope, or @DifferentKindRedec def@ if the old declaration is of a different kind.
 defineGlobalIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentTyDecl, DefTable)
 defineGlobalIdent ident def deftbl =
     (defRedeclStatus compatIdentTyDecl (Right def) oldDecl, deftbl { identDecls = decls' })
     where
     (decls',oldDecl) = defGlobal (identDecls deftbl) ident (Right def)
--- | declare\/define a object\/function\/typedef with lexical scope
+-- | declare\/define a object\/function\/typeDef with lexical scope
 --
---  returns @Redeclared def@ or @DifferentKindRedec def@  if there is already an object\/function\/typedef
+--  returns @Redeclared def@ or @DifferentKindRedec def@  if there is already an object\/function\/typeDef
 --  in the same scope.
 defineScopedIdent :: Ident -> IdentDecl -> DefTable -> (DeclarationStatus IdentTyDecl, DefTable)
 defineScopedIdent = defineScopedIdentWhen (const True)
 
--- | declare\/define a object\/function\/typedef with lexical scope, if the given predicate holds on the old
+-- | declare\/define a object\/function\/typeDef with lexical scope, if the given predicate holds on the old
 --   entry.
 --
 --  returns @Keep old_def@ if the old definition shouldn't be overwritten, and otherwise @Redeclared def@ or
---  @DifferentKindRedec def@  if there is already an object\/function\/typedef in the same scope.
+--  @DifferentKindRedec def@  if there is already an object\/function\/typeDef in the same scope.
 defineScopedIdentWhen :: (IdentDecl -> Bool) -> Ident -> IdentDecl -> DefTable ->
                            (DeclarationStatus IdentTyDecl, DefTable)
 defineScopedIdentWhen override_def ident def deftbl
@@ -227,7 +227,7 @@ defineLabel ident deftbl =
     in  (maybe NewDecl Redeclared old_label, deftbl { labelDefs = labels' })
 
 
--- | lookup identifier (object, function, typedef, enumerator)
+-- | lookup identifier (object, function, typeDef, enumerator)
 lookupIdent :: Ident -> DefTable -> Maybe IdentTyDecl
 lookupIdent ident deftbl = lookupName (identDecls deftbl) ident
 

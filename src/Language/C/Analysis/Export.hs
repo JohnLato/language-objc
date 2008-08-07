@@ -105,17 +105,17 @@ exportFloatType ty =
 exportComplexType :: FloatType -> [CTypeSpec]
 exportComplexType ty = (CComplexType ni) : exportFloatType ty
 
-exportCompTypeDecl :: CompTypeDecl -> [CTypeSpec]
+exportCompTypeDecl :: CompTypeRef -> [CTypeSpec]
 exportCompTypeDecl ty = [CSUType (exportComp ty) ni]
     where
-    exportComp (CompTypeDecl sue_ref comp_tag node_info) =
+    exportComp (CompTypeRef sue_ref comp_tag node_info) =
         CStruct (if comp_tag == StructTag then CStructTag else CUnionTag)
                 (exportSUERef sue_ref) Nothing [] ni
 
-exportEnumTypeDecl :: EnumTypeDecl -> [CTypeSpec]
+exportEnumTypeDecl :: EnumTypeRef -> [CTypeSpec]
 exportEnumTypeDecl ty = [CEnumType (exportEnum ty) ni]
     where
-    exportEnum (EnumTypeDecl sue_ref node_info) =
+    exportEnum (EnumTypeRef sue_ref node_info) =
         CEnum (exportSUERef sue_ref) Nothing [] ni
 
 exportCompType :: CompType -> [CTypeSpec]
@@ -127,10 +127,10 @@ exportCompType (CompType sue_ref comp_tag members attrs node_info) = [CSUType co
                    (exportAttrs attrs)
                    node_info
 exportCompTypeRef :: CompType -> [CTypeSpec]
-exportCompTypeRef (CompType sue_ref com_tag  _ _ node_info) = exportCompTypeDecl (CompTypeDecl sue_ref com_tag node_info)
+exportCompTypeRef (CompType sue_ref com_tag  _ _ node_info) = exportCompTypeDecl (CompTypeRef sue_ref com_tag node_info)
 
 exportEnumTypeRef :: EnumType -> [CTypeSpec]
-exportEnumTypeRef (EnumType sue_ref _ _ node_info) = exportEnumTypeDecl (EnumTypeDecl sue_ref node_info)
+exportEnumTypeRef (EnumType sue_ref _ _ node_info) = exportEnumTypeDecl (EnumTypeRef sue_ref node_info)
 
 exportSUERef = Just . ident . show -- relies on a the source program not having any $'s in it
 

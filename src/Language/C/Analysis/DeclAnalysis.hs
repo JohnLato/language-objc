@@ -229,12 +229,12 @@ typedefRef t_node name = lookupTypedef name >>= \ty -> return (TypedefRef name (
 -- we emit @declStructUnion@ and @defStructUnion@ actions
 --
 -- TODO: should attributes be part of declarartions too ?
-tCompTypeDecl :: (MonadTrav m) => Bool -> CStructUnion -> m CompTypeDecl
+tCompTypeDecl :: (MonadTrav m) => Bool -> CStructUnion -> m CompTypeRef
 tCompTypeDecl handle_def (CStruct tag ident_opt member_decls_opt attrs node_info) = do
     sue_ref <- createSUERef node_info ident_opt                           -- create name
     let tag' = tTag tag
     attrs' <- mapM tAttr attrs
-    let decl = CompTypeDecl sue_ref tag' node_info
+    let decl = CompTypeRef sue_ref tag' node_info
     when (handle_def) $ do
         maybeM member_decls_opt $ \decls ->
                 tCompType sue_ref tag' decls (attrs') node_info
@@ -257,14 +257,14 @@ tCompType tag sue_ref member_decls attrs node
 --  > enum my_enum
 --  > enum your_enum { x, y=3 }
 --
-tEnumTypeDecl :: (MonadTrav m) => Bool -> CEnum -> m EnumTypeDecl
+tEnumTypeDecl :: (MonadTrav m) => Bool -> CEnum -> m EnumTypeRef
 tEnumTypeDecl handle_def (CEnum ident_opt enumerators_opt attrs node_info)
     | (Nothing, Nothing) <- (ident_opt, enumerators_opt) = astError node_info "both definition and name of enum missing"
     | Just [] <- enumerators_opt                         = astError node_info "empty enumerator list"
     | otherwise
         = do sue_ref <- createSUERef node_info ident_opt
              attrs' <- mapM tAttr attrs
-             let decl = EnumTypeDecl sue_ref node_info
+             let decl = EnumTypeRef sue_ref node_info
              when handle_def $ do
                  maybeM enumerators_opt $ \enumerators ->
                          tEnumType sue_ref enumerators attrs' node_info

@@ -373,8 +373,8 @@ data TypeName =
     | TyIntegral IntType
     | TyFloating FloatType
     | TyComplex  FloatType
-    | TyComp CompTypeDecl
-    | TyEnum EnumTypeDecl
+    | TyComp CompTypeRef
+    | TyEnum EnumTypeRef
     | TyBuiltin BuiltinType
     deriving (Typeable, Data)
 
@@ -436,13 +436,15 @@ class HasSUERef a where
 -- | accessor class : composite type tags (struct or enum)
 class HasCompTyKind a where
     compTag :: a -> CompTyKind
-    
-data CompTypeDecl = CompTypeDecl SUERef CompTyKind NodeInfo
-    deriving (Typeable, Data {-! CNode !-})
-instance HasSUERef  CompTypeDecl where sueRef  (CompTypeDecl ref _ _) = ref
-instance HasCompTyKind CompTypeDecl where compTag (CompTypeDecl _ tag _)  = tag
 
-data EnumTypeDecl = EnumTypeDecl SUERef NodeInfo
+-- | composite type declarations
+data CompTypeRef = CompTypeRef SUERef CompTyKind NodeInfo
+                    deriving (Typeable, Data {-! CNode !-})
+
+instance HasSUERef  CompTypeRef where sueRef  (CompTypeRef ref _ _) = ref
+instance HasCompTyKind CompTypeRef where compTag (CompTypeRef _ tag _)  = tag
+
+data EnumTypeRef = EnumTypeRef SUERef NodeInfo
     deriving (Typeable, Data {-! CNode !-})
 instance HasSUERef  EnumTypeRef where sueRef  (EnumTypeRef ref _) = ref
 
@@ -454,7 +456,7 @@ instance HasSUERef  CompType where sueRef  (CompType ref _ _ _ _) = ref
 instance HasCompTyKind CompType where compTag (CompType _ tag _ _ _) = tag
 
 typeOfCompDef :: CompType -> TypeName
-typeOfCompDef (CompType ref tag _ _ _) = TyComp (CompTypeDecl ref tag internalNode)
+typeOfCompDef (CompType ref tag _ _ _) = TyComp (CompTypeRef ref tag internalNode)
 
 -- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CCompType'.
 data CompTyKind =  StructTag
@@ -471,7 +473,7 @@ data EnumType = EnumType SUERef [Enumerator] Attributes NodeInfo
 instance HasSUERef EnumType where sueRef  (EnumType ref _ _ _) = ref
 
 typeOfEnumDef :: EnumType -> TypeName
-typeOfEnumDef (EnumType ref _ _ _) = TyEnum (EnumTypeDecl ref internalNode)
+typeOfEnumDef (EnumType ref _ _ _) = TyEnum (EnumTypeRef ref internalNode)
 
 type Enumerator = (Ident,Maybe Expr)
 

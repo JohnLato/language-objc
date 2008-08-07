@@ -12,7 +12,6 @@ fi
 cd $TEST_DIR
 darcs pull || die "darcs pull failed"
 echo "Building via cabal"
-cabal clean 
 cabal configure || die "cabal configure failed"
 cabal build || die "cabal build failed"
 cabal haddock || die "cabal haddock failed"
@@ -20,6 +19,8 @@ echo "Finished building via cabal"
 cd test
 echo "Building test suite"
 make || die "make failed in /test"
+(cd harness && make) || die \
+    "test harness failed"
 (cd suite && yes | bash run-dg.sh) || die \
     "run-dg.sh failed - make sure there is a symlink or copy to the gcc.dg testsuite in $TMPDIR/test/suite"
 ( cd results && ../bin/RenderTests regression *dat) || die "rendering tests failed"

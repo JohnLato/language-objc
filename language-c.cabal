@@ -1,5 +1,5 @@
 Name:           language-c
-Version:        0.2.7
+Version:        0.2.8
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
 License:        BSD3
@@ -66,8 +66,8 @@ Library
                       Language.C.Analysis.TravMonad
                       Language.C.Analysis.AstAnalysis
                       Language.C.Analysis.DeclAnalysis
-                      -- semrep -> code [internal use / alpha]
                       Language.C.Analysis.Debug
+                      -- semrep -> code [alpha]
                       Language.C.Analysis.Export
     Other-Modules:    
                       -- implementation

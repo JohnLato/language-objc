@@ -108,9 +108,9 @@ instance Pretty Type  where
     pretty ty = prettyType "<?>" ty
 prettyType declr_name ty = prettyTy (text declr_name) ty
     where
-    prettyTy declr_name (DirectType ty_name quals attrs) = 
-        pretty quals <+> pretty attrs <+> pretty ty_name <+> declr_name
-    prettyTy declr_name (TypeDefType (TypeDefRef ident _ _)) = 
+    prettyTy declr_name (DirectType ty_name quals) =
+        pretty quals <+> pretty ty_name <+> declr_name
+    prettyTy declr_name (TypedefType (TypedefRef ident _ _)) = 
         text "typeref" <> parens (pretty ident) <+> declr_name
     prettyTy declr_name (TypeOfExpr expr) = 
         text "typeof" <> parens (pretty expr) <+> declr_name

@@ -261,7 +261,7 @@ identOfTypedef (Typedef ide _ _ _) = ide
 
 -- | types of c objects
 data Type =
-       DirectType TypeName TypeQuals Attributes
+       DirectType TypeName TypeQuals
      -- ^ a non-derived type
      | PtrType Type TypeQuals Attributes
      -- ^ pointer type

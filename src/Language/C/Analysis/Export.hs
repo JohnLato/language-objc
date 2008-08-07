@@ -162,8 +162,8 @@ exportStorage _ = error "TODO"
 -- Doh ! useless wrapping never pays off
 exportAttrs = map exportAttr where
     exportAttr (Attr ident es ni) = CAttr ident es ni
-fromDirectType (DirectType ty _ _) = ty
-fromDirectType (TypeDefType (TypeDefRef _ ref _)) = maybe (error "undefined typedef") fromDirectType ref
+fromDirectType (DirectType ty _) = ty
+fromDirectType (TypedefType (TypedefRef _ ref _)) = maybe (error "undefined typedef") fromDirectType ref
 fromDirectType _ = error "fromDirectType"
 ni :: NodeInfo
 ni = internalNode

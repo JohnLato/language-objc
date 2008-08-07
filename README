@@ -1,6 +1,7 @@
 = Language.C =
 
-Parser and Pretty Printer for C99.
+Language.C is a parser and pretty-printer framework for C99 and the extensions of gcc.
+
 See http://www.sivity.net/projects/language.c/
 
 == Build ==
@@ -15,14 +16,14 @@ Provide the set of flags passing
  --flags="<flags-seperated-by-space>"
 to configure.
 
+== Sources ==
+
+see src/README
+
+== Examples ==
+
+A couple of small examples are available in /examples
+
 == Testing ==
-
-=== parse-and-print ===
-
-> cd test
-> make c_test
-> ./bin/CTest -I/usr/src/yarv /usr/src/yarv/vm.c
-
-== Automatic Testing ==
 
 See test/README

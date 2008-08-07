@@ -102,9 +102,11 @@ Some other extensions simply promote C99 features to C89 and therefore aren't li
 == Unsupported C99 Features ==
 
   * Universal Character Names (C99 Lexer)
-  
+
 === Currently Unsupported GNU Extensions ===
 
+|| Pragmas || {{{#pragma}}} compile directives ||
+|| || {{{ #pragma pack(push, p1, 1) }}} ||
 || [http://gcc.gnu.org/onlinedocs/gcc/Floating-Types.html Floating-Types] ||Additional Floating Types ||
 || || {{{ __float80 x = 2.30w; }}} ||
 || [http://gcc.gnu.org/onlinedocs/gcc/Decimal-Float.html Decimal-Float] || Decimal Floating Types ||

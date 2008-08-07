@@ -123,18 +123,18 @@ analyseTypedef declspecs declr node_info = do
 -- | analyse declarators
 analyseVarDecl :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> [CDecl] -> m VarDeclInfo
 analyseVarDecl handle_sue_def declspecs declr oldstyle_params = do
-    let (storagespecs, typequals, typespecs, inline) = partitionDeclSpecs declspecs
+    let (storagespecs, decl_attrs, typequals, typespecs, inline) = partitionDeclSpecs declspecs
     -- analyse the storage specifiers
     storage_spec  <- canonicalStorageSpec storagespecs
     -- translate the type into semantic representation
     typ          <- tType handle_sue_def node typequals typespecs derived_declrs oldstyle_params
     -- translate attributes
-    attrs'       <- mapM tAttr attributes
+    attrs'       <- mapM tAttr (decl_attrs ++ declr_attrs)
     -- create the variable name
     name         <- mkVarName node nameOpt (fmap convertStringLit asmname_opt)
     return $ VarDeclInfo name inline storage_spec attrs' typ node
     where
-    (CDeclr nameOpt derived_declrs asmname_opt attributes node) = declr
+    (CDeclr nameOpt derived_declrs asmname_opt declr_attrs node) = declr
     isInlineSpec (CInlineQual _) = True
     isInlineSpec _ = False
 

@@ -8,16 +8,16 @@
 -- Stability   :  experimental
 -- Portability :  unspecified
 --
--- This module performs the analysis of declarations and the translation of 
+-- This module performs the analysis of declarations and the translation of
 -- type specifications in the AST.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.DeclAnalysis (
   -- * translating types
   analyseTypeDecl,
-  tType,tDirectType,tNumType,tArraySize,tTypeQuals, 
+  tType,tDirectType,tNumType,tArraySize,tTypeQuals,
   mergeOldStyle,
   -- * dissecting type specs
-  canonicalTypeSpec, NumBaseType(..),SignSpec(..),SizeMod(..),NumTypeSpec(..),TypeSpecAnalysis(..), 
+  canonicalTypeSpec, NumBaseType(..),SignSpec(..),SizeMod(..),NumTypeSpec(..),TypeSpecAnalysis(..),
   canonicalStorageSpec, StorageSpec(..),isThreadLocalSpec,
   -- * helpers
   VarDeclInfo(..),
@@ -32,7 +32,7 @@ import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
 
-import Data.Foldable as F (foldrM) 
+import Data.Foldable as F (foldrM)
 import qualified Data.Traversable as T
 import Control.Monad (liftM,when,ap)
 import Data.List (intersperse)
@@ -46,9 +46,9 @@ computeParamStorage _ = NoStorage
 
 -- TODO: handle void parameter ?
 tParamDecl :: (MonadTrav m) => CDecl -> m ParamDecl
-tParamDecl (CDecl declspecs declrs node) = 
+tParamDecl (CDecl declspecs declrs node) =
     case declrs' of
-        [(Just declr, Nothing, Nothing)] -> 
+        [(Just declr, Nothing, Nothing)] ->
             do  (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr [] Nothing
 
                 -- TODO: check assembler name
@@ -57,7 +57,7 @@ tParamDecl (CDecl declspecs declrs node) =
                 let storage = computeParamStorage storage_spec
                 return $ ParamDecl (VarDecl name (DeclAttrs False storage attrs) ty) declr_node
         _   -> astError node "bad parameter declaration: multiple decls / bitfield or initializer present"
-    where 
+    where
     -- hacking away missing declarator
     declrs' = case declrs of
                   [] -> [(Just$ emptyDeclr node,Nothing,Nothing)]
@@ -65,44 +65,46 @@ tParamDecl (CDecl declspecs declrs node) =
 tMemberDecls :: (MonadTrav m) => CDecl -> m [MemberDecl]
 tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (True:repeat False) declrs)
     where
-    tMemberDecl handle_sue_def (Just member_declr,Nothing,bit_field_size_opt) = 
+    tMemberDecl handle_sue_def (Just member_declr,Nothing,bit_field_size_opt) =
         do var_decl <- analyseVarDecl handle_sue_def declspecs member_declr [] Nothing
            let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl
-           -- 
+           --
            checkValidMemberSpec is_inline storage_spec
            return $ MemberDecl (VarDecl name (DeclAttrs False NoStorage attrs) ty) bit_field_size_opt node
-    tMemberDecl handle_sue_def (Nothing,Nothing,Just bit_field_size) =  
-        do let (storage_specs, typequals, typespecs, is_inline) = partitionDeclSpecs declspecs
+    tMemberDecl handle_sue_def (Nothing,Nothing,Just bit_field_size) =
+        do let (storage_specs, _attrs, typequals, typespecs, is_inline) = partitionDeclSpecs declspecs
            storage_spec  <- canonicalStorageSpec storage_specs
            typ           <- tType handle_sue_def node typequals typespecs [] []
            --
            return $ AnonBitField typ bit_field_size node
     tMemberDecl _ _ = astError node "Bad member declaration"
     checkValidMemberSpec is_inline storage_spec =
-        do  when (is_inline)                     $ astError node "member declaration with inline specifier"            
+        do  when (is_inline)                     $ astError node "member declaration with inline specifier"
             when (storage_spec /= NoStorageSpec) $ astError node "storage specifier for member"
             return ()
-            
+
 data StorageSpec = NoStorageSpec | AutoSpec | RegSpec | ThreadSpec | StaticSpec Bool | ExternSpec Bool
                     deriving (Eq,Ord,Show,Read)
 isThreadLocalSpec :: StorageSpec -> Bool
 isThreadLocalSpec ThreadSpec = True
 isThreadLocalSpec (StaticSpec b) = b
 isThreadLocalSpec (ExternSpec b) = b
-isThreadLocalSpec _  = False    
+isThreadLocalSpec _  = False
 
 data VarDeclInfo = VarDeclInfo VarName Bool {- is-inline? -} StorageSpec Attributes Type NodeInfo
 
 -- | analyse declarators
 analyseVarDecl :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> [CDecl] -> (Maybe CInit) -> m VarDeclInfo
-analyseVarDecl handle_sue_def declspecs (CDeclr name_opt derived_declrs asmname_opt attrs node) oldstyle_params init_opt 
-    = do let (storage_specs, typequals, typespecs, inline) = partitionDeclSpecs declspecs
+analyseVarDecl handle_sue_def declspecs
+               (CDeclr name_opt derived_declrs asmname_opt declr_attrs node)
+               oldstyle_params init_opt
+    = do let (storage_specs, decl_attrs, typequals, typespecs, inline) = partitionDeclSpecs declspecs
          -- analyse the storage specifiers
          storage_spec  <- canonicalStorageSpec storage_specs
          -- translate the type into semantic representation
          typ          <- tType handle_sue_def node typequals typespecs derived_declrs oldstyle_params
          -- translate attributes
-         attrs'       <- mapM tAttr attrs
+         attrs'       <- mapM tAttr (decl_attrs ++ declr_attrs)
          -- make name
          name         <- mkVarName node name_opt (fmap convertStringLit asmname_opt)
          return $ VarDeclInfo name inline storage_spec attrs' typ node
@@ -145,49 +147,50 @@ analyseTypeDecl (CDecl declspecs declrs node)
     where
     analyseTyDeclr (CDeclr Nothing derived_declrs Nothing attrs _declrnode)
         | (not (null storagespec) || inline) = astError node "storage specifier for type declaration"
-        | otherwise                          = tType True node (map CAttrQual attrs ++ typequals) typespecs derived_declrs []
+        | otherwise                          = tType True node (map CAttrQual (attrs++attrs_decl) ++ typequals)
+                                                     typespecs derived_declrs []
         where
-        (storagespec, typequals, typespecs, inline) = partitionDeclSpecs declspecs
+        (storagespec, attrs_decl, typequals, typespecs, inline) = partitionDeclSpecs declspecs
     analyseTyDeclr _ = astError node "Non-abstract declarator in type declaration"
 
 
--- | translate a type 
+-- | translate a type
 tType :: (MonadTrav m) => Bool -> NodeInfo -> [CTypeQual] -> [CTypeSpec] -> [CDerivedDeclr] -> [CDecl] -> m Type
 tType handle_sue_def top_node typequals typespecs derived_declrs oldstyle_params
     = mergeOldStyle top_node oldstyle_params derived_declrs >>= buildType
     where
-    buildType [] = tDirectType handle_sue_def top_node typequals typespecs 
-    buildType (CPtrDeclr ptrquals node : dds) = 
+    buildType [] = tDirectType handle_sue_def top_node typequals typespecs
+    buildType (CPtrDeclr ptrquals node : dds) =
         buildType dds >>= buildPointerType ptrquals node
-    buildType (CArrDeclr arrquals size node : dds) 
+    buildType (CArrDeclr arrquals size node : dds)
         = buildType dds >>= buildArrayType arrquals size node
-    buildType (CFunDeclr ~(Right (params, isVariadic)) attrs node : dds) 
+    buildType (CFunDeclr ~(Right (params, isVariadic)) attrs node : dds)
         = buildType dds >>= (liftM FunctionType . buildFunctionType params isVariadic attrs node)
-    buildPointerType ptrquals _node inner_ty     
+    buildPointerType ptrquals _node inner_ty
         = liftM (\(quals,attrs) -> PtrType inner_ty quals attrs) (tTypeQuals ptrquals)
     buildArrayType arr_quals size _node inner_ty
         = do (quals,attrs) <- tTypeQuals arr_quals
              arr_sz        <- tArraySize size
              return$ ArrayType inner_ty arr_sz quals attrs
-    buildFunctionType params is_variadic attrs _node return_ty 
+    buildFunctionType params is_variadic attrs _node return_ty
         = do params' <- mapM tParamDecl params
              attrs'   <- mapM tAttr attrs
              return$ FunType return_ty params' is_variadic attrs'
-    
+
 -- | translate a type without (syntactic) indirections
 -- Due to the GNU @typeof@ extension and typedefs, this can be an arbitrary type
 tDirectType :: (MonadTrav m) => Bool -> NodeInfo -> [CTypeQual] -> [CTypeSpec] -> m Type
 tDirectType handle_sue_def node ty_quals ty_specs = do
     (quals,attrs) <- tTypeQuals ty_quals
     canonTySpec <- canonicalTypeSpec ty_specs
-    let baseType ty_name = DirectType ty_name quals attrs 
+    let baseType ty_name = DirectType ty_name quals
     case canonTySpec of
         TSNone -> return$ baseType (TyIntegral TyInt)
         TSVoid -> return$ baseType TyVoid
         TSBool -> return$ baseType (TyIntegral TyBool)
         TSNum tsnum -> do
             numType <- tNumType tsnum
-            return . baseType $ 
+            return . baseType $
                 case numType of
                     Left (floatType,iscomplex) -> TyFloating (if iscomplex then TyComplex else NoFloatTypeQual) floatType
                     Right intType  -> TyIntegral intType
@@ -196,11 +199,11 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
         TSNonBasic (CTypeDef name t_node)    -> liftM TypedefType $ typedefRef t_node name
         TSNonBasic (CTypeOfExpr expr _tnode) -> liftM (TypeOfExpr) (analyseConstExpr expr)
         TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
-        TSNonBasic _ -> astError node "Unexpected typespec" 
+        TSNonBasic _ -> astError node "Unexpected typespec"
 
 -- | Merge type attributes
 --
--- This handles for example the form 
+-- This handles for example the form
 --
 -- > /* tyqual attr typeof(type) */
 -- > const typeof(char volatile) x;
@@ -210,7 +213,7 @@ mergeTypeAttributes node_info quals attrs typ =
         DirectType ty_name quals' attrs' -> merge quals' attrs' $ DirectType ty_name
         PtrType ty quals' attrs'        -> merge quals' attrs' $ PtrType ty
         ArrayType ty array_sz quals' attrs' -> merge quals' attrs' $ ArrayType ty array_sz
-        FunctionType (FunType return_ty params inline attrs') 
+        FunctionType (FunType return_ty params inline attrs')
             | not (null attrs) -> astError node_info "type qualifiers for function type"
             | otherwise        -> return$ FunctionType (FunType return_ty params inline (attrs' ++ attrs))
     where
@@ -218,7 +221,7 @@ mergeTypeAttributes node_info quals attrs typ =
 
 typedefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypedefRef
 typedefRef t_node name = lookupTypedef name >>= \ty -> return (TypedefRef name (Just ty) t_node)
-  
+
 -- extract a struct\/union
 -- we emit @declStructUnion@ and @defStructUnion@ actions
 --
@@ -227,11 +230,11 @@ tCompTypeDecl :: (MonadTrav m) => Bool -> CStructUnion -> m CompTypeDecl
 tCompTypeDecl handle_def (CStruct tag ident_opt member_decls_opt attrs node_info) = do
     sue_ref <- createSUERef node_info ident_opt                           -- create name
     let tag' = tTag tag
-    attrs' <- mapM tAttr attrs 
+    attrs' <- mapM tAttr attrs
     let decl = CompTypeDecl sue_ref tag' node_info
     when (handle_def) $ do
-        maybeM member_decls_opt $ \decls -> 
-                tCompType sue_ref tag' decls (attrs') node_info   
+        maybeM member_decls_opt $ \decls ->
+                tCompType sue_ref tag' decls (attrs') node_info
             >>= (handleTagDef.CompDef)                                      -- handle comp type definition
     return decl
 
@@ -241,8 +244,8 @@ tTag CUnionTag  = UnionTag
 
 tCompType :: (MonadTrav m) => SUERef -> CompTyKind -> [CDecl] -> Attributes -> NodeInfo -> m CompType
 tCompType tag sue_ref member_decls attrs node
-    = return (CompType tag sue_ref) `ap` 
-        (concatMapM tMemberDecls member_decls) `ap` 
+    = return (CompType tag sue_ref) `ap`
+        (concatMapM tMemberDecls member_decls) `ap`
         (return attrs) `ap`
         (return node)
 
@@ -260,11 +263,11 @@ tEnumTypeDecl handle_def (CEnum ident_opt enumerators_opt attrs node_info)
              attrs' <- mapM tAttr attrs
              let decl = EnumTypeDecl sue_ref node_info
              when handle_def $ do
-                 maybeM enumerators_opt $ \enumerators -> 
+                 maybeM enumerators_opt $ \enumerators ->
                          tEnumType sue_ref enumerators attrs' node_info
                     >>=  (handleTagDef . EnumDef)
              return decl
-             
+
 tEnumType :: (MonadTrav m) => SUERef -> [(Ident, Maybe CExpr)] -> Attributes -> NodeInfo -> m EnumType
 tEnumType sue_ref enumerators attrs node = do
     enumerators' <- mapM (mapSndM (T.mapM analyseConstExpr)) enumerators
@@ -274,7 +277,7 @@ tEnumType sue_ref enumerators attrs node = do
 
 -- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier
 tNumType :: (MonadTrav m) => NumTypeSpec -> m (Either (FloatType,Bool) IntType)
-tNumType (NumTypeSpec basetype sgn sz iscomplex) = 
+tNumType (NumTypeSpec basetype sgn sz iscomplex) =
     case (basetype,sgn,sz) of
         (BaseChar,_,NoSizeMod)      | Signed <- sgn   -> intType TySChar
                                       | Unsigned <- sgn -> intType TyUChar
@@ -283,12 +286,12 @@ tNumType (NumTypeSpec basetype sgn sz iscomplex) =
             intType$ case sgn of
                             Unsigned -> TyUInt
                             _        -> TyInt
-        (intbase, signed, sizemod)    | optBase BaseInt intbase, optSign Signed signed -> 
+        (intbase, signed, sizemod)    | optBase BaseInt intbase, optSign Signed signed ->
             intType$ case sizemod of ShortMod    -> TyShort
                                      LongMod     -> TyLong
                                      LongLongMod -> TyLLong
                                      _ -> internalErr "numTypeMapping: unexpected pattern matching error"
-        (intbase, Unsigned, sizemod) | optBase BaseInt intbase -> 
+        (intbase, Unsigned, sizemod) | optBase BaseInt intbase ->
             intType$ case sizemod of ShortMod    -> TyUShort
                                      LongMod     -> TyULong
                                      LongLongMod -> TyULLong
@@ -298,7 +301,7 @@ tNumType (NumTypeSpec basetype sgn sz iscomplex) =
         (BaseDouble, NoSignSpec, LongMod)   -> floatType TyLDouble
         -- TODO: error analysis
         (_,_,_)   -> error "Bad AST analysis"
-    where 
+    where
     optBase _ NoBaseType = True
     optBase expect baseTy = expect == baseTy
     optSign _ NoSignSpec = True
@@ -346,24 +349,24 @@ canonicalTypeSpec = foldrM go TSNone where
     updLongMod _         = Nothing
     go (CVoidType _)    TSNone = return$  TSVoid
     go (CBoolType _)    TSNone = return$  TSBool
-    go (CCharType _)    tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa 
+    go (CCharType _)    tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa
                             = return$  TSNum$ nts { base = BaseChar }
-    go (CIntType _)     tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa 
+    go (CIntType _)     tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa
                             = return$  TSNum$ nts { base = BaseInt }
-    go (CFloatType _)   tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa 
+    go (CFloatType _)   tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa
                             = return$  TSNum$ nts { base = BaseFloat }
-    go (CDoubleType _)  tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa 
+    go (CDoubleType _)  tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa
                             = return$  TSNum$ nts { base = BaseDouble }
-    go (CShortType _)   tsa | (Just nts@(NumTypeSpec { sizeMod = NoSizeMod })) <- getNTS tsa 
+    go (CShortType _)   tsa | (Just nts@(NumTypeSpec { sizeMod = NoSizeMod })) <- getNTS tsa
                             = return$  TSNum$nts { sizeMod = ShortMod }
     go (CLongType _)    tsa | (Just nts@(NumTypeSpec { sizeMod = szMod })) <- getNTS tsa,
-                              (Just szMod') <- updLongMod szMod                          
+                              (Just szMod') <- updLongMod szMod
                             = return$  TSNum$ nts { sizeMod = szMod' }
-    go (CSignedType _)  tsa | (Just nts@(NumTypeSpec { signSpec = NoSignSpec })) <- getNTS tsa 
+    go (CSignedType _)  tsa | (Just nts@(NumTypeSpec { signSpec = NoSignSpec })) <- getNTS tsa
                             = return$  TSNum$ nts { signSpec = Signed }
-    go (CUnsigType _)   tsa | (Just nts@(NumTypeSpec { signSpec = NoSignSpec })) <- getNTS tsa 
+    go (CUnsigType _)   tsa | (Just nts@(NumTypeSpec { signSpec = NoSignSpec })) <- getNTS tsa
                             = return$  TSNum$ nts { signSpec = Unsigned }
-    go (CComplexType _) tsa | (Just nts@(NumTypeSpec { isComplex = False })) <- getNTS tsa 
+    go (CComplexType _) tsa | (Just nts@(NumTypeSpec { isComplex = False })) <- getNTS tsa
                             = return$  TSNum$ nts { isComplex = True }
     go otherType  TSNone    = return$  TSNonBasic otherType
     go ty _ts = astError (nodeInfo ty) "Invalid type specifier"
@@ -380,7 +383,7 @@ canonicalStorageSpec storagespecs = liftM elideAuto $ foldrM updStorage NoStorag
         updStorage (CExtern _) NoStorageSpec   = return$ ExternSpec False
         updStorage (CStatic _) ThreadSpec      = return$ StaticSpec True
         updStorage (CExtern _) ThreadSpec      = return$ ExternSpec True
-        updStorage badSpec old      
+        updStorage badSpec old
             = astError (nodeInfo badSpec) $ "Invalid storage specifier "++show badSpec++" in combination with "++show old
         elideAuto AutoSpec = NoStorageSpec
         elideAuto spec = spec
@@ -401,7 +404,7 @@ canonicalStorageSpec storagespecs = liftM elideAuto $ foldrM updStorage NoStorag
 -- TODO: This could be moved to syntax, as it operates on the AST only
 mergeOldStyle :: (MonadTrav m) => NodeInfo -> [CDecl] -> [CDerivedDeclr] -> m [CDerivedDeclr]
 mergeOldStyle _node [] declrs = return declrs
-mergeOldStyle node oldstyle_params (CFunDeclr params attrs fdnode : dds) = 
+mergeOldStyle node oldstyle_params (CFunDeclr params attrs fdnode : dds) =
     case params of
         Left list -> do
             -- FIXME: This translation doesn't work in the following example
@@ -409,13 +412,13 @@ mergeOldStyle node oldstyle_params (CFunDeclr params attrs fdnode : dds) =
             oldstyle_params' <- liftM concat $ mapM splitCDecl oldstyle_params
             param_map <- liftM Map.fromList $ mapM attachNameOfDecl oldstyle_params'
             (newstyle_params,param_map') <- foldrM insertParamDecl ([],param_map) list
-            when (not $ Map.null param_map') $ 
+            when (not $ Map.null param_map') $
                 astError node $ "declarations for parameter(s) "++ showParamMap param_map' ++" but no such parameter"
             return $ (CFunDeclr (Right (newstyle_params, False)) attrs fdnode : dds)
         Right _newstyle -> astError node "oldstyle parameter list, but newstyle function declaration"
     where
         attachNameOfDecl decl = nameOfDecl decl >>= \n -> return (n,decl)
-        insertParamDecl param_name (ps, param_map) 
+        insertParamDecl param_name (ps, param_map)
             = case Map.lookup param_name param_map of
                 Just p -> return (p:ps, Map.delete param_name param_map)
                 Nothing -> return (implicitIntParam param_name : ps, param_map)
@@ -427,7 +430,7 @@ mergeOldStyle node _ _ = astError node "oldstyle parameter list, but not functio
 
 -- | split a CDecl into declarators, hereby eliding SUE defs from the second declarator on.
 --
---   There are several reasons why this isn;t the preferred way for handling multiple-declarator declarations, 
+--   There are several reasons why this isn;t the preferred way for handling multiple-declarator declarations,
 --   but it can be convinient some times.
 --
 -- > splitCDecl [d| struct x { int z; } a,*b; |]
@@ -439,9 +442,9 @@ splitCDecl decl@(CDecl declspecs declrs node) =
     case declrs of
         []      -> internalErr "splitCDecl applied to empty declaration"
         [declr] -> return [decl]
-        (d1:ds) -> 
+        (d1:ds) ->
             let declspecs' = map elideSUEDef declspecs in
-            return$ (CDecl declspecs [d1] node) : [ CDecl declspecs' [declr] node | declr <- ds ]    
+            return$ (CDecl declspecs [d1] node) : [ CDecl declspecs' [declr] node | declr <- ds ]
     where
     elideSUEDef declspec@(CTypeSpec tyspec) =
         case tyspec of
@@ -451,7 +454,7 @@ splitCDecl decl@(CDecl declspecs declrs node) =
                 CTypeSpec (CSUType (CStruct tag name Nothing [] su_node) node)
             _ -> declspec
     elideSUEDef declspec = declspec
-    
+
 
 -- translate __attribute__ annotations
 -- TODO: bogus
@@ -471,7 +474,7 @@ mkVarName  node (Just n) asm = return $ VarName n Nothing
 
 -- helpers
 nameOfDecl :: (MonadTrav m) => CDecl -> m Ident
-nameOfDecl d = getOnlyDeclr d >>= \declr -> 
+nameOfDecl d = getOnlyDeclr d >>= \declr ->
     case declr of
         (CDeclr (Just name) _ _ _ _) -> return name
         (CDeclr Nothing _ _ _ node) -> internalErr "nameOfDecl: abstract declarator"

@@ -136,13 +136,11 @@ instance Pretty ArraySize where
 instance Pretty TypeName where
     pretty TyVoid = text "void"
     pretty (TyIntegral int_type) = text (show int_type)
-    pretty (TyFloating tyquals float_type) = pretty tyquals <+> text (show float_type)
+    pretty (TyFloating float_type) = text (show float_type)
+    pretty (TyComplex float_type) = text "__complex__" <+> text (show float_type)
     pretty (TyComp (CompTypeDecl sue_ref tag _)) = text (show tag) <+> pretty sue_ref
     pretty (TyEnum (EnumTypeDecl sue_ref _))     = text "enum" <+> pretty sue_ref
     pretty (TyBuiltin TyVaList) = text "va_list"
-instance Pretty FloatTypeQuals where
-    pretty (NoFloatTypeQual) = empty
-    pretty TyComplex = text "__complex__"
 
 instance Pretty CompType where
     pretty (CompType sue_ref tag members attrs node) =
@@ -185,4 +183,3 @@ joinComma :: (Pretty a) => [a] -> Doc
 joinComma = hsep . punctuate comma . map pretty
 terminateSemi :: (Pretty a) => [a] -> Doc
 terminateSemi = hsep . map (<> semi) . map pretty
-

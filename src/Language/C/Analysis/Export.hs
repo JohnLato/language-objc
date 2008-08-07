@@ -75,8 +75,9 @@ exportTypeSpec :: TypeName -> [CTypeSpec]
 exportTypeSpec tyname =
     case tyname of
         TyVoid -> [CVoidType ni]
-        TyIntegral int -> exportIntType int
-        TyFloating quals ty -> exportFloatType quals ty
+        TyIntegral ity -> exportIntType ity
+        TyFloating fty -> exportFloatType fty
+        TyComplex fty -> exportComplexType fty
         TyComp comp -> exportCompTypeDecl comp
         TyEnum enum -> exportEnumTypeDecl enum
         TyBuiltin TyVaList -> [CTypeDef (ident "va_list") ni]
@@ -95,12 +96,14 @@ exportIntType ty =
       TyULong   -> [CUnsigType ni,CLongType ni]
       TyLLong   -> [CLongType ni, CLongType ni]
       TyULLong  -> [CUnsigType ni, CLongType ni, CLongType ni]
-exportFloatType :: FloatTypeQuals -> FloatType -> [CTypeSpec]
-exportFloatType qual ty = (case qual of TyComplex -> (CComplexType ni :); _ -> id) $
+exportFloatType :: FloatType -> [CTypeSpec]
+exportFloatType ty =
     case ty of
       TyFloat   -> [CFloatType ni]
       TyDouble  -> [CDoubleType ni]
       TyLDouble -> [CLongType ni, CDoubleType ni]
+exportComplexType :: FloatType -> [CTypeSpec]
+exportComplexType ty = (CComplexType ni) : exportFloatType ty
 
 exportCompTypeDecl :: CompTypeDecl -> [CTypeSpec]
 exportCompTypeDecl ty = [CSUType (exportComp ty) ni]

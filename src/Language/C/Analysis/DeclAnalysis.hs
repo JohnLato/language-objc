@@ -192,7 +192,8 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
             numType <- tNumType tsnum
             return . baseType $
                 case numType of
-                    Left (floatType,iscomplex) -> TyFloating (if iscomplex then TyComplex else NoFloatTypeQual) floatType
+                    Left (floatType,iscomplex) | iscomplex -> TyComplex floatType
+                                               | otherwise -> TyFloating floatType
                     Right intType  -> TyIntegral intType
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum

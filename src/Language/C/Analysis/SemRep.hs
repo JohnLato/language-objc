@@ -317,7 +317,8 @@ data ArraySize =  UnknownArraySize Bool
 data TypeName =
       TyVoid
     | TyIntegral IntType
-    | TyFloating FloatTypeQuals FloatType
+    | TyFloating FloatType
+    | TyComplex  FloatType
     | TyComp CompTypeDecl
     | TyEnum EnumTypeDecl
     | TyBuiltin BuiltinType
@@ -329,11 +330,6 @@ data BuiltinType = TyVaList
 -- If the actual type is known, it is attached for convenience
 data TypedefRef = TypedefRef Ident (Maybe Type) NodeInfo
                deriving (Typeable, Data {-! CNode !-})
-
--- | qualifiers for floating types (gnu complex extensions, other gnu extensions may follow)
-data FloatTypeQuals =  NoFloatTypeQual 
-                     | TyComplex
-                   deriving (Typeable,Data)
 
 -- | integral types (C99 6.7.2.2)
 data IntType =

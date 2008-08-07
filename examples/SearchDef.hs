@@ -49,10 +49,9 @@ main = do
     searchDef globs term = 
       case analyseSearchTerm term of
         Left tag -> fmap nodeInfo (Map.lookup tag (gTags globs))
-        Right ident ->     fmap nodeInfo (Map.lookup ident (gDecls globs))
-                       <|> fmap nodeInfo (Map.lookup ident (gFuns globs))
-                       <|> fmap nodeInfo (Map.lookup ident (gObjs globs))
-                       <|> fmap nodeInfo (Map.lookup ident (gTypedefs globs))
+        Right ident ->     fmap nodeInfo (Map.lookup ident (gObjs globs))
+                       <|> fmap nodeInfo (Map.lookup ident (gTypeDefs globs))
+                       <|> fmap nodeInfo (Map.lookup (NamedType ident) (gTags globs))
     analyseSearchTerm term = 
       case words term of
         [tag,name] | tag `elem` (words "struct union enum") -> Left $ NamedType (internalIdent name)

@@ -4,7 +4,6 @@ import Language.C
 import Language.C.System.Preprocess
 import Language.C.System.GCC
 import Language.C.Analysis
-import Language.C.Analysis.Pretty
 import System.Environment
 import Control.Monad
 

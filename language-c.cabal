@@ -21,7 +21,7 @@ Flag useByteStrings
     Default: True
 Library
     Extensions: CPP, DeriveDataTypeable
-    Build-Depends:  filepath, mtl
+    Build-Depends:  filepath
 
     if flag(splitBase)
         Build-Depends: base >= 3, process, directory, array, containers, pretty
@@ -77,5 +77,5 @@ Library
                       Language.C.Parser.Lexer 
                       Language.C.Parser.ParserMonad 
                       Language.C.Parser.Tokens 
-                      Language.C.Parser.Parser 
-                      
+                      Language.C.Parser.Parser
+

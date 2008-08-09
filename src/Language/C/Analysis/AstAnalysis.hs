@@ -28,7 +28,6 @@ import Language.C.Data.Ident
 import Language.C.Syntax
 
 import Control.Monad
-import Control.Monad.State
 import Prelude hiding (reverse)
 import Data.Foldable (foldrM)
 import Data.List hiding (reverse)

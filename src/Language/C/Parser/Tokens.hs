@@ -341,3 +341,4 @@ instance Show CToken where
   showsPrec _ (CTokGnuC GnuCOffsetof _) = showString "__builtin_offsetof"
   showsPrec _ (CTokGnuC GnuCTyCompat _) = showString "__builtin_types_compatible_p"
   showsPrec _ CTokEof = error "show CToken : CTokEof"
+

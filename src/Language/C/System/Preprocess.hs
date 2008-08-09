@@ -112,3 +112,4 @@ mkTmpFile tmp_dir file_templ = do
 -- | guess whether a file is preprocessed (file end with .i)
 isPreprocessed :: FilePath -> Bool
 isPreprocessed = (".i" `isSuffixOf`)
+

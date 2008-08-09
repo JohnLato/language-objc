@@ -185,3 +185,4 @@ joinComma :: (Pretty a) => [a] -> Doc
 joinComma = hsep . punctuate comma . map pretty
 terminateSemi :: (Pretty a) => [a] -> Doc
 terminateSemi = hsep . map (<> semi) . map pretty
+

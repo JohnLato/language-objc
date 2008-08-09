@@ -56,3 +56,4 @@ inputStreamToString = id
 inputStreamFromString = id
 countLines = length . lines
 #endif
+

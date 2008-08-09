@@ -51,9 +51,7 @@ import Language.C.Analysis.DefTable hiding (enterBlockScope,leaveBlockScope,
 import qualified Language.C.Analysis.DefTable as ST
 
 import Data.Maybe
-import qualified Control.Monad.Error as MtlError
-import Control.Monad.State
-import Control.Monad.Reader
+import Control.Monad(liftM)
 
 -- | Traversal monad
 class (Monad m) => MonadTrav m where
@@ -289,12 +287,16 @@ warn err = recordError (changeErrorLevel err LevelWarn)
 
 -- * The Trav datatype
 
--- | simple MTL-based traversal monad, providing user state and callbacks
-newtype Trav s a = Trav { unTrav :: (StateT (TravState s) (Either CError)) a }
+-- | simple traversal monad, providing user state and callbacks
+newtype Trav s a = Trav { unTrav :: TravState s -> Either CError (a, TravState s) }
+modify f = Trav (\s -> Right ((),f s))
+gets f   = Trav (\s -> Right (f s, s))
+get      = Trav (\s -> Right (s,s))
+put s    = Trav (\_ -> Right ((),s))
 
 runTrav :: forall s a. s -> Trav s a -> Either [CError] (a, TravState s)
 runTrav state traversal =
-    case runStateT (unTrav action) (initTravState state) of
+    case unTrav action (initTravState state) of
         Left trav_err                                 -> Left [trav_err]
         Right (v, ts) | hadHardErrors (travErrors ts) -> Left (travErrors ts)
                       | otherwise                     -> Right (v,ts)
@@ -318,21 +320,17 @@ withExtDeclHandler action handler =
        action
 
 instance Monad (Trav s) where
-    return     = Trav . return
-    (>>=) a fb = Trav $ unTrav a >>= (unTrav . fb)
-instance MonadState (TravState s) (Trav s) where
-    get = Trav get
-    put = Trav . put
-instance MtlError.Error CError where
-    strMsg _msg = internalErr "CError: strMsg"
-instance MtlError.MonadError CError (Trav s) where
-    throwError           = Trav . MtlError.throwError
-    catchError a handler = Trav $ (unTrav a) `MtlError.catchError` (unTrav . handler)
+    return x  = Trav (\s -> Right (x,s))
+    m >>= k   = Trav (\s -> case unTrav m s of
+                              Right (x,s1) -> unTrav (k x) s1
+                              Left e       -> Left e)
 
 instance MonadTrav (Trav s) where
     -- error handling facilities
-    throwTravError = MtlError.throwError . toError
-    catchTravError a handler =  a `MtlError.catchError` handler
+    throwTravError e = Trav (\_ -> Left (toError e))
+    catchTravError a handler = Trav (\s -> case unTrav a s of
+                                             Left e  -> unTrav (handler e) s
+                                             Right r -> Right r)
     recordError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` toError e }
     getErrors = gets (RList.reverse . rerrors)
     -- symbol table handling

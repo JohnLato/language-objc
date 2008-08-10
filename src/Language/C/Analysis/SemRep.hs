@@ -5,28 +5,27 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
+-- Stability   :  alpha
 -- Portability :  non-portable (DeriveDataTypeable)
 --
 -- This module contains definitions for representing C translation units.
 -- In contrast to 'Language.C.Syntax.AST', the representation tries to express the semantics of
--- of a translation unit, and links back to the AST via NodeInfo fields.
+-- of a translation unit.
 --
--- /Ideas/
+-- This module isn't yet finished, here are a few things missing:
 --
---  1. Pretty Printing anonymous SUE
+--  * Normalization of initializers: C initializers are hard to understand, and can be simplified.
+--    Depends on constant expression evaluation (like most missing features).
+
+--  * Typed __attribute__ representation: Ideally, we'd like to represent __attribute__ annotations in a typed
+--    way. Depends on constant expression evaluation.
 --
---    * when pretty printing, use a unique name generator to un-anonymize structs
+--  * Semantic-oriented representation of function bodies, statements and expressions
 --
---    * use $ names
+--  * Formal rules how to link back to the AST using NodeInfo fields
 --
---    * use GNU typeOf extension (together with the next one)
+--  * Typed assembler representation
 --
---    * (maybe): Keep ref counts, if an anonymous struct is only ref'd one, pp it anonymously
---
---    * (rather not): Try to merge declarations, s.t. we still can use an anonymous struct
---
--- /TODO/  At the moment, we do not analyse function bodies.
---         This will change in the future of course, when we've implemented more analysis steps
 ---------------------------------------------------------------------------------------------------
 module Language.C.Analysis.SemRep(
 -- * Sums of tags and identifiers

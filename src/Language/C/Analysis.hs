@@ -1,4 +1,3 @@
-{-# OPTIONS  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Analysis
@@ -13,7 +12,8 @@
 -- Especially note that there is no direct support for analyzing function bodies and
 -- constant expressions.
 --
--- /NOTE/ This is an experimental interface, which will certainly change.
+-- /NOTE/ This is an experimental interface, and therefore the API will change in the
+-- future.
 -----------------------------------------------------------------------------
 module Language.C.Analysis (
     -- * Semantic representation

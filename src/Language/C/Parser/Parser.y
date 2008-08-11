@@ -2231,8 +2231,7 @@ happyError = parseError
 
 -- * public interface
 
--- | @parseC input initialPos@ parses the given preprocessed C-source input and return the AST or a list of error messages along with
--- the position of the error.
+-- | @parseC input initialPos@ parses the given preprocessed C-source input and returns the AST or a list of parse errors.
 parseC :: InputStream -> Position -> Either ParseError CTranslUnit
 parseC input initialPosition =
   execParser header input initialPosition builtinTypeNames (namesStartingFrom 0)

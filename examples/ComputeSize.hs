@@ -111,11 +111,11 @@ genSizeTest typeDefs tys = either (error.show) fromExtDecl $
       case getTagStr sue_ref tag of
         Nothing  -> ""
         Just tag_str -> "printf(\""++ tag_str ++": %lu\\n\",sizeof(" ++ tag_str ++ ")); ";
-    getTagStr ref@(AnonymousType _) tag =
+    getTagStr ref@(AnonymousRef _) tag =
       case Map.lookup ref typeDefs of
         Just tyident -> Just (identToString tyident)
         Nothing      -> Nothing -- ignoring inaccessible anonymous type
-    getTagStr ref@(NamedType _) tag =
+    getTagStr ref@(NamedRef _) tag =
       Just (show tag ++ " " ++ show ref)    
 
 compileAndRunAST _ _ file = 

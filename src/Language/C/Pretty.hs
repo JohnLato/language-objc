@@ -8,10 +8,13 @@
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
--- This module provides a pretty printer for the parse tree ('Language.C.Syntax.AST').
+-- This module provides a pretty printer for the parse tree
+-- ('Language.C.Syntax.AST').
 -----------------------------------------------------------------------------
 module Language.C.Pretty (
+    -- * Pretty Printing
     Pretty (..),
+    -- * Testing
     prettyUsingInclude
 ) where
 import Data.List (partition,nub,isSuffixOf)
@@ -22,9 +25,13 @@ import Debug.Trace {- for warnings -}
 import Language.C.Data
 import Language.C.Syntax
 
--- Pretty class
+-- | A class of types which can be pretty printed
 class Pretty p where
+    -- | pretty print the given value
     pretty     :: p -> Doc
+    -- | @prettyPrec prec p@ pretty prints p assuming
+    -- that the surrounding context has a precedence of
+    -- @prec@
     prettyPrec :: Int -> p -> Doc
 
     pretty       = prettyPrec 0
@@ -63,7 +70,10 @@ ii = nest 4
 instance Pretty CTranslUnit where
     pretty (CTranslUnit edecls _) = vcat (map pretty edecls)
 
--- | useful for testing, as otherwise the output will always be cluttered with system includes
+-- | Pretty print the given tranlation unit, but replace declarations from header files with @#include@ directives.
+--
+-- The resulting file may not compile (because of missing @#define@ directives and similar things), but is very usefull
+-- for testing, as otherwise the pretty printed file will be cluttered with declarations from system headers.
 prettyUsingInclude :: CTranslUnit -> Doc
 prettyUsingInclude (CTranslUnit edecls _) =
   includeWarning headerFiles
@@ -392,7 +402,7 @@ instance Pretty CExpr where
         parenPrec p 26 $ prettyPrec 26 expr
                        <> text (if deref then "->" else ".") <> identP ident
     prettyPrec _p (CVar ident _) = identP ident
-    prettyPrec _p (CConst constant _) = pretty constant
+    prettyPrec _p (CConst constant) = pretty constant
     prettyPrec _p (CCompoundLit decl initl _) =
         parens (pretty decl) <+> (braces . hsep . punctuate comma) (map p initl) where
         p ([], initializer)           = pretty initializer

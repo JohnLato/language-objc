@@ -16,7 +16,7 @@
 --
 --  * Normalization of initializers: C initializers are hard to understand, and can be simplified.
 --    Depends on constant expression evaluation (like most missing features).
-
+--
 --  * Typed __attribute__ representation: Ideally, we'd like to represent __attribute__ annotations in a typed
 --    way. Depends on constant expression evaluation.
 --
@@ -30,7 +30,8 @@
 module Language.C.Analysis.SemRep(
 -- * Sums of tags and identifiers
 TagDef(..),sameTagKind,typeOfTagDef,
-Declaration(..),IdentDecl(..),objKindDescr, identOfDecl,splitIdentDecls,
+Declaration(..),declIdent,declName,declType,declAttrs,
+IdentDecl(..),objKindDescr, splitIdentDecls,
 -- * Global definitions
 GlobalDecls(..),emptyGlobalDecls,filterGlobalDecls,mergeGlobalDecls,
 -- * Events for visitors
@@ -57,7 +58,7 @@ IntType(..),FloatType(..),
 HasSUERef(..),HasCompTyKind(..),
 CompTypeRef(..),CompType(..),typeOfCompDef,CompTyKind(..),
 EnumTypeRef(..),EnumType(..),typeOfEnumDef,
-Enumerator,
+Enumerator(..),
 TypeQuals(..),noTypeQuals,mergeTypeQuals,
 -- * Variable names
 VarName(..),identOfVarName,AsmName,
@@ -150,20 +151,25 @@ objKindDescr (ObjectDef _) = "object definition"
 objKindDescr (FunctionDef _) = "function definition"
 objKindDescr (EnumeratorDef _) = "enumerator definition"
 
--- | @splitIdentDecls@ splits a map of object, function and enumerator declarations and definitions into one map
--- holding all declarations, and three maps for object definitions, enumerator definitions and function definitions.
-splitIdentDecls :: Map Ident IdentDecl -> (Map Ident Decl,
-                                           ( Map Ident Enumerator,
-                                             Map Ident ObjDef,
-                                             Map Ident FunDef ) )
-splitIdentDecls = Map.foldWithKey deal (Map.empty,(Map.empty,Map.empty,Map.empty))
+-- | @splitIdentDecls includeAllDecls@ splits a map of object, function and enumerator declarations and definitions into one map
+-- holding declarations, and three maps for object definitions, enumerator definitions and function definitions.
+-- If @includeAllDecls@ is @True@ all declarations are present in the first map, otherwise only those where no corresponding definition
+-- is available.
+splitIdentDecls :: Bool -> Map Ident IdentDecl -> (Map Ident Decl,
+                                                ( Map Ident Enumerator,
+                                                  Map Ident ObjDef,
+                                                  Map Ident FunDef ) )
+splitIdentDecls include_all = Map.foldWithKey (if include_all then deal else deal') (Map.empty,(Map.empty,Map.empty,Map.empty))
   where
-  deal ident entry (decls,(es,os,fs)) =
-    (,) (Map.insert ident (declOfDef entry) decls)
-        (case entry of
-            EnumeratorDef e -> (Map.insert ident e es,os,fs)
-            ObjectDef o     -> (es,Map.insert ident o os,fs)
-            FunctionDef f   -> (es, os,Map.insert ident f fs))
+  deal ident entry (decls,defs) = (Map.insert ident (declOfDef entry) decls, addDef ident entry defs)
+  deal' ident (Declaration d) (decls,defs) = (Map.insert ident d decls,defs)
+  deal' ident def (decls,defs) = (decls, addDef ident def defs)
+  addDef ident entry (es,os,fs) =
+    case entry of
+        Declaration _   -> (es,os,fs)
+        EnumeratorDef e -> (Map.insert ident e es,os,fs)
+        ObjectDef o     -> (es,Map.insert ident o os,fs)
+        FunctionDef f   -> (es, os,Map.insert ident f fs)
 
 
 -- | global declaration\/definition table returned by the analysis
@@ -197,9 +203,9 @@ mergeGlobalDecls gmap1 gmap2 = GlobalDecls
 
 -- * Events
 
--- | declaration events
+-- | Declaration events
 --
--- /PRELIMINARY/ This will change soon, but we have to take a look what makes most sense
+-- Those events are reported to callbacks, which are executed during the traversal.
 data DeclEvent =
        TagEvent  TagDef
        -- ^ file-scope struct\/union\/enum event
@@ -211,8 +217,7 @@ data DeclEvent =
        -- ^ assembler block
      deriving ({-! CNode !-})
 
--- * declarations and definitions
-
+-- * Declarations and definitions
 
 -- | Declarations, which aren't definitions
 data Decl = Decl VarDecl NodeInfo
@@ -222,24 +227,31 @@ instance Declaration Decl where
     getVarDecl   (Decl vd _) =  vd
 
 -- | Object Definitions
--- A object defintion is of the form @ObjDec vardecl initializer? node@
+--
+-- An object definition is a declaration together with an initializer.
+--
+-- If the initializer is missing, it is a tentative definition, i.e. a 
+-- definition which might be overriden later on.
 data ObjDef = ObjDef VarDecl (Maybe Initializer) NodeInfo
              deriving (Typeable, Data {-! CNode !-})
 instance Declaration ObjDef where
     getVarDecl  (ObjDef vd _ _) =  vd
 
+-- | Returns @True@ if the given object definition is tentative.
 isTentative :: ObjDef -> Bool
 isTentative (ObjDef decl init_opt _) | isExtDecl decl = maybe True (const False) init_opt
                                      | otherwise = False
 
 -- | Function definitions
+--
+-- A function definition is a declaration together with a statement (the function body).
 data FunDef = FunDef VarDecl Stmt NodeInfo
              deriving (Typeable, Data {-! CNode !-})
 instance Declaration FunDef where
     getVarDecl (FunDef vd _ _) = vd
 
 
--- | Parameter declaration @ParamDecl maybeIdent type attrs node@
+-- | Parameter declaration
 data ParamDecl = ParamDecl VarDecl NodeInfo
     deriving (Typeable, Data {-! CNode !-} )
 
@@ -257,7 +269,9 @@ instance Declaration MemberDecl where
   getVarDecl (MemberDecl vd _ _) = vd
   getVarDecl (AnonBitField ty _ _) = VarDecl NoName (DeclAttrs False NoStorage []) ty
 
--- | TypeDefs
+-- | @typedef@ definitions. 
+--
+-- The identifier is a new name for the given type. 
 data TypeDef = TypeDef Ident Type Attributes NodeInfo
                deriving (Typeable, Data {-! CNode !-} )
 
@@ -272,16 +286,18 @@ data VarDecl = VarDecl VarName DeclAttrs Type
 instance Declaration VarDecl where
   getVarDecl = id
 
--- @isExtDecl d@ returns true if the declaration has linkage
+-- @isExtDecl d@ returns true if the declaration has /linkage/
 isExtDecl :: (Declaration n) => n -> Bool
 isExtDecl = hasLinkage . declStorage
 
--- | attributes of a declared object have the form @DeclAttrs isInlineFunction storage linkage attrs@.
+-- | Declaration attributes of the form @DeclAttrs isInlineFunction storage linkage attrs@
+--
+-- They specify the storage and linkage of a declared object.
 data DeclAttrs = DeclAttrs Bool Storage Attributes
                  -- ^ @DeclAttrs inline storage attrs@
                deriving (Typeable, Data)
 
--- | get the storage of a declaration
+-- | get the 'Storage' of a declaration
 declStorage :: (Declaration d) => d -> Storage
 declStorage d = case declAttrs d of (DeclAttrs _ st _) -> st
 
@@ -297,17 +313,21 @@ declStorage d = case declAttrs d of (DeclAttrs _ st _) -> st
 --      * automatic storage duration: otherwise (register)
 -- See http://publications.gbdirect.co.uk/c_book/chapter8/declarations_and_definitions.html, Table 8.1, 8.2
 
--- | Storage duration of a variable - can either be static, allocated, register allocated
+-- | Storage duration and linkage of a variable
 data Storage  =  NoStorage                  -- ^ no storage
-               | Auto                       -- ^ automatic storage
-               | Register                   -- ^ register storage
+               | Auto Register              -- ^ automatic storage (optional: register)
                | Static Linkage ThreadLocal -- ^ static storage, with linkage and thread local specifier (gnu c)
                | FunLinkage Linkage         -- ^ function, either internal or external linkage
                deriving (Typeable, Data, Show, Eq, Ord)
 
 type ThreadLocal = Bool
+type Register    = Bool
+
+-- | Linkage: Either internal to the translation unit or external
 data Linkage = InternalLinkage | ExternalLinkage
                deriving (Typeable, Data, Show, Eq, Ord)
+
+-- | return @True@ if the object has linkage
 hasLinkage :: Storage -> Bool
 hasLinkage (Static _ _) = True
 hasLinkage _ = False
@@ -499,7 +519,8 @@ mergeTypeQuals (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) = TypeQuals (c1 && c2) 
 
 -- * initializers
 
--- | @Initializer@ is currently an alias for @CInit@.
+-- | 'Initializer' is currently an alias for 'CInit'.
+--
 -- We're planning a normalized representation, but this depends on the implementation of
 -- constant expression evaluation
 type Initializer = CInit
@@ -552,9 +573,9 @@ type Attributes = [Attr]
 
 -- * statements and expressions (Type aliases)
 
--- | @Stmt@ is an alias for @CStat@ (Syntax)
+-- | 'Stmt' is an alias for 'CStat' (Syntax)
 type Stmt = CStat
--- | @Expr@ is currently an alias for @CExpr@ (Syntax)
+-- | 'Expr' is currently an alias for 'CExpr' (Syntax)
 type Expr = CExpr
 
 

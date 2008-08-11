@@ -8,25 +8,34 @@
 -- Stability   :  alpha
 -- Portability :  unspecified
 --
--- Errors in the semantic analysis [stub]
+-- Errors in the semantic analysis
 -----------------------------------------------------------------------------
 module Language.C.Analysis.SemError (
 InvalidASTError(..), invalidAST,
-BadSpecifier(..), badSpecifierError,
+BadSpecifierError(..), badSpecifierError,
 TypeMismatch(..), typeMismatch,
 RedefError(..), RedefInfo(..), RedefKind(..), redefinition,
 )
 where
 import Data.Typeable
+
 -- this means we cannot use SemError in SemRep, but use rich types here
 import Language.C.Analysis.SemRep
+
 import Language.C.Data.Error
 import Language.C.Data.Node
 
 -- here are the errors available
+
+-- | InvalidASTError is caused by the violation of an invariant in the AST
 newtype InvalidASTError = InvalidAST ErrorInfo deriving (Typeable,Error)
-newtype BadSpecifier = BadSpecifier ErrorInfo deriving (Typeable,Error)
+
+-- | BadSpecifierError is caused by an invalid combination of specifiers
+newtype BadSpecifierError = BadSpecifierError ErrorInfo deriving (Typeable,Error)
+
+-- | RedefError is caused by an invalid redefinition of the same identifier or type
 data RedefError = RedefError ErrorLevel RedefInfo deriving Typeable
+
 data RedefInfo = RedefInfo String RedefKind NodeInfo NodeInfo
 data RedefKind = DuplicateDef | DiffKindRedecl | ShadowedDef
 data TypeMismatch = TypeMismatch String (NodeInfo,Type) (NodeInfo,Type) deriving Typeable
@@ -42,10 +51,10 @@ invalidAST node_info msg = InvalidAST (mkErrorInfo LevelError msg node_info)
 -- Bad specifier (e.g. static for a parameter, or extern when there is an initializer)
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-instance Show BadSpecifier     where show = showError "Bad specifier"
+instance Show BadSpecifierError     where show = showError "Bad specifier"
 
-badSpecifierError :: NodeInfo -> String -> BadSpecifier
-badSpecifierError node_info msg = BadSpecifier (mkErrorInfo LevelError msg node_info)
+badSpecifierError :: NodeInfo -> String -> BadSpecifierError
+badSpecifierError node_info msg = BadSpecifierError (mkErrorInfo LevelError msg node_info)
 
 -- Type mismatch
 -- ~~~~~~~~~~~~~

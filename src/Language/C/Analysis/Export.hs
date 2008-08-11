@@ -7,12 +7,9 @@
 -- Stability   :  alpha
 -- Portability :  unspecified
 --
--- /WARNING/ : This is just an implementation sketch
+-- /WARNING/ : This is just an implementation sketch and not very well tested.
 --
--- Export SemRep entities to AST nodes
---
--- This is just a stub. In practice, we'll maybe want a unique name generation
--- monad or something like that.
+-- Export 'SemRep' entities to 'AST' nodes.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.Export (
 exportType, exportTypeDecl, exportTypeSpec,
@@ -81,6 +78,7 @@ exportTypeSpec tyname =
         TyComp comp -> exportCompTypeDecl comp
         TyEnum enum -> exportEnumTypeDecl enum
         TyBuiltin TyVaList -> [CTypeDef (ident "va_list") ni]
+
 exportIntType :: IntType -> [CTypeSpec]
 exportIntType ty =
     case ty of
@@ -96,12 +94,14 @@ exportIntType ty =
       TyULong   -> [CUnsigType ni,CLongType ni]
       TyLLong   -> [CLongType ni, CLongType ni]
       TyULLong  -> [CUnsigType ni, CLongType ni, CLongType ni]
+
 exportFloatType :: FloatType -> [CTypeSpec]
 exportFloatType ty =
     case ty of
       TyFloat   -> [CFloatType ni]
       TyDouble  -> [CDoubleType ni]
       TyLDouble -> [CLongType ni, CDoubleType ni]
+
 exportComplexType :: FloatType -> [CTypeSpec]
 exportComplexType ty = (CComplexType ni) : exportFloatType ty
 
@@ -141,31 +141,48 @@ exportMemberDecl (MemberDecl vardecl bitfieldsz node_info) =
     let (specs,declarator) = exportVarDecl vardecl
     in  CDecl specs [(Just declarator, Nothing, bitfieldsz)] node_info
 exportVarDecl :: VarDecl -> ([CDeclSpec],CDeclr)
--- FIXME: there is an ambiguity between two possible places for __attributes__ s here
+
+-- NOTE: that there is an ambiguity between two possible places for __attributes__ s here
 exportVarDecl (VarDecl name attrs ty) = exportDeclr (exportDeclAttrs attrs) ty [] name
 exportParamDecl :: ParamDecl -> CDecl
 exportParamDecl (ParamDecl vardecl node_info) =
     let (specs,declr) = exportVarDecl vardecl
     in CDecl specs [(Just declr, Nothing , Nothing) ] node_info
 
--- this is just a stub - it depends on the type of declaration who to export attributes
 exportDeclAttrs :: DeclAttrs -> [CDeclSpec]
 exportDeclAttrs (DeclAttrs inline storage attrs) =
        (if inline then [CTypeQual (CInlineQual ni)] else [])
     ++ map (CStorageSpec) (exportStorage storage)
     ++ map (CTypeQual . CAttrQual) (exportAttrs attrs)
+
+-- | express storage in terms of storage specifiers.
+--
+-- This isn't always possible and depends on the context the identifier is declared.
+-- Most importantly, if there is a /conflicting/ declaration in scope, export is impossible.
+-- Furthermore, automatic storage is impossible in file scope.
+-- If the storage can actually be specified, the export is correct.  
 exportStorage :: Storage -> [CStorageSpec]
 exportStorage NoStorage = []
-exportStorage Register  = [CRegister ni]
-exportStorage _ = error "TODO"
+exportStorage (Auto reg) = if reg then [CRegister ni] else []
+exportStorage (Static InternalLinkage thread_local) = threadLocal thread_local [CStatic ni]
+exportStorage (Static ExternalLinkage thread_local) = error "external linkage, but inner scope (unsupported in Export)"
+exportStorage (FunLinkage ExternalLinkage) = []
+exportStorage (FunLinkage InternalLinkage) = [CStatic ni]
 
--- Doh ! useless wrapping never pays off
+threadLocal :: Bool -> [CStorageSpec] -> [CStorageSpec]
+threadLocal False = id
+threadLocal True = ((CThread ni) :) 
+
 exportAttrs = map exportAttr where
     exportAttr (Attr ident es ni) = CAttr ident es ni
+
+fromDirectType :: Type -> TypeName
 fromDirectType (DirectType ty _) = ty
 fromDirectType (TypeDefType (TypeDefRef _ ref _)) = maybe (error "undefined typeDef") fromDirectType ref
 fromDirectType _ = error "fromDirectType"
+
 ni :: NodeInfo
 ni = internalNode
+
 ident :: String -> Ident
 ident = internalIdent

@@ -7,8 +7,7 @@
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
--- Unique Names with fast equality (a.k.a. newtype Int)
---
+-- Unique Names with fast equality (newtype 'Int')
 module Language.C.Data.Name (
 Name(..),namesStartingFrom,
 NameMap,emptyNameMap,
@@ -24,6 +23,8 @@ newtype Name = Name { nameId :: Int } deriving (Show, Read, Eq, Ord, Ix, Data, T
 instance Enum Name where
     toEnum = Name
     fromEnum (Name n) = n
+
+-- | get the infinite stream of unique names starting from the given integer
 namesStartingFrom :: Int -> [Name]
 namesStartingFrom k = [Name k..]
 

@@ -38,8 +38,8 @@ import Language.C.Data.Node
 import Language.C.Data.Name   (Name,nameId)
 import Data.Generics
 
--- | References uniquely determining a struct, union or enum type. 
--- Those are either identified by an string identifier, or by a unique 
+-- | References uniquely determining a struct, union or enum type.
+-- Those are either identified by an string identifier, or by a unique
 -- name (anonymous types).
 data SUERef =  AnonymousRef Name
              | NamedRef Ident

@@ -9,7 +9,7 @@
 -- Stability   :  provisional
 -- Portability :  CPP, BangPatterns
 --
--- Compile time InputStream abstraction for the parser.
+-- Compile time input abstraction for the parser. 
 -- Supports either ByteString or String.
 -------------------------------------------------------------------------------
 module Language.C.InputStream (
@@ -24,17 +24,35 @@ import qualified Data.ByteString.Char8 as BS
 #endif
 
 -- Generic InputStream stuff
+
+-- | read a file into an 'InputStream'
 readInputStream :: FilePath -> IO InputStream
+
+-- | convert 'InputStream' to 'String'
 inputStreamToString :: InputStream -> String
 {-# INLINE inputStreamToString #-}
+
+-- | convert a 'String' to an 'InputStream'
 inputStreamFromString :: String -> InputStream
+
+-- | @(c,is') = takeChar is@ reads and removes
+-- the first character @c@ from the 'InputStream' @is@
 takeChar :: InputStream -> (Char, InputStream)
 {-# INLINE takeChar #-}
+
+-- | return @True@ if the given input stream is empty
 inputStreamEmpty :: InputStream -> Bool
 {-# INLINE inputStreamEmpty #-}
-takeChars :: Int -> InputStream -> String
+
+-- | @str = takeChars n is@ returns the first @n@ characters
+-- of the given input stream, without removing them
+takeChars :: Int -> InputStream -> [Char]
 {-# INLINE takeChars #-}
+
+-- | @countLines@ returns the number of text lines  in the
+-- given 'InputStream'
 countLines :: InputStream -> Int
+
 #ifndef NO_BYTESTRING
 type InputStream = ByteString
 takeChar bs = BS.head bs `seq`  (BS.head bs, BS.tail bs)

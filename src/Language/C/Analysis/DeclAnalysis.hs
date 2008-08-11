@@ -16,10 +16,10 @@ module Language.C.Analysis.DeclAnalysis (
   analyseTypeDecl,
   tType,tDirectType,tNumType,tArraySize,tTypeQuals,
   mergeOldStyle,
-  -- * dissecting type specs
+  -- * Dissecting type specs
   canonicalTypeSpec, NumBaseType(..),SignSpec(..),SizeMod(..),NumTypeSpec(..),TypeSpecAnalysis(..),
-  canonicalStorageSpec, StorageSpec(..),isThreadLocalSpec,
-  -- * helpers
+  canonicalStorageSpec, StorageSpec(..),hasThreadLocalSpec,
+  -- * Helpers
   VarDeclInfo(..),
   tAttr,mkVarName,getOnlyDeclr,nameOfDecl,
 )
@@ -43,7 +43,6 @@ import qualified Data.Map as Map
 -- * handling declarations
 
 -- | analyse and translate a parameter declaration
--- TODO: handle void parameter ?
 tParamDecl :: (MonadTrav m) => CDecl -> m ParamDecl
 tParamDecl (CDecl declspecs declrs node) =
     case declrs' of
@@ -89,11 +88,12 @@ tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (Tr
 
 data StorageSpec = NoStorageSpec | AutoSpec | RegSpec | ThreadSpec | StaticSpec Bool | ExternSpec Bool
                     deriving (Eq,Ord,Show,Read)
-isThreadLocalSpec :: StorageSpec -> Bool
-isThreadLocalSpec ThreadSpec = True
-isThreadLocalSpec (StaticSpec b) = b
-isThreadLocalSpec (ExternSpec b) = b
-isThreadLocalSpec _  = False
+
+hasThreadLocalSpec :: StorageSpec -> Bool
+hasThreadLocalSpec ThreadSpec = True
+hasThreadLocalSpec (StaticSpec b) = b
+hasThreadLocalSpec (ExternSpec b) = b
+hasThreadLocalSpec _  = False
 
 data VarDeclInfo = VarDeclInfo VarName Bool {- is-inline? -} StorageSpec Attributes Type NodeInfo
 
@@ -173,7 +173,10 @@ tType handle_sue_def top_node typequals typespecs derived_declrs oldstyle_params
     buildFunctionType params is_variadic attrs _node return_ty
         = do params' <- mapM tParamDecl params
              attrs'   <- mapM tAttr attrs
-             return$ FunType return_ty params' is_variadic attrs'
+             return $ case (map declType params',is_variadic) of
+               ([],False) -> FunTypeIncomplete return_ty attrs'  -- may be improved later on
+               ([DirectType TyVoid _],False) -> FunType return_ty [] False attrs'
+               _ -> FunType return_ty params' is_variadic attrs'
 
 -- | translate a type without (syntactic) indirections
 -- Due to the GNU @typeof@ extension and typeDefs, this can be an arbitrary type
@@ -287,7 +290,8 @@ tEnumType sue_ref enumerators attrs node = do
     nextEnrExpr _ (Just e) = (Right (e,1), e)
     intExpr i = CConst (CIntConst (cInteger i) internalNode)
     offsExpr e offs = CBinary CAddOp e (intExpr offs) internalNode
--- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier
+
+-- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier.
 tNumType :: (MonadTrav m) => NumTypeSpec -> m (Either (FloatType,Bool) IntType)
 tNumType (NumTypeSpec basetype sgn sz iscomplex) =
     case (basetype,sgn,sz) of

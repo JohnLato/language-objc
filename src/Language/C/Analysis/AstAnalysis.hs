@@ -23,8 +23,7 @@ import Language.C.Analysis.TravMonad
 import Language.C.Analysis.DefTable
 import Language.C.Analysis.DeclAnalysis
 
-import Language.C.Data.Node
-import Language.C.Data.Ident
+import Language.C.Data
 import Language.C.Syntax
 
 import Control.Monad
@@ -64,8 +63,6 @@ analyseExt (CDeclExt decls)
     = analyseExtDecls decls
 
 -- | Analyse a function definition
--- data VarDeclInfo = VarDeclInfo VarName Bool {- is-inline? -} StorageSpec Attributes Type NodeInfo
-
 analyseFunDef :: (MonadTrav m) => CFunDef -> m ()
 analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     -- analyse the declarator
@@ -74,16 +71,21 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     let ident = identOfVarName name
     fun_storage <- computeFunDefStorage ident storage_spec
     let var_decl = VarDecl name (DeclAttrs is_inline fun_storage attrs) ty
+    ty' <- improveFunDefType ty
     handleVarDecl (Decl var_decl node_info)
     -- translate the body
     stmt' <- analyseFunctionBody var_decl stmt
     -- define the function
     handleFunDef ident (FunDef var_decl stmt' node_info)
+    where
+    improveFunDefType (FunctionType (FunTypeIncomplete return_ty attrs)) =
+      return . FunctionType $ FunType return_ty [] False attrs
+    improveFunDefType ty = return $ ty
 
 -- | Analyse a top-level declaration other than a function definition
 analyseExtDecls :: (MonadTrav m) => CDecl -> m ()
 analyseExtDecls decl@(CDecl declspecs declrs node)
-    | (Just declspecs') <- isTypeDef declspecs =
+    | (Just declspecs') <- hasTypeDef declspecs =
         case declrs of
             [(Just tydeclr,Nothing,Nothing)] -> analyseTypeDef declspecs' tydeclr node
             _ -> astError node "bad typdef declaration: declarator missing or bitfieldsize/initializer present"
@@ -104,22 +106,20 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
     isTypeOfExpr (TypeOfExpr _) = True
     isTypeOfExpr _ = False
 
--- convert typeDef
+-- | Analyse a typedef
 analyseTypeDef :: (MonadTrav m) => [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
 analyseTypeDef declspecs declr node_info = do
     -- analyse the declarator
     (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr []
-    -- TODO: move attribute to the type
     checkValidTypeDef is_inline storage_spec attrs
     let ident = identOfVarName name
     handleTypeDef (TypeDef ident ty attrs node_info)
     where
     checkValidTypeDef True _ _ = astError node_info "inline specifier for typeDef"
-    checkValidTypeDef _ _ (_:_) = astError node_info "attributes for typeDefs aren't supported"
     checkValidTypeDef _ NoStorageSpec _ = return ()
     checkValidTypeDef _ bad_storage _ = astError node_info $ "storage specified for typeDef: " ++ show bad_storage
 
--- | analyse declarators
+-- | Analyse declarators
 analyseVarDecl :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> [CDecl] -> m VarDeclInfo
 analyseVarDecl handle_sue_def declspecs declr oldstyle_params = do
     let (storagespecs, decl_attrs, typequals, typespecs, inline) = partitionDeclSpecs declspecs
@@ -157,10 +157,10 @@ computeFunDefStorage ident other_spec  = do
 
 -- | handle a function prototype
 extFunProto :: (MonadTrav m) => VarDeclInfo -> m ()
-extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
+extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
     do  old_fun <- lookupObject (identOfVarName var_name)
-        checkValidFunDecl
-        let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) typ
+        checkValidSpecs
+        let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) ty
         handleVarDecl (Decl decl node_info)
     where
     funDeclLinkage old_fun =
@@ -171,12 +171,10 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
                                     Nothing -> FunLinkage ExternalLinkage
                                     Just f  -> declStorage f
             _ -> error $ "funDeclLinkage: " ++ show storage_spec
-    checkValidFunDecl
-        | isThreadLocalSpec storage_spec = astError node_info "thread local storage specified for function"
+    checkValidSpecs
+        | hasThreadLocalSpec storage_spec = astError node_info "thread local storage specified for function"
         | RegSpec <- storage_spec        = astError node_info "invalid `register' storage specified for function"
-        | (not $ isFunctionType typ)     = error "function prototype without function type"
         | otherwise                      = return ()
-
 
 -- | handle a object declaration \/ definition
 --
@@ -212,23 +210,26 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
 -- | /TODO/: Bogus
 analyseFunctionBody :: (MonadTrav m) => VarDecl -> CStat -> m Stmt
 analyseFunctionBody _ = return
+
 -- | /TODO/: Bogus
 tStmt :: (MonadTrav m) => CStat -> m Stmt
 tStmt = return
+
 -- | /TODO/: Bogus
 tExpr :: (MonadTrav m) => CExpr -> m Expr
 tExpr = return
+
 -- | /TODO/: Bogus
 tInit :: (MonadTrav m) => CInit -> m Initializer
 tInit = return
 
 
--- return @Just declspecs\\typeDef@ if the declaration is a typeDef
-isTypeDef :: [CDeclSpec] -> Maybe [CDeclSpec]
-isTypeDef declspecs =
-    case foldr isTypeDefSpec (False,[]) declspecs of
+-- return @Just declspecs@ without @CTypedef@ if the declaration specifier contain @typedef@
+hasTypeDef :: [CDeclSpec] -> Maybe [CDeclSpec]
+hasTypeDef declspecs =
+    case foldr hasTypeDefSpec (False,[]) declspecs of
         (True,specs') -> Just specs'
         (False,_)     -> Nothing
     where
-    isTypeDefSpec (CStorageSpec (CTypedef n)) (_,specs) = (True, specs)
-    isTypeDefSpec spec (b,specs) = (b,spec:specs)
+    hasTypeDefSpec (CStorageSpec (CTypedef n)) (_,specs) = (True, specs)
+    hasTypeDefSpec spec (b,specs) = (b,spec:specs)

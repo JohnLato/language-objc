@@ -283,7 +283,7 @@ data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or type
 -- | Seperate the declaration specifiers
 --
 -- Note that inline isn't actually a type qualifier, but a function specifier.
--- @__attribute__@ of a declaration qualify declarations or declarators (but not types), 
+-- @__attribute__@ of a declaration qualify declarations or declarators (but not types),
 -- and are therefore seperated as well.
 partitionDeclSpecs :: [CDeclSpec] -> ([CStorageSpec], [CAttr], [CTypeQual], [CTypeSpec], Bool)
 partitionDeclSpecs = foldr deals ([],[],[],[],False) where

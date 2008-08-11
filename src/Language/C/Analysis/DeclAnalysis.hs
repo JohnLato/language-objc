@@ -65,7 +65,7 @@ computeParamStorage _ NoStorageSpec = Right (Auto False)
 computeParamStorage _ AutoSpec      = Right (Auto False)
 computeParamStorage _ RegSpec       = Right (Auto True)
 computeParamStorage node spec       = Left . badSpecifierError node $ "Bad storage specified for parameter: " ++ show spec
-                  
+
 tMemberDecls :: (MonadTrav m) => CDecl -> m [MemberDecl]
 tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (True:repeat False) declrs)
     where
@@ -278,7 +278,7 @@ tEnumType sue_ref enumerators attrs node = do
     where
     ty = EnumType sue_ref enumerators' attrs node
     (_,enumerators') = mapAccumL nextEnumerator (Left 0) enumerators
-    nextEnumerator memo (ident,e) = 
+    nextEnumerator memo (ident,e) =
       let (memo',expr) = nextEnrExpr memo e in
       (memo', Enumerator ident expr ty (nodeInfo ident))
     nextEnrExpr :: (Either Integer (Expr,Integer)) -> Maybe CExpr -> (Either Integer (Expr,Integer), CExpr)

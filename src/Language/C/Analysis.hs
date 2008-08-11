@@ -6,7 +6,7 @@
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  alpha
 --
--- Analysis of the AST. 
+-- Analysis of the AST.
 --
 -- Currently, we provide a monad for analysis and analyze declarations and types.
 -- Especially note that there is no direct support for analyzing function bodies and

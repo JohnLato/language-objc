@@ -7,10 +7,15 @@
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
--- unary, binary and asssignment operators
+-- Unary, binary and asssignment operators. Exported via AST.
 -----------------------------------------------------------------------------
 module Language.C.Syntax.Ops (
-CAssignOp(..),CBinaryOp(..),CUnaryOp(..)
+-- * Assignment operators
+CAssignOp(..),
+-- * Unary operators
+CUnaryOp(..),
+-- * Binary operators
+CBinaryOp(..),
 )
 where
 import Data.Generics

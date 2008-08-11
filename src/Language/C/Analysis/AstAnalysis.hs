@@ -140,20 +140,20 @@ analyseVarDecl handle_sue_def declspecs declr oldstyle_params = do
 -- | compute storage of a function definition
 --
 -- a function definition has static storage with internal linkage if specified `static`,
--- the previously declared linkage if any if 'extern' and 'extern' otherwise
+-- the previously declared linkage if any if 'extern' or no specifier are present. (See C99 6.2.2, clause 5)
 --
--- This function won't raise an error, even if the function is already declared, because
--- the error handling should be done in 'handleFunDef'
+-- This function won't raise an Trav error if the declaration is incompatible with the existing one,
+-- this case is handled in 'handleFunDef'.
 computeFunDefStorage :: (MonadTrav m) => Ident -> StorageSpec -> m Storage
-computeFunDefStorage _ NoStorageSpec = return$ Static ExternalLinkage False
-computeFunDefStorage _ ThreadSpec    = return$ Static ExternalLinkage True
-computeFunDefStorage _ (StaticSpec b)  = return$ Static InternalLinkage b
-computeFunDefStorage ident (ExternSpec b)  = do
-     obj_opt <- lookupObject ident
-     return$ case obj_opt of
-                Just vardecl -> declStorage $ vardecl
-                _ -> Static ExternalLinkage b
-computeFunDefStorage _ bad_spec = error $ "unexpected storage specifier: "++show bad_spec
+computeFunDefStorage _ (StaticSpec b)  = return$ FunLinkage InternalLinkage
+computeFunDefStorage ident other_spec  = do
+  obj_opt <- lookupObject ident
+  let defaultSpec = FunLinkage ExternalLinkage
+  case other_spec of
+    NoStorageSpec  -> return$ maybe defaultSpec declStorage obj_opt
+    (ExternSpec False) -> return$ maybe defaultSpec declStorage obj_opt
+    bad_spec -> throwTravError $ badSpecifierError (nodeInfo ident)
+                  $ "unexpected function storage specifier (only static or extern is allowed)" ++ show bad_spec
 
 -- | handle a function prototype
 extFunProto :: (MonadTrav m) => VarDeclInfo -> m ()
@@ -176,6 +176,7 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) =
         | RegSpec <- storage_spec        = astError node_info "invalid `register' storage specified for function"
         | (not $ isFunctionType typ)     = error "function prototype without function type"
         | otherwise                      = return ()
+
 
 -- | handle a object declaration \/ definition
 --

@@ -55,25 +55,33 @@ import Control.Monad(liftM)
 
 -- | Traversal monad
 class (Monad m) => MonadTrav m where
-
     -- error handling facilities
+
+    -- | throw an 'Error'
     throwTravError :: Error e => e -> m a
-    -- we could implement dynamically-typed catch here (deferred)
+    -- | catch an 'Error' (we could implement dynamically-typed catch here)
     catchTravError :: m a -> (CError -> m a) -> m a
+    -- | remember that an 'Error' occured (without throwing it)
     recordError    :: Error e => e -> m ()
+    -- | return the list of recorded errors
     getErrors      :: m [CError]
 
     -- symbol table handling
+    
+    -- | return the definition table
     getDefTable :: m DefTable
+    -- | perform an action modifying the definition table
     withDefTable :: (DefTable -> (a, DefTable)) -> m a
 
-    -- unique name generation
+    -- | unique name generation
     genName :: m Name
 
-    -- handling declarations and definitions
+    -- | handling declarations and definitions
     handleDecl :: DeclEvent -> m ()
 
 -- * handling declarations
+
+-- check wheter a redefinition is ok
 checkRedef :: (MonadTrav m, CNode t, CNode t1) => String -> t -> (DeclarationStatus t1) -> m ()
 checkRedef subject new_decl redecl_status =
     case redecl_status of
@@ -95,9 +103,10 @@ handleTagDef def = do
     checkRedef (show $ sueRef def) def redecl
     handleDecl (TagEvent def)
 
-handleEnumeratorDef :: (MonadTrav m) => Enumerator -> EnumType -> m ()
-handleEnumeratorDef enumerator@(ident,_) enum = do
-    redecl <- withDefTable $ defineScopedIdent ident (EnumeratorDef enumerator enum)
+handleEnumeratorDef :: (MonadTrav m) => Enumerator ->  m ()
+handleEnumeratorDef enumerator = do
+    let ident = declIdent enumerator
+    redecl <- withDefTable $ defineScopedIdent ident (EnumeratorDef enumerator)
     checkRedef (show ident) ident redecl
     return ()
 
@@ -130,20 +139,16 @@ checkVarRedef def redecl =
         -- always an error
         KindMismatch old_def -> redefVarErr old_def DiffKindRedecl
         -- types have to match
-        KeepDef (Right old_def) -> throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)
+        KeepDef (Right old_def) -> throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
         -- redeclaration: old entry has to be a declaration or tentative, type have to match
         Redeclared (Right old_def) | isTentativeG old_def ->
-                                      throwOnLeft $ checkCompatibleTypes new_ty (getTy old_def)
+                                      throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
                                    | otherwise -> redefVarErr old_def DuplicateDef
         -- NewDecl/Shadowed is ok
         _ -> return ()
     where
-    redefVarErr old_def kind = redefErr (identOfDecl def) LevelError def old_def kind
-    new_ty = getTy def
-    getTy (Declaration vd) = declType vd
-    getTy (ObjectDef od) = declType od
-    getTy (FunctionDef fd) = declType fd
-    getTy (EnumeratorDef _ed enum) = DirectType (typeOfEnumDef enum) noTypeQuals
+    redefVarErr old_def kind = redefErr (declIdent def) LevelError def old_def kind
+    new_ty = declType def
     isTentativeG (Declaration _) = True
     isTentativeG (ObjectDef od)  = isTentative od
     isTentativeG _               = False
@@ -156,7 +161,7 @@ handleVarDecl :: (MonadTrav m) => Decl -> m ()
 handleVarDecl decl = do
     let def = Declaration decl
     redecl <- withDefTable $
-              defineScopedIdentWhen (const False) (identOfDecl def) def
+              defineScopedIdentWhen (const False) (declIdent def) def
     checkVarRedef def redecl
     handleDecl (DeclEvent def)
 
@@ -357,8 +362,10 @@ data TravState s =
         doHandleExtDecl :: (DeclEvent -> Trav s ()),
         userState :: s
       }
+
 travErrors :: TravState s -> [CError]
 travErrors = RList.reverse . rerrors
+
 initTravState :: s -> TravState s
 initTravState userst =
     TravState {

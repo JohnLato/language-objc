@@ -35,26 +35,22 @@ import Language.C.Analysis.TravMonad
 import Data.Foldable as F (foldrM)
 import qualified Data.Traversable as T
 import Control.Monad (liftM,when,ap)
-import Data.List (intersperse)
+import Data.List (intersperse, mapAccumL)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
--- TODO: register or no storage
-computeParamStorage _ = NoStorage
 
 -- * handling declarations
 
+-- | analyse and translate a parameter declaration
 -- TODO: handle void parameter ?
 tParamDecl :: (MonadTrav m) => CDecl -> m ParamDecl
 tParamDecl (CDecl declspecs declrs node) =
     case declrs' of
         [(Just declr, Nothing, Nothing)] ->
             do  (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr [] Nothing
-
-                -- TODO: check assembler name
-                when (is_inline) $ astError node "parameter declaration with inline specifier"
-                -- TODO: compute storage of parameter declaration
-                let storage = computeParamStorage storage_spec
+                when (is_inline) $ throwTravError (badSpecifierError node "parameter declaration with inline specifier")
+                storage <- throwOnLeft $ computeParamStorage node storage_spec
                 return $ ParamDecl (VarDecl name (DeclAttrs False storage attrs) ty) declr_node
         _   -> astError node "bad parameter declaration: multiple decls / bitfield or initializer present"
     where
@@ -62,6 +58,14 @@ tParamDecl (CDecl declspecs declrs node) =
     declrs' = case declrs of
                   [] -> [(Just$ emptyDeclr node,Nothing,Nothing)]
                   _  -> declrs
+
+-- | a parameter declaration has no linkage and either auto or register storage
+computeParamStorage :: NodeInfo -> StorageSpec -> Either BadSpecifierError Storage
+computeParamStorage _ NoStorageSpec = Right (Auto False)
+computeParamStorage _ AutoSpec      = Right (Auto False)
+computeParamStorage _ RegSpec       = Right (Auto True)
+computeParamStorage node spec       = Left . badSpecifierError node $ "Bad storage specified for parameter: " ++ show spec
+                  
 tMemberDecls :: (MonadTrav m) => CDecl -> m [MemberDecl]
 tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (True:repeat False) declrs)
     where
@@ -266,14 +270,23 @@ tEnumTypeDecl handle_def (CEnum ident_opt enumerators_opt attrs node_info)
                     >>=  (handleTagDef . EnumDef)
              return decl
 
+-- | translate and analyse an enumeration type
 tEnumType :: (MonadTrav m) => SUERef -> [(Ident, Maybe CExpr)] -> Attributes -> NodeInfo -> m EnumType
 tEnumType sue_ref enumerators attrs node = do
-    enumerators' <- mapM (mapSndM (T.mapM analyseConstExpr)) enumerators
-    let ty = EnumType sue_ref enumerators' attrs node
-    mapM_ (flip handleEnumeratorDef ty) enumerators'
+    mapM_ handleEnumeratorDef enumerators'
     return ty
-
-
+    where
+    ty = EnumType sue_ref enumerators' attrs node
+    (_,enumerators') = mapAccumL nextEnumerator (Left 0) enumerators
+    nextEnumerator memo (ident,e) = 
+      let (memo',expr) = nextEnrExpr memo e in
+      (memo', Enumerator ident expr ty (nodeInfo ident))
+    nextEnrExpr :: (Either Integer (Expr,Integer)) -> Maybe CExpr -> (Either Integer (Expr,Integer), CExpr)
+    nextEnrExpr (Left i) Nothing = (Left (succ i), intExpr i)
+    nextEnrExpr (Right (e,offs)) Nothing = (Right (e, succ offs), offsExpr e offs)
+    nextEnrExpr _ (Just e) = (Right (e,1), e)
+    intExpr i = CConst (CIntConst (cInteger i) internalNode)
+    offsExpr e offs = CBinary CAddOp e (intExpr offs) internalNode
 -- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier
 tNumType :: (MonadTrav m) => NumTypeSpec -> m (Either (FloatType,Bool) IntType)
 tNumType (NumTypeSpec basetype sgn sz iscomplex) =

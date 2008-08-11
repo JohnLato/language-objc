@@ -69,7 +69,7 @@ import Data.Generics
 type IdentTyDecl = Either TypeDef IdentDecl
 
 identOfTyDecl :: IdentTyDecl -> Ident
-identOfTyDecl = either identOfTypeDef identOfDecl
+identOfTyDecl = either identOfTypeDef declIdent
 
 data DefTable = DefTable
     {
@@ -143,9 +143,9 @@ compatIdentTyDecl :: IdentTyDecl -> IdentTyDecl -> Bool
 compatIdentTyDecl (Left _tydef) = either (const True) (const False)
 compatIdentTyDecl (Right def) = either (const False) $ 
   \other_def -> case (def,other_def) of
-                  (EnumeratorDef _ _, EnumeratorDef _ _) -> True
-                  (EnumeratorDef _ _, _) -> True
-                  (_, EnumeratorDef _ _) -> True
+                  (EnumeratorDef _, EnumeratorDef _) -> True
+                  (EnumeratorDef _, _) -> True
+                  (_, EnumeratorDef _) -> True
                   (_,_) -> True
 defRedeclStatus :: (t -> t -> Bool) -> t -> Maybe t -> DeclarationStatus t
 defRedeclStatus sameKind def oldDecl =

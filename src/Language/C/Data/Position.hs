@@ -15,7 +15,7 @@ module Language.C.Data.Position (
   --
   Position(Position),
   posFile,posRow,posColumn,isSourcePos,
-  nopos, isNopos,
+  nopos, isNoPos,
   builtinPos, isBuiltinPos,
   internalPos, isInternalPos,
   incPos, tabPos, retPos,
@@ -32,7 +32,7 @@ data Position = Position String         -- file name
 
 instance Show Position where
   show pos@(Position fname row col)
-    | isNopos pos = "<no file>"
+    | isNoPos pos = "<no file>"
     | isBuiltinPos pos = "<builtin>"
     | isInternalPos pos = "<internal>"
     | otherwise = show (fname, row, col)
@@ -73,6 +73,10 @@ isSourcePos (Position _ row col) = row >= 0 && col >= 0
 -- | no position (for unknown position information)
 nopos :: Position
 nopos  = Position "<no file>" (-1) 0
+
+isNoPos :: Position -> Bool
+isNoPos (Position _ (-1) 0) = True
+isNoPos _                   = False
 
 -- | position attached to built-in objects
 --

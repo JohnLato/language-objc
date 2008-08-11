@@ -1,14 +1,14 @@
 Name:           language-c
-Version:        0.2.8
+Version:        0.2.9
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
 License:        BSD3
 License-File:   LICENSE
 Copyright:      LICENSE
 Author:         AUTHORS
-Maintainer:     -
-Stability:      -
-Homepage:       -
+Maintainer:     benedikt.huber@gmail.com
+Stability:      experimental
+Homepage:       http://www.sivity.net/projects/language.c
 Synopsis:       C99 Parser Library
 Category:       Development
 
@@ -20,7 +20,7 @@ Flag useByteStrings
     Description: Use ByteString as InputStream datatype
     Default: True
 Library
-    Extensions: CPP, DeriveDataTypeable
+    Extensions: CPP, DeriveDataTypeable, PatternGuards, BangPatterns, ExistentialQuantification, GeneralizedNewtypeDeriving, ScopedTypeVariables
     Build-Depends:  filepath
 
     if flag(splitBase)
@@ -70,9 +70,9 @@ Library
                       -- semrep -> code [alpha]
                       Language.C.Analysis.Export
     Other-Modules:    
-                      -- implementation
-                      Language.C.Data.RList
                       Language.C.Analysis.NameSpaceMap
+                      -- parser implementation
+                      Language.C.Data.RList
                       Language.C.Parser.Builtin
                       Language.C.Parser.Lexer 
                       Language.C.Parser.ParserMonad 

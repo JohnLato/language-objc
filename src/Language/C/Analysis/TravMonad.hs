@@ -6,7 +6,7 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  non-portable (mtl)
+-- Portability :  portable
 --
 -- Monad for Traversals of the C AST.
 --
@@ -17,26 +17,26 @@
 module Language.C.Analysis.TravMonad (
     -- * AST traversal monad
     MonadTrav(..),
-    -- * handling declarations
+    -- * Handling declarations
     handleTagDef,handleEnumeratorDef,handleTypeDef,
     handleFunDef,handleVarDecl,handleObjectDef,
     handleAsmBlock,
-    -- * symbol table scope modification
+    -- * Symbol table scope modification
     enterPrototypeScope,leavePrototypeScope,
     enterFunctionScope,leaveFunctionScope,
     enterBlockScope,leaveBlockScope,
-    -- * symbol table lookup (delegate)
+    -- * Symbol table lookup (delegate)
     lookupTypeDef, lookupObject,
-    -- * symbol table modification
+    -- * Symbol table modification
     createSUERef,
-    -- * additional error handling facilities
+    -- * Additional error handling facilities
     hadHardErrors,handleTravError,throwOnLeft,
     astError, warn,
     -- * Trav - default MonadTrav implementation
     Trav(..),
     runTrav,runTrav_,
     TravState,initTravState,withExtDeclHandler,modifyUserState,userState,
-    -- * helpers
+    -- * Helpers
     mapMaybeM,maybeM,mapSndM,concatMapM,
 )
 where
@@ -115,7 +115,7 @@ redefErr :: (MonadTrav m, CNode old, CNode new) => Ident -> ErrorLevel -> new ->
 redefErr name lvl new old kind =
   throwTravError $ redefinition lvl (show name) kind (nodeInfo new) (nodeInfo old)
 
-
+-- TODO: unused
 checkIdentTyRedef :: (MonadTrav m) => IdentTyDecl -> (DeclarationStatus IdentTyDecl) -> m ()
 checkIdentTyRedef (Right decl) status = checkVarRedef decl status
 checkIdentTyRedef (Left tydef) (KindMismatch old_def) =
@@ -289,9 +289,13 @@ warn err = recordError (changeErrorLevel err LevelWarn)
 
 -- | simple traversal monad, providing user state and callbacks
 newtype Trav s a = Trav { unTrav :: TravState s -> Either CError (a, TravState s) }
+modify :: (TravState s -> TravState s) -> Trav s ()
 modify f = Trav (\s -> Right ((),f s))
+gets :: (TravState s -> a) -> Trav s a
 gets f   = Trav (\s -> Right (f s, s))
+get ::  Trav s (TravState s)
 get      = Trav (\s -> Right (s,s))
+put :: TravState s -> Trav s ()
 put s    = Trav (\_ -> Right ((),s))
 
 runTrav :: forall s a. s -> Trav s a -> Either [CError] (a, TravState s)

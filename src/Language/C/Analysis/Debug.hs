@@ -69,8 +69,8 @@ instance Pretty (Either VarDecl FunDef) where
 instance Pretty Ident where
     pretty = text . identToString
 instance Pretty SUERef where
-    pretty (AnonymousType name)   = text $ "$sue_" ++ show (nameId name)
-    pretty (NamedType ident)      = pretty ident
+    pretty (AnonymousRef name)   = text $ "$sue_" ++ show (nameId name)
+    pretty (NamedRef ident)      = pretty ident
 instance Pretty TagDef where
     pretty (CompDef compty) = pretty compty
     pretty (EnumDef enumty) = pretty enumty

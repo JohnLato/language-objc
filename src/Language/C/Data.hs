@@ -4,14 +4,15 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  experimental
+-- Stability   :  provisional
+-- Portability :  DeriveDataTypable
 --
--- Data structures for Language.C: Identifiers, Source Code Positions,
--- Extensible Errors and Unique Names.
+-- Common data types for Language.C: Identifiers, unique names, source code locations,
+-- ast node attributes and extensible errors.
 -----------------------------------------------------------------------------
 module Language.C.Data (
      -- * Identifiers
-     SUERef(..), isAnonymousType,
+     SUERef(..), isAnonymousRef,
      Ident,mkIdent, identToString, internalIdent, isInternalIdent, builtinIdent,
      -- * Unqiue names
      Name(..),namesStartingFrom,
@@ -24,7 +25,7 @@ module Language.C.Data (
      NodeInfo(..),CNode(..),
      fileOfNode,posOfNode,nameOfNode,
      internalNode,mkNodeInfoOnlyPos,mkNodeInfo,
-     -- * extensible errors
+     -- * Extensible errors
      module Language.C.Data.Error
 )
 where

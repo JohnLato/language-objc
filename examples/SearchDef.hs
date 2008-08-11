@@ -51,9 +51,9 @@ main = do
         Left tag -> fmap nodeInfo (Map.lookup tag (gTags globs))
         Right ident ->     fmap nodeInfo (Map.lookup ident (gObjs globs))
                        <|> fmap nodeInfo (Map.lookup ident (gTypeDefs globs))
-                       <|> fmap nodeInfo (Map.lookup (NamedType ident) (gTags globs))
+                       <|> fmap nodeInfo (Map.lookup (NamedRef ident) (gTags globs))
     analyseSearchTerm term = 
       case words term of
-        [tag,name] | tag `elem` (words "struct union enum") -> Left $ NamedType (internalIdent name)
+        [tag,name] | tag `elem` (words "struct union enum") -> Left $ NamedRef (internalIdent name)
         [ident] -> Right (internalIdent ident)
         _ -> error "bad search term"

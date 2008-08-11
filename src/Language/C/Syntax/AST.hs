@@ -41,7 +41,7 @@ module Language.C.Syntax.AST (
   CExpr(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..),
   CBuiltin(..),
-  -- * constants
+  -- * Constants
   CConst(..),CStrLit(..),cstringOfLit,liftStrLit,
 ) where
 import Data.List
@@ -280,11 +280,11 @@ data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or type
                | CTypeQual    CTypeQual     -- ^ type qualifier
                  deriving (Data,Typeable {-! CNode !-})
 
--- | seperate the declaration specifiers
+-- | Seperate the declaration specifiers
 --
 -- Note that inline isn't actually a type qualifier, but a function specifier.
--- @__attribute__@s qualify declarations or declarators, and are therefore
--- seperated as well.
+-- @__attribute__@ of a declaration qualify declarations or declarators (but not types), 
+-- and are therefore seperated as well.
 partitionDeclSpecs :: [CDeclSpec] -> ([CStorageSpec], [CAttr], [CTypeQual], [CTypeSpec], Bool)
 partitionDeclSpecs = foldr deals ([],[],[],[],False) where
     deals (CTypeQual (CInlineQual _)) (sts,ats,tqs,tss,_) = (sts,ats,tqs,tss,True)
@@ -294,12 +294,11 @@ partitionDeclSpecs = foldr deals ([],[],[],[],False) where
     deals (CTypeSpec ts) (sts,ats,tqs,tss,inline)     = (sts,ats,tqs,ts:tss,inline)
 
 -- | C storage class specifier (and typedefs) (K&R A8.1, C99 6.7.1)
---
-data CStorageSpec = CAuto     NodeInfo     -- ^ automatic storage
-                  | CRegister NodeInfo     -- ^ register storage
-                  | CStatic   NodeInfo     -- ^ static linkage
-                  | CExtern   NodeInfo     -- ^ external linkage
-                  | CTypedef  NodeInfo     -- ^ a typedef
+data CStorageSpec = CAuto     NodeInfo     -- ^ auto
+                  | CRegister NodeInfo     -- ^ register
+                  | CStatic   NodeInfo     -- ^ static
+                  | CExtern   NodeInfo     -- ^ extern
+                  | CTypedef  NodeInfo     -- ^ typedef
                   | CThread   NodeInfo     -- ^ GNUC thread local storage
                  deriving (Eq,Ord,Data,Typeable {-! CNode !-})
 instance Show CStorageSpec where
@@ -355,11 +354,12 @@ data CTypeQual = CConstQual NodeInfo
 --
 -- @CStruct tag identifier struct-decls c-attrs@ represents a struct or union specifier (depending on @tag@).
 --
---   * either t@identifier@ or the declaration list @struct-decls@ (or both) have to be present.
+--   * either @identifier@ or the declaration list @struct-decls@ (or both) have to be present.
+--
 --     Example: in @struct foo x;@, the identifier is present, in @struct { int y; } x@ the declaration list, and
 --     in @struct foo { int y; } x;@ both of them.
 --
---   * @c-attrs@ is a list of @__attribute__@s associated with the struct or union specifier
+--   * @c-attrs@ is a list of @__attribute__@ annotations associated with the struct or union specifier
 data CStructUnion = CStruct CStructTag
                             (Maybe Ident)
                             (Maybe [CDecl])    -- member declarations
@@ -367,7 +367,7 @@ data CStructUnion = CStruct CStructTag
                             NodeInfo
                     deriving (Data,Typeable {-! CNode !-})
 
--- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CStructUnion'.
+-- | A tag to determine wheter we refer to a @struct@ or @union@, see 'CStructUnion'.
 data CStructTag = CStructTag
                 | CUnionTag
                 deriving (Eq,Data,Typeable)

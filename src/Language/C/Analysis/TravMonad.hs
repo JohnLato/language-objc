@@ -67,7 +67,7 @@ class (Monad m) => MonadTrav m where
     getErrors      :: m [CError]
 
     -- symbol table handling
-    
+
     -- | return the definition table
     getDefTable :: m DefTable
     -- | perform an action modifying the definition table

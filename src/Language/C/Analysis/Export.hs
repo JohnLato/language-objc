@@ -160,7 +160,7 @@ exportDeclAttrs (DeclAttrs inline storage attrs) =
 -- This isn't always possible and depends on the context the identifier is declared.
 -- Most importantly, if there is a /conflicting/ declaration in scope, export is impossible.
 -- Furthermore, automatic storage is impossible in file scope.
--- If the storage can actually be specified, the export is correct.  
+-- If the storage can actually be specified, the export is correct.
 exportStorage :: Storage -> [CStorageSpec]
 exportStorage NoStorage = []
 exportStorage (Auto reg) = if reg then [CRegister ni] else []
@@ -171,7 +171,7 @@ exportStorage (FunLinkage InternalLinkage) = [CStatic ni]
 
 threadLocal :: Bool -> [CStorageSpec] -> [CStorageSpec]
 threadLocal False = id
-threadLocal True = ((CThread ni) :) 
+threadLocal True = ((CThread ni) :)
 
 exportAttrs = map exportAttr where
     exportAttr (Attr ident es ni) = CAttr ident es ni

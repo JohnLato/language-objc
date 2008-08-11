@@ -6,7 +6,7 @@
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Portability :  portable
 --
--- Syntax of C files: The AST ('Language.C.Syntax.AST') and 
+-- Syntax of C files: The AST ('Language.C.Syntax.AST') and
 -- constants ('Language.C.Syntax.Constants').
 -----------------------------------------------------------------------------
 module Language.C.Syntax (

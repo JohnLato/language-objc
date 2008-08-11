@@ -141,7 +141,7 @@ data DeclarationStatus t =
 
 compatIdentTyDecl :: IdentTyDecl -> IdentTyDecl -> Bool
 compatIdentTyDecl (Left _tydef) = either (const True) (const False)
-compatIdentTyDecl (Right def) = either (const False) $ 
+compatIdentTyDecl (Right def) = either (const False) $
   \other_def -> case (def,other_def) of
                   (EnumeratorDef _, EnumeratorDef _) -> True
                   (EnumeratorDef _, _) -> True

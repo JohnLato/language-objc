@@ -230,7 +230,7 @@ instance Declaration Decl where
 --
 -- An object definition is a declaration together with an initializer.
 --
--- If the initializer is missing, it is a tentative definition, i.e. a 
+-- If the initializer is missing, it is a tentative definition, i.e. a
 -- definition which might be overriden later on.
 data ObjDef = ObjDef VarDecl (Maybe Initializer) NodeInfo
              deriving (Typeable, Data {-! CNode !-})
@@ -269,9 +269,9 @@ instance Declaration MemberDecl where
   getVarDecl (MemberDecl vd _ _) = vd
   getVarDecl (AnonBitField ty _ _) = VarDecl NoName (DeclAttrs False NoStorage []) ty
 
--- | @typedef@ definitions. 
+-- | @typedef@ definitions.
 --
--- The identifier is a new name for the given type. 
+-- The identifier is a new name for the given type.
 data TypeDef = TypeDef Ident Type Attributes NodeInfo
                deriving (Typeable, Data {-! CNode !-} )
 

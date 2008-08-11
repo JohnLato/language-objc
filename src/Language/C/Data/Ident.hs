@@ -28,7 +28,7 @@
 --
 module Language.C.Data.Ident (
     Ident(..),
-    SUERef(..), isAnonymousType,
+    SUERef(..), isAnonymousRef,
     mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
 where
 
@@ -38,19 +38,22 @@ import Language.C.Data.Node
 import Language.C.Data.Name   (Name,nameId)
 import Data.Generics
 
-data SUERef =  AnonymousType Name
-             | NamedType Ident
+-- | References uniquely determining a struct, union or enum type. 
+-- Those are either identified by an string identifier, or by a unique 
+-- name (anonymous types).
+data SUERef =  AnonymousRef Name
+             | NamedRef Ident
     deriving (Typeable, Data, Ord, Eq)
 instance Show SUERef where
-    show (AnonymousType name) = "$" ++ show (nameId name)
-    show (NamedType ident) = identToString ident
+    show (AnonymousRef name) = "$" ++ show (nameId name)
+    show (NamedRef ident) = identToString ident
 
-isAnonymousType :: SUERef -> Bool
-isAnonymousType (AnonymousType _) = True
-isAnonymousType _ = False
+-- | Return true if the struct\/union\/enum reference is anonymous.
+isAnonymousRef :: SUERef -> Bool
+isAnonymousRef (AnonymousRef _) = True
+isAnonymousRef _ = False
 
--- simple identifier representation (EXPORTED)
---
+-- | C identifiers
 data Ident = Ident String       -- lexeme
                    {-# UNBOXED #-}   !Int         -- hash to speed up equality check
                    NodeInfo        -- attributes of this ident. incl. position
@@ -69,12 +72,10 @@ instance Ord Ident where
   compare (Ident s h _) (Ident s' h' _) = compare (h, s) (h', s')
 
 -- for displaying identifiers
---
 instance Show Ident where
   showsPrec _ ide = showString ("`" ++ identToString ide ++ "'")
 
 -- identifiers are attributed
---
 instance CNode Ident where
   nodeInfo (Ident _ _ at) = at
 instance Pos Ident where
@@ -108,35 +109,32 @@ bits21 = 2^(21::Int)
 bits28 :: Int
 bits28 = 2^(28::Int)
 
--- given the lexeme of an identifier, yield the abstract identifier (EXPORTED)
---
--- * the only attribute of the resulting identifier is its source text
---   position; as provided in the first argument of this function
+-- | build an identifier from a string.
 --
 -- * only minimal error checking, e.g., the characters of the identifier are
 --   not checked for being alphanumerical only; the correct lexis of the
 --   identifier should be ensured by the caller, e.g., the scanner.
 --
--- * for reasons of simplicity the complete lexeme is hashed (with `quad')
---
+-- * for reasons of simplicity the complete lexeme is hashed.
 mkIdent            :: Position -> String -> Name -> Ident
 mkIdent pos s name  = Ident s (quad s) (mkNodeInfo pos name)
 
--- | generate an internal identifier (has internal position and no unique name)
+-- | returns an /internal/ identifier (has internal position and no unique name)
 internalIdent   :: String -> Ident
 internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos internalPos)
 
+-- | returns a /builtin/ identifier (has builtin position and no unique name)
 builtinIdent   :: String -> Ident
 builtinIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos builtinPos)
 
--- | return true if the given identifier is internal
+-- | return @True@ if the given identifier is /internal/
 isInternalIdent :: Ident -> Bool
 isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (posOfNode nodeinfo) || isBuiltinPos (posOfNode nodeinfo)
 
--- | get the string of an identifier
+-- | string of an identifier
 identToString               :: Ident -> String
 identToString (Ident s _ _)  = s
 
--- | dump the lexeme and its positions into a string for debugging purposes
+-- | dump the identifier string and its positions for debugging purposes
 dumpIdent     :: Ident -> String
 dumpIdent ide  = identToString ide ++ " at " ++ show (posOf ide)

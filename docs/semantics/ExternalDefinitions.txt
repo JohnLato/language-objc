@@ -34,7 +34,7 @@ extern To name = I; /* _definition_ of an object with external linkage (6.9.2 / 
 extern T name;      /* not OBJ_NAME_IN_SCOPE(name): declaration of an object/function with external linkage */
 extern T name;      /* OBJ_NAME_IN_SCOPE(name): declaration which refers to the previously declared entity */
 
-Tf f { ... }        /* definition of a function with external linkage */
+Tf f { ... }        /* definition of a function with either external linkage or with the linkage of previous declaration */
 static Tf f { ... } /* definition of a function with internal linkage */
 extern Tf f { ... } /* definition of a function with either external linkage or with the linkage of previous declaration */
 

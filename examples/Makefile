@@ -1,6 +1,5 @@
 all:
 	ghc --make -O ComputeSize.hs
-	ghc --make -O QuickTest.hs
 	ghc --make -O ScanFile.hs
 	ghc --make -O SearchDef.hs
 clean:

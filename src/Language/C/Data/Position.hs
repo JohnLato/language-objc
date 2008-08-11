@@ -62,6 +62,7 @@ posRow (Position _ row _) = row
 posColumn :: Position -> Int
 posColumn (Position _ _ col) = col
 
+-- | class of type which aggregate a source code location
 class Pos a where
     posOf :: a -> Position
 
@@ -73,15 +74,12 @@ isSourcePos (Position _ row col) = row >= 0 && col >= 0
 nopos :: Position
 nopos  = Position "<no file>" (-1) 0
 
-isNopos :: Position -> Bool
-isNopos (Position _ (-1) 0) = True
-isNopos _                   = False
-
 -- | position attached to built-in objects
 --
 builtinPos :: Position
 builtinPos  = Position "<built into the parser>" (-1) 1
 
+-- | returns @True@ if the given position refers to a builtin definition
 isBuiltinPos :: Position -> Bool
 isBuiltinPos (Position _ (-1) 1) = True
 isBuiltinPos _                   = False
@@ -90,6 +88,7 @@ isBuiltinPos _                   = False
 internalPos :: Position
 internalPos = Position "<internal error>" (-1) 2
 
+-- | returns @True@ if the given position is internal
 isInternalPos :: Position -> Bool
 isInternalPos (Position _ (-1) 2) = True
 isInternalPos _                      = False

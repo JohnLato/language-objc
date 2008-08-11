@@ -350,8 +350,11 @@ data Type =
      -- ^ (GNU) typeof (/broken/ and should be removed, but we do not yet have expression type analysis)
      deriving (Typeable, Data)
 
--- | Function types @FunType params isVariadic attrs type@
+-- | Function types are of the form @FunType return-type params isVariadic attrs@.
+--
+-- If the parameter types aren't yet known, the function has type @FunTypeIncomplete type attrs@.
 data FunType = FunType Type [ParamDecl] Bool Attributes
+            |  FunTypeIncomplete Type Attributes
                deriving (Typeable, Data)
 
 -- | resolve typedefs, if possible

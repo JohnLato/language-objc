@@ -56,9 +56,13 @@ exportType ty = exportTy [] ty
         arr_declr = CArrDeclr (exportTypeQuals tyquals) (exportArraySize array_sz) ni
     exportTy dd (FunctionType (FunType ty params variadic attrs)) = exportTy (fun_declr : dd) ty where
         fun_declr = CFunDeclr (Right (map exportParamDecl params,variadic)) (exportAttrs attrs) ni
+    exportTy dd (FunctionType (FunTypeIncomplete ty attrs)) = exportTy (fun_declr : dd) ty where
+        fun_declr = CFunDeclr (Right ([],False)) (exportAttrs attrs) ni
     exportTy dd (TypeDefType (TypeDefRef ty_ident _ node)) = ([CTypeSpec (CTypeDef ty_ident node)], reverse dd)
     exportTy dd (DirectType ty quals) = (map CTypeQual (exportTypeQuals quals) ++
                                         map CTypeSpec (exportTypeSpec ty), reverse dd)
+    exportTy dd (TypeOfExpr _) = error "export of TypeOfExpr isn't supported"
+
 exportTypeQuals :: TypeQuals -> [CTypeQual]
 exportTypeQuals quals = mapMaybe (select quals) [(constant,CConstQual ni),(volatile,CVolatQual ni),(restrict,CRestrQual ni)]
     where

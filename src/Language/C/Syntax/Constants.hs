@@ -15,13 +15,13 @@ module Language.C.Syntax.Constants (
   escapeChar, unescapeChar, unescapeString,
   Flags(..), noFlags, setFlag, clearFlag, testFlag,
   -- * C char constants (and multi-character character constants)
-  cchar, cchar_w, cchars, CChar(..), getCChar, getCCharAsInt, isWideChar, showCharConst,
+  cChar, cChar_w, cChars, CChar(..), getCChar, getCCharAsInt, isWideChar, showCharConst,
   -- * C integral constants
-  CIntFlag(..), cinteger, CInteger(..), getCInteger,readCInteger,
+  CIntFlag(..), cInteger, CInteger(..), getCInteger,readCInteger,
   -- * C floating point constants
-  cfloat,  CFloat(..), readCFloat,
+  cFloat,  CFloat(..), readCFloat,
   -- * C string literals
-  cstring, cstring_w, CString(..), getCString, showStringLit, concatCStrings,
+  cString, cString_w, CString(..), getCString, showStringLit, concatCStrings,
 )
 where
 import Data.Bits
@@ -70,16 +70,16 @@ isWideChar (CChars _ wideFlag) = wideFlag
 
 -- | construct a character constant from a haskell 'Char'
 -- Use 'cchar_w' if you want a wide character constant.
-cchar :: Char -> CChar
-cchar c = CChar c False
+cChar :: Char -> CChar
+cChar c = CChar c False
 
 -- | construct a wide chararacter constant
-cchar_w :: Char -> CChar
-cchar_w c = CChar c True
+cChar_w :: Char -> CChar
+cChar_w c = CChar c True
 
 -- | create a multi-character character constant
-cchars :: [Char] -> Bool -> CChar
-cchars = CChars
+cChars :: [Char] -> Bool -> CChar
+cChars = CChars
 
 -- | datatype representing type flags for integers
 data CIntFlag = FlagUnsigned | FlagLong | FlagLongLong | FlagImag deriving (Eq,Ord,Enum,Bounded,Data,Typeable)
@@ -126,8 +126,8 @@ getCInteger :: CInteger -> Integer
 getCInteger (CInteger i _) = i
 
 -- | construct a integer constant (without type flags) from a haskell integer
-cinteger :: Integer -> CInteger
-cinteger i = CInteger i noFlags
+cInteger :: Integer -> CInteger
+cInteger i = CInteger i noFlags
 
 -- | Floats (represented as strings)
 data CFloat = CFloat
@@ -136,8 +136,8 @@ data CFloat = CFloat
 instance Show CFloat where
   showsPrec _ (CFloat internal) = showString internal
 
-cfloat :: Float -> CFloat
-cfloat = CFloat . show
+cFloat :: Float -> CFloat
+cFloat = CFloat . show
 
 -- dummy implementation
 readCFloat :: String -> CFloat
@@ -152,10 +152,10 @@ instance Show CString where
     showsPrec _ (CString str wideflag) = _showWideFlag wideflag . showStringLit str
 
 -- construction
-cstring :: String -> CString
-cstring str = CString str False
-cstring_w :: String -> CString
-cstring_w str = CString str True
+cString :: String -> CString
+cString str = CString str False
+cString_w :: String -> CString
+cString_w str = CString str True
 
 -- selectors
 getCString :: CString -> String

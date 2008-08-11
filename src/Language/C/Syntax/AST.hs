@@ -497,16 +497,13 @@ data CExpr = CComma       [CExpr]       -- comma expression list, n >= 2
                           NodeInfo
            | CVar         Ident         -- identifier (incl. enumeration const)
                           NodeInfo
-           | CConst       CConst                -- includes strings
-                          NodeInfo
-           | CCompoundLit CDecl         -- C99 compound literal
+           | CConst       CConst        -- ^ integer, character, floating point and string constants
+           | CCompoundLit CDecl
                           CInitList     -- type name & initialiser list
-                          NodeInfo
-           | CStatExpr    CStat         -- GNUC compound statement as expr
-                          NodeInfo
-           | CLabAddrExpr Ident         -- GNUC address of label
-                          NodeInfo
-           | CBuiltinExpr CBuiltin      -- place holder for GNUC builtin exprs
+                          NodeInfo      -- ^ C99 compound literal
+           | CStatExpr    CStat NodeInfo  -- ^ GNU C compound statement as expr
+           | CLabAddrExpr Ident NodeInfo  -- ^ GNU C address of label
+           | CBuiltinExpr CBuiltin        -- ^ builtin expressions, see 'CBuiltin'
            deriving (Data,Typeable {-! CNode !-})
 
 
@@ -540,7 +537,7 @@ liftStrLit (CStrLit str at) = CStrConst str at
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 2100672083
+-- CHECKSUM: 1181183062
 
 instance CNode CTranslUnit
     where nodeInfo (CTranslUnit _ nodeinfo) = nodeinfo
@@ -704,7 +701,7 @@ instance CNode CExpr
           nodeInfo (CCall _ _ nodeinfo) = nodeinfo
           nodeInfo (CMember _ _ _ nodeinfo) = nodeinfo
           nodeInfo (CVar _ nodeinfo) = nodeinfo
-          nodeInfo (CConst _ nodeinfo) = nodeinfo
+          nodeInfo (CConst d) = nodeInfo d
           nodeInfo (CCompoundLit _ _ nodeinfo) = nodeinfo
           nodeInfo (CStatExpr _ nodeinfo) = nodeinfo
           nodeInfo (CLabAddrExpr _ nodeinfo) = nodeinfo

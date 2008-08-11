@@ -1668,8 +1668,8 @@ array_designator
 primary_expression :: { CExpr }
 primary_expression
   : ident		       {% withNodeInfo $1 $ CVar $1 }
-  | constant	  	 {% withNodeInfo $1 $ CConst   $1 }
-  | string_literal {% withNodeInfo $1 $ CConst (liftStrLit $1) }
+  | constant	  	 { CConst $1 }
+  | string_literal { CConst (liftStrLit $1) }
   | '(' expression ')'	{ $2 }
 
   -- GNU extensions

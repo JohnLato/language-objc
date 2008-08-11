@@ -174,10 +174,10 @@ $digitNZ$digit*@intgnusuffix?   { token_plus CTokILit (readCInteger readDec) }
 -- character constants (follows K&R A2.5.2, C99 6.4.4.4)
 --
 -- * Universal Character Names are unsupported and cause an error.
-\'($inchar|@charesc)\'  { token CTokCLit (cchar . fst . unescapeChar . tail) }
-L\'($inchar|@charesc)\' { token CTokCLit (cchar_w . fst . unescapeChar . tail . tail) }
-\'($inchar|@charesc){2,}\' { token CTokCLit (flip cchars False . unescapeMultiChars .tail) }
-L\'($inchar|@charesc){2,}\' { token CTokCLit (flip cchars True . unescapeMultiChars . tail . tail) }
+\'($inchar|@charesc)\'  { token CTokCLit (cChar . fst . unescapeChar . tail) }
+L\'($inchar|@charesc)\' { token CTokCLit (cChar_w . fst . unescapeChar . tail . tail) }
+\'($inchar|@charesc){2,}\' { token CTokCLit (flip cChars False . unescapeMultiChars .tail) }
+L\'($inchar|@charesc){2,}\' { token CTokCLit (flip cChars True . unescapeMultiChars . tail . tail) }
 
 -- float constants (follows K&R A2.5.3. C99 6.4.4.2)
 --
@@ -189,8 +189,8 @@ L\'($inchar|@charesc){2,}\' { token CTokCLit (flip cchars True . unescapeMultiCh
 
 -- string literal (follows K&R A2.6)
 -- C99: 6.4.5.
-\"($instr|@charesc)*\"      { token CTokSLit (cstring . unescapeString . init . tail) }
-L\"($instr|@charesc)*\"     { token CTokSLit (cstring_w . unescapeString . init . tail . tail) }
+\"($instr|@charesc)*\"      { token CTokSLit (cString . unescapeString . init . tail) }
+L\"($instr|@charesc)*\"     { token CTokSLit (cString_w . unescapeString . init . tail . tail) }
 
 L?\'@ucn\'                        { token_fail "Universal character names are unsupported" }
 L?\'\\[^0-7'\"\?\\abfnrtvuUx]\'     { token_fail "Invalid escape sequence" }

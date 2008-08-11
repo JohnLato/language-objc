@@ -64,7 +64,7 @@ VarName(..),identOfVarName,AsmName,
 -- * Attributes (STUB, not yet analyzed)
 Attr(..),Attributes,
 -- * Statements and Expressions (STUB, aliases to Syntax)
-Stmt,Expr,ConstExpr,Initializer,AsmBlock,
+Stmt,Expr,Initializer,AsmBlock,
 )
 where
 import Language.C.Data

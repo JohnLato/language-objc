@@ -57,7 +57,7 @@ analyseAST (CTranslUnit decls _file_node) = do
 -- | Analyse an top-level declaration
 analyseExt :: (MonadTrav m) => CExtDecl -> m ()
 analyseExt (CAsmExt asm)
-    = handleAsmBlock (convertStringLit asm)
+    = handleAsmBlock asm
 analyseExt (CFDefExt fundef)
     = analyseFunDef fundef
 analyseExt (CDeclExt decls)
@@ -130,7 +130,7 @@ analyseVarDecl handle_sue_def declspecs declr oldstyle_params = do
     -- translate attributes
     attrs'       <- mapM tAttr (decl_attrs ++ declr_attrs)
     -- create the variable name
-    name         <- mkVarName node nameOpt (fmap convertStringLit asmname_opt)
+    name         <- mkVarName node nameOpt asmname_opt
     return $ VarDeclInfo name inline storage_spec attrs' typ node
     where
     (CDeclr nameOpt derived_declrs asmname_opt declr_attrs node) = declr

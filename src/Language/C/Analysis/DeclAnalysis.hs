@@ -21,7 +21,7 @@ module Language.C.Analysis.DeclAnalysis (
   canonicalStorageSpec, StorageSpec(..),isThreadLocalSpec,
   -- * helpers
   VarDeclInfo(..),
-  tAttr,mkVarName,getOnlyDeclr,nameOfDecl,convertStringLit,
+  tAttr,mkVarName,getOnlyDeclr,nameOfDecl,
 )
 where
 import Language.C.Data.Error
@@ -106,7 +106,7 @@ analyseVarDecl handle_sue_def declspecs
          -- translate attributes
          attrs'       <- mapM tAttr (decl_attrs ++ declr_attrs)
          -- make name
-         name         <- mkVarName node name_opt (fmap convertStringLit asmname_opt)
+         name         <- mkVarName node name_opt asmname_opt
          return $ VarDeclInfo name inline storage_spec attrs' typ node
     where
         isInlineSpec (CInlineQual _) = True
@@ -117,12 +117,6 @@ analyseVarDecl handle_sue_def declspecs
 isTypeDef :: [CDeclSpec] -> Bool
 isTypeDef declspecs = not $ null [ n | (CStorageSpec (CTypedef n)) <- declspecs ]
 
-
--- | analysis of constant expressions
---   see C99 6.6
---  /FIXME/: stub
-analyseConstExpr :: (MonadTrav m) => CExpr -> m Expr
-analyseConstExpr = return
 
 -- * translation
 
@@ -198,7 +192,8 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
         TSNonBasic (CTypeDef name t_node)    -> liftM TypeDefType $ typeDefRef t_node name
-        TSNonBasic (CTypeOfExpr expr _tnode) -> liftM (TypeOfExpr) (analyseConstExpr expr)
+        -- TODO: analyse type of expression
+        TSNonBasic (CTypeOfExpr expr _tnode) -> return $ TypeOfExpr expr
         TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
         TSNonBasic _ -> astError node "Unexpected typespec"
 
@@ -460,15 +455,11 @@ splitCDecl decl@(CDecl declspecs declrs node) =
     elideSUEDef declspec = declspec
 
 
--- translate __attribute__ annotations
--- TODO: bogus
+-- | translate @__attribute__@ annotations
+-- TODO: This is a unwrap and wrap stub
 tAttr :: (MonadTrav m) => CAttr -> m Attr
-tAttr (CAttr name cexpr node) = liftM (\e -> Attr name e node) $ mapM analyseConstExpr cexpr
+tAttr (CAttr name cexpr node) = return$ Attr name cexpr node
 
--- convert string literals
--- TODO: bogus
-convertStringLit :: CStrLit -> CStrLit
-convertStringLit = id
 
 -- | construct a name for a variable
 -- TODO: more or less bogus

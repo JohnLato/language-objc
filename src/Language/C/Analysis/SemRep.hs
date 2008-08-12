@@ -29,7 +29,7 @@
 ---------------------------------------------------------------------------------------------------
 module Language.C.Analysis.SemRep(
 -- * Sums of tags and identifiers
-TagDef(..),sameTagKind,typeOfTagDef,
+TagDef(..),typeOfTagDef,
 Declaration(..),declIdent,declName,declType,declAttrs,
 IdentDecl(..),objKindDescr, splitIdentDecls,
 -- * Global definitions
@@ -89,12 +89,6 @@ class HasCompTyKind a where
 data TagDef =  CompDef CompType	  --definition
      	       | EnumDef EnumType      -- enum definition
                deriving (Typeable, Data {-! CNode !-})
-
--- | @sameTagKind ty1 ty2@ returns @True@ if @ty1,ty2@ are the same kind of tag (struct,union or enum)
-sameTagKind :: TagDef -> TagDef -> Bool
-sameTagKind (CompDef ct1) (CompDef ct2) = compTag ct1 == compTag ct2
-sameTagKind (EnumDef _) (EnumDef _) = True
-sameTagKind _ _ = False
 
 instance HasSUERef TagDef where
     sueRef (CompDef ct) = sueRef ct
@@ -253,11 +247,13 @@ instance Declaration FunDef where
 
 -- | Parameter declaration
 data ParamDecl = ParamDecl VarDecl NodeInfo
+               | AbstractParamDecl VarDecl NodeInfo
     deriving (Typeable, Data {-! CNode !-} )
 
 instance Declaration ParamDecl where
   getVarDecl (ParamDecl vd _) = vd
-
+  getVarDecl (AbstractParamDecl vd _) = vd
+  
 -- | Struct\/Union member declaration
 data MemberDecl = MemberDecl VarDecl (Maybe Expr) NodeInfo
                   -- ^ @MemberDecl vardecl bitfieldsize node@
@@ -586,7 +582,7 @@ type Expr = CExpr
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 1299571154
+-- CHECKSUM: 1672142450
 
 instance CNode TagDef
     where nodeInfo (CompDef d) = nodeInfo d
@@ -627,6 +623,7 @@ instance Pos FunDef
 
 instance CNode ParamDecl
     where nodeInfo (ParamDecl _ nodeinfo) = nodeinfo
+          nodeInfo (AbstractParamDecl _ nodeinfo) = nodeinfo
 instance Pos ParamDecl
     where posOf x = posOfNode (nodeInfo x)
 

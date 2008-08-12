@@ -18,8 +18,8 @@ module Language.C.Analysis.TravMonad (
     -- * AST traversal monad
     MonadTrav(..),
     -- * Handling declarations
-    handleTagDef,handleEnumeratorDef,handleTypeDef,
-    handleFunDef,handleVarDecl,handleObjectDef,
+    handleTagDecl, handleTagDef, handleEnumeratorDef, handleTypeDef,
+    handleObjectDef,handleFunDef,handleVarDecl,handleParamDecl,
     handleAsmBlock,
     -- * Symbol table scope modification
     enterPrototypeScope,leavePrototypeScope,
@@ -95,6 +95,13 @@ checkRedef subject new_decl redecl_status =
             -- redefinition LevelWarn subject ShadowedDef (nodeInfo new_decl) (nodeInfo old_def)
         KeepDef _old_def      -> return ()
 
+-- | forward declaration of a tag. Only neccessary for name analysis, but otherwise no semantic
+-- consequences.
+handleTagDecl :: (MonadTrav m) => TagFwdDecl -> m ()
+handleTagDecl decl = do
+    redecl <- withDefTable $ declareTag (sueRef decl) decl
+    checkRedef (show $ sueRef decl) decl redecl
+
 -- | define the given composite type or enumeration in the current namespace
 -- If there is already a definition present, yield an error (redeclaration)
 handleTagDef :: (MonadTrav m) => TagDef -> m ()
@@ -125,7 +132,7 @@ redefErr name lvl new old kind =
   throwTravError $ redefinition lvl (show name) kind (nodeInfo new) (nodeInfo old)
 
 -- TODO: unused
-checkIdentTyRedef :: (MonadTrav m) => IdentTyDecl -> (DeclarationStatus IdentTyDecl) -> m ()
+checkIdentTyRedef :: (MonadTrav m) => IdentEntry -> (DeclarationStatus IdentEntry) -> m ()
 checkIdentTyRedef (Right decl) status = checkVarRedef decl status
 checkIdentTyRedef (Left tydef) (KindMismatch old_def) =
   redefErr (identOfTypeDef tydef) LevelError tydef old_def DiffKindRedecl
@@ -133,7 +140,7 @@ checkIdentTyRedef (Left tydef) (Redeclared old_def) =
   redefErr (identOfTypeDef tydef) LevelError tydef old_def DuplicateDef
 checkIdentTyRedef (Left _tydef) _ = return ()
 
-checkVarRedef :: (MonadTrav m) => IdentDecl -> (DeclarationStatus IdentTyDecl) -> m ()
+checkVarRedef :: (MonadTrav m) => IdentDecl -> (DeclarationStatus IdentEntry) -> m ()
 checkVarRedef def redecl =
     case redecl of
         -- always an error
@@ -159,12 +166,27 @@ checkVarRedef def redecl =
 -- declarations never override definitions
 handleVarDecl :: (MonadTrav m) => Decl -> m ()
 handleVarDecl decl = do
+    def <- enterDecl decl
+    handleDecl (DeclEvent def)
+
+-- | handle parameter declaration. The interesting part is that parameters can be abstract
+-- (if they are part of a type). If they have a name, we enter the name (usually in function prototype scope),
+-- checking if there are duplicate definitions.
+handleParamDecl :: (MonadTrav m) => ParamDecl -> m ()
+handleParamDecl (AbstractParamDecl _ _) = return ()
+handleParamDecl (ParamDecl vardecl node) = do
+    enterDecl (Decl vardecl node)
+    return ()
+
+-- shared impl
+enterDecl :: (MonadTrav m) => Decl -> m IdentDecl
+enterDecl decl = do
     let def = Declaration decl
     redecl <- withDefTable $
               defineScopedIdentWhen (const False) (declIdent def) def
     checkVarRedef def redecl
-    handleDecl (DeclEvent def)
-
+    return def
+    
 -- | handle function definitions
 handleFunDef :: (MonadTrav m) => Ident -> FunDef -> m ()
 handleFunDef ident fun_def = do

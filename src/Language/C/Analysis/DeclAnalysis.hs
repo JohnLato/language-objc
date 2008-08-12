@@ -12,7 +12,7 @@
 -- type specifications in the AST.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.DeclAnalysis (
-  -- * translating types
+  -- * Translating types
   analyseTypeDecl,
   tType,tDirectType,tNumType,tArraySize,tTypeQuals,
   mergeOldStyle,
@@ -28,6 +28,7 @@ import Language.C.Data.Error
 import Language.C.Data.Node
 import Language.C.Data.Ident
 import Language.C.Syntax
+import Language.C.Analysis.DefTable (TagFwdDecl(..))
 import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
@@ -43,28 +44,36 @@ import qualified Data.Map as Map
 -- * handling declarations
 
 -- | analyse and translate a parameter declaration
+-- Should be called in either prototype or block scope
 tParamDecl :: (MonadTrav m) => CDecl -> m ParamDecl
 tParamDecl (CDecl declspecs declrs node) =
-    case declrs' of
-        [(Just declr, Nothing, Nothing)] ->
-            do  (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr [] Nothing
-                when (is_inline) $ throwTravError (badSpecifierError node "parameter declaration with inline specifier")
-                storage <- throwOnLeft $ computeParamStorage node storage_spec
-                return $ ParamDecl (VarDecl name (DeclAttrs False storage attrs) ty) declr_node
-        _   -> astError node "bad parameter declaration: multiple decls / bitfield or initializer present"
-    where
-    -- hacking away missing declarator
-    declrs' = case declrs of
-                  [] -> [(Just$ emptyDeclr node,Nothing,Nothing)]
-                  _  -> declrs
-
+  do declr <- getParamDeclr
+     -- analyse the variable declaration
+     (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr [] Nothing
+     when (is_inline) $ throwTravError (badSpecifierError node "parameter declaration with inline specifier")
+     -- compute storage of parameter (NoStorage, but might have a register specifier)
+     storage <- throwOnLeft $ computeParamStorage node storage_spec
+     let paramDecl = mkParamDecl name storage attrs ty declr_node
+     handleParamDecl paramDecl
+     return $ paramDecl
+  where
+  getParamDeclr =
+      case declrs of
+          [] -> return (emptyDeclr node)
+          [(Just declr,Nothing,Nothing)] -> return declr
+          _ -> astError node "bad parameter declaration: multiple decls / bitfield or initializer present"
+  mkParamDecl name storage attrs ty declr_node =
+    let vd = VarDecl name (DeclAttrs False storage attrs) ty in
+    case name of
+      NoName -> AbstractParamDecl vd declr_node
+      _ -> ParamDecl vd declr_node
 -- | a parameter declaration has no linkage and either auto or register storage
 computeParamStorage :: NodeInfo -> StorageSpec -> Either BadSpecifierError Storage
 computeParamStorage _ NoStorageSpec = Right (Auto False)
-computeParamStorage _ AutoSpec      = Right (Auto False)
 computeParamStorage _ RegSpec       = Right (Auto True)
 computeParamStorage node spec       = Left . badSpecifierError node $ "Bad storage specified for parameter: " ++ show spec
 
+-- | analyse and translate a member declaration
 tMemberDecls :: (MonadTrav m) => CDecl -> m [MemberDecl]
 tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (True:repeat False) declrs)
     where
@@ -170,8 +179,12 @@ tType handle_sue_def top_node typequals typespecs derived_declrs oldstyle_params
         = do (quals,attrs) <- tTypeQuals arr_quals
              arr_sz        <- tArraySize size
              return$ ArrayType inner_ty arr_sz quals attrs
+    -- We build functions in function prototype scope.
+    -- When analyzing the  the function body, we push parameters in function body scope.
     buildFunctionType params is_variadic attrs _node return_ty
-        = do params' <- mapM tParamDecl params
+        = do enterPrototypeScope
+             params' <- mapM tParamDecl params
+             leavePrototypeScope
              attrs'   <- mapM tAttr attrs
              return $ case (map declType params',is_variadic) of
                ([],False) -> FunTypeIncomplete return_ty attrs'  -- may be improved later on
@@ -233,14 +246,18 @@ typeDefRef t_node name = lookupTypeDef name >>= \ty -> return (TypeDefRef name (
 -- TODO: should attributes be part of declarartions too ?
 tCompTypeDecl :: (MonadTrav m) => Bool -> CStructUnion -> m CompTypeRef
 tCompTypeDecl handle_def (CStruct tag ident_opt member_decls_opt attrs node_info) = do
-    sue_ref <- createSUERef node_info ident_opt                           -- create name
+    -- create reference
+    sue_ref <- createSUERef node_info ident_opt
     let tag' = tTag tag
     attrs' <- mapM tAttr attrs
+    -- record tag name
     let decl = CompTypeRef sue_ref tag' node_info
+    handleTagDecl (CompDecl decl)
+    -- when handle_def is true, enter the definition
     when (handle_def) $ do
         maybeM member_decls_opt $ \decls ->
                 tCompType sue_ref tag' decls (attrs') node_info
-            >>= (handleTagDef.CompDef)                                      -- handle comp type definition
+            >>= (handleTagDef.CompDef)
     return decl
 
 tTag :: CStructTag -> CompTyKind

@@ -69,9 +69,12 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     var_decl_info <- analyseVarDecl True declspecs declr oldstyle_decls
     let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl_info
     let ident = identOfVarName name
+    -- compute storage
     fun_storage <- computeFunDefStorage ident storage_spec
     let var_decl = VarDecl name (DeclAttrs is_inline fun_storage attrs) ty
+    -- improve incomplete type
     ty' <- improveFunDefType ty
+    -- callback
     handleVarDecl (Decl var_decl node_info)
     -- translate the body
     stmt' <- analyseFunctionBody var_decl stmt

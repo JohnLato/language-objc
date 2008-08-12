@@ -11,6 +11,8 @@
 -- Stability   :  provisional
 --
 -- The C99 parser and pretty printer library.
+--
+-- See "http:\/\/www.sivity.net\/projects\/language.c"
 -----------------------------------------------------------------------------
 module Language.C (
     parseCFile,
@@ -26,8 +28,10 @@ import Language.C.Pretty
 import Language.C.Parser
 import Language.C.System.Preprocess
 
--- | preprocess and parse C file
---   Synopsis: @parseFile preprocesssor tmp-dir? cpp-opts file@
+-- | preprocess and parse a C source file
+--
+--   > Synopsis: parseCFile preprocesssor tmp-dir? cpp-opts file
+--   > Example:  parseCFile (newGCC "gcc") Nothing ["-I/usr/include/gtk-2.0"] my-gtk-exts.c
 parseCFile :: (Preprocessor cpp) => cpp -> (Maybe FilePath) -> [String] -> FilePath -> IO (Either ParseError CTranslUnit)
 parseCFile cpp tmp_dir_opt args input_file = do
     input_stream <- if not (isPreprocessed input_file)

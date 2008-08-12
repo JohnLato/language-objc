@@ -8,6 +8,7 @@ import Control.Arrow      hiding ((<+>))
 import Control.Monad
 import Debug.Trace
 import Text.PrettyPrint.HughesPJ
+import Data.List
 
 import Language.C              -- simple API
 import Language.C.Analysis     -- analysis API
@@ -15,7 +16,7 @@ import Language.C.System.GCC   -- preprocessor used
 
 usageMsg :: String -> String
 usageMsg prg = render $
-  text "Usage:" <+> text prg <+> hsep (map text ["CPP_OPTIONS","input_file.c"]) $+$ 
+  text "Usage:" <+> text prg <+> hsep (map text ["CPP_OPTIONS","input_file.c","[file-pattern]"]) $+$ 
   (nest 4 $
     text "Environment Variables" $+$
       (nest 4 $ 
@@ -27,10 +28,13 @@ main :: IO ()
 main = do
     let usageErr = (hPutStrLn stderr (usageMsg "./ScanFile") >> exitWith (ExitFailure 1))
     args <- getArgs
-    when (length args < 1) usageErr
+    when (length args < 2) usageErr
     doTraceDecls <- liftM (("TRACE_EVENTS" `elem`). map fst) getEnvironment
     -- get cpp options and input file
-    let (opts,c_file) = (init &&& last) args
+    let (pat,opts,c_file) = case hasExtension (last args) of
+                              True -> (Nothing,init args,last args)
+                              False -> let (pat,args') = (last args, init args)
+                                       in (Just pat,init args',last args')
 
     -- parse
     ast <- errorOnLeftM "Parse Error" $
@@ -41,7 +45,7 @@ main = do
 
     -- print
     mapM (hPutStrLn stderr . show) warnings
-    print $ pretty $ filterGlobalDecls (fileOfInterest c_file . fileOfNode) globals
+    print $ pretty $ filterGlobalDecls (fileOfInterest pat c_file . fileOfNode) globals
 
     where
     traversal False ast = analyseAST ast
@@ -50,7 +54,8 @@ main = do
 
     checkResult :: (Show a) => String -> (Either a b) -> IO b
     checkResult label = either (error . (label++) . show) return
-    fileOfInterest c_file file_name = fileOfInterest' (splitExtensions c_file) (splitExtension file_name)
+    fileOfInterest (Just pat) _ file_name = pat `isInfixOf` file_name
+    fileOfInterest Nothing c_file file_name = fileOfInterest' (splitExtensions c_file) (splitExtension file_name)
     fileOfInterest' (c_base,c_ext) (f_base,f_ext) | c_base /= f_base = False
                                                   | f_ext == ".h" && c_ext == ".c"  = False
                                                   | otherwise = True

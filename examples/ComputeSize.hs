@@ -37,22 +37,29 @@ ni = internalNode
 generateSizeTests :: String -> GlobalDecls -> CTranslUnit
 generateSizeTests pat globals = 
       flip CTranslUnit ni $
+      -- forward declare all composite types
+         map declareComp (Map.elems all_comps)
+      -- declare enums
+      ++ map defineEnum (Map.elems all_enums)
       -- define all neccessary composite type
-      map defineComp referenced_comps
+      ++ map defineComp referenced_comps
       -- define typeDefs
-      ++ (map (uncurry defineTyDef) (Map.assocs reverse_typeDefs))
+      ++ (map defineTyDef (Map.elems reverse_typeDefs))
       -- generate size tests for named comps
       ++ [ genSizeTest reverse_typeDefs (Map.elems comps_of_interest) ]
     where
+    (all_enums,all_comps) = Map.mapEither splitEnums (gTags globals)
     comps = Map.mapMaybe fromComp (gTags globals)
     comps_of_interest  = filterDefs pat comps
     referenced_comps   = computeRefClosure comps comps_of_interest
     reverse_typeDefs   = Map.fromList . mapMaybe fromCompTyDef . Map.elems . filterDefs pat $ gTypeDefs globals
+    splitEnums (CompDef su) = Right su
+    splitEnums (EnumDef e) = Left e
     fromComp (CompDef struct_union) = Just struct_union
     fromComp (EnumDef _) = Nothing
     fromCompTyDef (TypeDef name ty _ _) =
       case ty of 
-        (DirectType (TyComp (CompTypeRef ref tag _)) _) -> Just (ref,name)
+        (DirectType (TyComp ref@(CompTypeRef sueref tag _)) _) -> Just (sueref,(ref,name))
         _ -> Nothing
     
 filterDefs :: (CNode v, Ord k) => String -> Map k v -> Map k v
@@ -74,14 +81,21 @@ computeRefClosure all_comps initial_comps =
                                                 | otherwise = 
         let refd = referenced t in (result, refd++(t:ts), (Map.insert (sueRef t) t visit,enter))
     referenced (CompType _ _ members _ _) = mapMaybe getRefdComp members
-    getRefdComp memberDecl = fromDirectType (declType memberDecl) >>= fromCompTy
+    getRefdComp memberDecl = fromDirectRefdType (declType memberDecl) >>= fromCompTy
     fromCompTy (TyComp (CompTypeRef ref _ _)) 
         | (Just r) <- Map.lookup ref all_comps = Just r
         | otherwise = error $ "Internal Error: Could not find definition for "++show ref
     fromCompTy _ = Nothing
-    fromDirectType (DirectType tyname _) = Just tyname
-    fromDirectType (TypeDefType (TypeDefRef _ ref _)) = (fromDirectType.fromJust) ref
-    fromDirectType _ = Nothing
+    fromDirectRefdType (DirectType tyname _) = Just tyname
+    fromDirectRefdType (TypeDefType (TypeDefRef _ ref _)) = (fromDirectRefdType.fromJust) ref
+    fromDirectRefdType (ArrayType ty _ _ _) = fromDirectRefdType ty
+    fromDirectRefdType _ = Nothing
+
+defineEnum :: EnumType -> CExtDecl
+defineEnum ty = CDeclExt (CDecl (map CTypeSpec (exportEnumType $ ty)) [] ni)
+
+declareComp :: CompType -> CExtDecl
+declareComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompTypeRef ty)) [] ni)
 
 defineComp :: CompType -> CExtDecl
 defineComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompType $ derefTypeDefs ty)) [] ni)
@@ -92,15 +106,14 @@ defineComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompType $ derefTypeDefs t
     replaceEnum (TyEnum _) = TyIntegral TyInt
     replaceEnum dty = dty
     
-defineTyDef :: SUERef -> Ident -> CExtDecl
-defineTyDef ref tydef = CDeclExt (CDecl specs [(Just$ CDeclr (Just tydef) [] Nothing [] ni, Nothing, Nothing)] ni)
+defineTyDef :: (CompTypeRef, Ident) -> CExtDecl
+defineTyDef (ctr,tydef) = CDeclExt (CDecl specs [(Just$ CDeclr (Just tydef) [] Nothing [] ni, Nothing, Nothing)] ni)
   where 
-  specs = [CStorageSpec (CTypedef ni),CTypeSpec (CSUType struct_ty ni)]
-  struct_ty = CStruct CStructTag (Just$ internalIdent (show ref)) Nothing [] ni
+  specs = [CStorageSpec (CTypedef ni)] ++ map CTypeSpec (exportCompTypeDecl ctr)
 
 -- This is were we'd like to have quasi-quoting.
 -- For now, as we lack any code generation facilies, we'll parse a string :)
-genSizeTest :: Map SUERef Ident -> [CompType] -> CExtDecl
+genSizeTest :: Map SUERef (CompTypeRef,Ident) -> [CompType] -> CExtDecl
 genSizeTest typeDefs tys = either (error.show) fromExtDecl $
                   parseC (inputStreamFromString test) (Position "genSizeTest" 1 1) 
     where
@@ -113,8 +126,8 @@ genSizeTest typeDefs tys = either (error.show) fromExtDecl $
         Just tag_str -> "printf(\""++ tag_str ++": %lu\\n\",sizeof(" ++ tag_str ++ ")); ";
     getTagStr ref@(AnonymousRef _) tag =
       case Map.lookup ref typeDefs of
-        Just tyident -> Just (identToString tyident)
-        Nothing      -> Nothing -- ignoring inaccessible anonymous type
+        Just (_,tyident) -> Just (identToString tyident)
+        Nothing          -> Nothing -- ignoring inaccessible anonymous type
     getTagStr ref@(NamedRef _) tag =
       Just (show tag ++ " " ++ show ref)    
 

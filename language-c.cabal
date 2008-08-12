@@ -9,7 +9,7 @@ Author:         AUTHORS
 Maintainer:     benedikt.huber@gmail.com
 Stability:      experimental
 Homepage:       http://www.sivity.net/projects/language.c
-Synopsis:       Library for analyzing and generating C code
+Synopsis:       Analysis and generation of C code
 Category:       Development
 
 Extra-Source-Files: src/Language/C/Parser/Lexer.x

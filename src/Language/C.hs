@@ -7,12 +7,11 @@
 --                   Duncan Coutts
 --                   Betram Felgenhauer
 -- License     :  BSD-style
--- Portability :  portable
--- Stability   :  provisional
+-- Maintainer  : benedikt.huber@gmail.com
 --
 -- The C99 parser and pretty printer library.
 --
--- See "http:\/\/www.sivity.net\/projects\/language.c"
+-- See http:\/\/www.sivity.net\/projects\/language.c 
 -----------------------------------------------------------------------------
 module Language.C (
     parseCFile,

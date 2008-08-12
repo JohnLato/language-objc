@@ -53,8 +53,7 @@ module Language.C.Parser.Lexer (lexC, parseError) where
 import Data.Char (isDigit)
 import Control.Monad (liftM)
 
-import Language.C.InputStream
-
+import Language.C.Data.InputStream
 import Language.C.Data.Position  (Position(..),posOf)
 import Language.C.Data.Ident    (mkIdent)
 

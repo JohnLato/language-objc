@@ -17,7 +17,7 @@ module Language.C.System.Preprocess (
     isPreprocessed,
 )
 where
-import Language.C.InputStream
+import Language.C.Data.InputStream
 import System.Exit
 import System.Directory
 import System.FilePath

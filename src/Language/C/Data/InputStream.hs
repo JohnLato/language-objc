@@ -12,7 +12,7 @@
 -- Compile time input abstraction for the parser.
 -- Supports either ByteString or String.
 -------------------------------------------------------------------------------
-module Language.C.InputStream (
+module Language.C.Data.InputStream (
     InputStream, readInputStream,inputStreamToString,inputStreamFromString,
     takeChar,inputStreamEmpty,takeChars,
     countLines,

@@ -100,7 +100,6 @@ module Language.C.Parser.Parser (parseC, ParseError(..)) where
 import Prelude    hiding (reverse)
 import qualified Data.List as List
 
-import Language.C.InputStream
 import Language.C.Parser.Builtin   (builtinTypeNames)
 import Language.C.Parser.Lexer     (lexC, parseError)
 import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
@@ -108,6 +107,7 @@ import Language.C.Parser.ParserMonad (P, failP, execParser, getNewName, addTyped
                                       enterScope, leaveScope, ParseError(..))
 
 import Language.C.Data.RList
+import Language.C.Data.InputStream
 import Language.C.Data.Ident
 import Language.C.Data.Name
 import Language.C.Data.Node

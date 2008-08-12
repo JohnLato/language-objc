@@ -1,5 +1,6 @@
 void foo() {
   /* conditional <-> assignment */
+  int x,y;
   int u  = ( y = 2 ? 3 : 0 );  
   int u_ = ( (y = 2) ? 3 : 0 );
   int v = ( y = (2 ? 3 : 0));

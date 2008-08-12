@@ -26,8 +26,8 @@ main = do
     let (opts,c_file) = (init &&& last) args'
 
     -- parse
-    ast                <- parseFile (newGCC "gcc") Nothing opts c_file
-                          >>= checkResult "[parsing]"
+    ast <- parseCFile (newGCC "gcc") Nothing opts c_file
+            >>= checkResult "[parsing]"
     (globals,_warnings) <- (runTrav_ >>> checkResult "[analysis]") $ analyseAST ast
     let defId = searchDef globals searchterm
     -- traverse the AST and print decls which match

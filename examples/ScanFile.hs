@@ -34,7 +34,7 @@ main = do
 
     -- parse
     ast <- errorOnLeftM "Parse Error" $
-      parseFile (newGCC "gcc") Nothing opts c_file
+      parseCFile (newGCC "gcc") Nothing opts c_file
 
     -- analyze
     (globals,warnings) <- errorOnLeft "Semantic Error" $ runTrav_ $ traversal doTraceDecls ast

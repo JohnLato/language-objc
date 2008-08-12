@@ -22,7 +22,7 @@ main = do
     let (opts,c_file) = (init &&& last) args'
 
     let compiler = newGCC "gcc" 
-    ast <- parseFile compiler Nothing opts c_file >>= checkResult "[parsing]"
+    ast <- parseCFile compiler Nothing opts c_file >>= checkResult "[parsing]"
     
     (globals,warnings) <- (runTrav_ >>> checkResult "[analysis]") $ analyseAST ast
     mapM (hPutStrLn stderr . show) warnings

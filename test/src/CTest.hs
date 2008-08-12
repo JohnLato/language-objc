@@ -56,7 +56,7 @@ main = do
       otherArgs ->
           case mungeCcArgs args of
             Groked [cFile] gccOpts -> do
-                parseFile (newGCC "gcc") (Just tmpdir) gccOpts cFile >>= either bailOut (return.((,) cFile))
+                parseCFile (newGCC "gcc") (Just tmpdir) gccOpts cFile >>= either bailOut (return.((,) cFile))
             Groked cFiles _ -> usage $ "More than one source file given: " ++ unwords cFiles
             Ignore -> usage $ "Not input files given"
             Unknown reason -> usage $ "Could not process arguments: " ++ reason

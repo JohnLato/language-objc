@@ -11,6 +11,8 @@
 -- ast node attributes and extensible errors.
 -----------------------------------------------------------------------------
 module Language.C.Data (
+     -- * Input stream
+     module Language.C.Data.InputStream,
      -- * Identifiers
      SUERef(..), isAnonymousRef,
      Ident,mkIdent, identToString, internalIdent, isInternalIdent, builtinIdent,
@@ -29,6 +31,7 @@ module Language.C.Data (
      module Language.C.Data.Error
 )
 where
+import Language.C.Data.InputStream
 import Language.C.Data.Ident
 import Language.C.Data.Name
 import Language.C.Data.Position

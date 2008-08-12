@@ -38,10 +38,10 @@ module Language.C.Parser.ParserMonad (
   ) where
 import Language.C.Data.Error (internalErr, showErrorInfo,ErrorInfo(..),ErrorLevel(..))
 import Language.C.Data.Position  (Position(..))
+import Language.C.Data.InputStream
 import Language.C.Data.Name    (Name)
 import Language.C.Data.Ident    (Ident)
 import Language.C.Parser.Tokens (CToken)
-import Language.C.InputStream
 
 import Data.Set  (Set)
 import qualified Data.Set as Set (fromList, insert, member, delete)

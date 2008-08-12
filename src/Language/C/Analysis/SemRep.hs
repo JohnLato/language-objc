@@ -11,21 +11,6 @@
 -- This module contains definitions for representing C translation units.
 -- In contrast to 'Language.C.Syntax.AST', the representation tries to express the semantics of
 -- of a translation unit.
---
--- This module isn't yet finished, here are a few things missing:
---
---  * Normalization of initializers: C initializers are hard to understand, and can be simplified.
---    Depends on constant expression evaluation (like most missing features).
---
---  * Typed __attribute__ representation: Ideally, we'd like to represent __attribute__ annotations in a typed
---    way. Depends on constant expression evaluation.
---
---  * Semantic-oriented representation of function bodies, statements and expressions
---
---  * Formal rules how to link back to the AST using NodeInfo fields
---
---  * Typed assembler representation
---
 ---------------------------------------------------------------------------------------------------
 module Language.C.Analysis.SemRep(
 -- * Sums of tags and identifiers
@@ -253,7 +238,7 @@ data ParamDecl = ParamDecl VarDecl NodeInfo
 instance Declaration ParamDecl where
   getVarDecl (ParamDecl vd _) = vd
   getVarDecl (AbstractParamDecl vd _) = vd
-  
+
 -- | Struct\/Union member declaration
 data MemberDecl = MemberDecl VarDecl (Maybe Expr) NodeInfo
                   -- ^ @MemberDecl vardecl bitfieldsize node@

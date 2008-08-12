@@ -102,8 +102,10 @@ handleTagDecl decl = do
     redecl <- withDefTable $ declareTag (sueRef decl) decl
     checkRedef (show $ sueRef decl) decl redecl
 
--- | define the given composite type or enumeration in the current namespace
--- If there is already a definition present, yield an error (redeclaration)
+-- | define the given composite type or enumeration
+-- If there is a declaration visible, overwrite it with the definition.
+-- Otherwise, enter a new definition in the current namespace.
+-- If there is already a definition present, yield an error (redeclaration).
 handleTagDef :: (MonadTrav m) => TagDef -> m ()
 handleTagDef def = do
     redecl <- withDefTable $ defineTag (sueRef def) def
@@ -166,27 +168,30 @@ checkVarRedef def redecl =
 -- declarations never override definitions
 handleVarDecl :: (MonadTrav m) => Decl -> m ()
 handleVarDecl decl = do
-    def <- enterDecl decl
+    def <- enterDecl decl (const False)
     handleDecl (DeclEvent def)
 
 -- | handle parameter declaration. The interesting part is that parameters can be abstract
--- (if they are part of a type). If they have a name, we enter the name (usually in function prototype scope),
--- checking if there are duplicate definitions.
+-- (if they are part of a type). If they have a name, we enter the name (usually in function prototype or function scope),
+-- checking if there are duplicate definitions. 
+-- FIXME: I think it would be more transparent to handle parameter declarations in a special way
 handleParamDecl :: (MonadTrav m) => ParamDecl -> m ()
 handleParamDecl (AbstractParamDecl _ _) = return ()
 handleParamDecl (ParamDecl vardecl node) = do
-    enterDecl (Decl vardecl node)
+    let def = ObjectDef (ObjDef vardecl Nothing node)
+    redecl <- withDefTable $ defineScopedIdent (declIdent def) def
+    checkVarRedef def redecl
     return ()
 
 -- shared impl
-enterDecl :: (MonadTrav m) => Decl -> m IdentDecl
-enterDecl decl = do
+enterDecl :: (MonadTrav m) => Decl -> (IdentDecl -> Bool) -> m IdentDecl
+enterDecl decl cond = do
     let def = Declaration decl
     redecl <- withDefTable $
-              defineScopedIdentWhen (const False) (declIdent def) def
+              defineScopedIdentWhen cond (declIdent def) def
     checkVarRedef def redecl
     return def
-    
+
 -- | handle function definitions
 handleFunDef :: (MonadTrav m) => Ident -> FunDef -> m ()
 handleFunDef ident fun_def = do

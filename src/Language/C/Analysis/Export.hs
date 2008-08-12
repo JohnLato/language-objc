@@ -29,7 +29,7 @@ exportDeclr other_specs ty attrs name =
     (other_specs ++ specs, CDeclr ident derived asmname (exportAttrs attrs) ni)
     where
     (specs,derived) = exportType ty
-    (ident,asmname) = case name of (VarName ident asmname_opt) -> (Just ident, asmname_opt)
+    (ident,asmname) = case name of (VarName vident asmname_opt) -> (Just vident, asmname_opt)
                                    _ -> (Nothing,Nothing)
 
 exportTypeDecl :: Type -> CDecl
@@ -50,24 +50,28 @@ exportTypeDef (TypeDef ident ty attrs node_info) =
 exportType :: Type -> ([CDeclSpec],[CDerivedDeclr])
 exportType ty = exportTy [] ty
     where
-    exportTy dd (PtrType ty tyquals attrs) = exportTy (ptr_declr : dd) ty where
-        ptr_declr = CPtrDeclr (exportTypeQuals tyquals) ni
-    exportTy dd (ArrayType ty array_sz tyquals attrs) = exportTy (arr_declr : dd) ty where
-        arr_declr = CArrDeclr (exportTypeQuals tyquals) (exportArraySize array_sz) ni
-    exportTy dd (FunctionType (FunType ty params variadic attrs)) = exportTy (fun_declr : dd) ty where
+    exportTy dd (PtrType ity tyquals attrs) = exportTy (ptr_declr : dd) ity where
+        ptr_declr = CPtrDeclr (exportTypeQualsAttrs tyquals attrs) ni
+    exportTy dd (ArrayType ity array_sz tyquals attrs) = exportTy (arr_declr : dd) ity where
+        arr_declr = CArrDeclr (exportTypeQualsAttrs tyquals attrs) (exportArraySize array_sz) ni
+    exportTy dd (FunctionType (FunType ity params variadic attrs)) = exportTy (fun_declr : dd) ity where
         fun_declr = CFunDeclr (Right (map exportParamDecl params,variadic)) (exportAttrs attrs) ni
-    exportTy dd (FunctionType (FunTypeIncomplete ty attrs)) = exportTy (fun_declr : dd) ty where
+    exportTy dd (FunctionType (FunTypeIncomplete ity attrs)) = exportTy (fun_declr : dd) ity where
         fun_declr = CFunDeclr (Right ([],False)) (exportAttrs attrs) ni
     exportTy dd (TypeDefType (TypeDefRef ty_ident _ node)) = ([CTypeSpec (CTypeDef ty_ident node)], reverse dd)
-    exportTy dd (DirectType ty quals) = (map CTypeQual (exportTypeQuals quals) ++
-                                        map CTypeSpec (exportTypeSpec ty), reverse dd)
-    exportTy dd (TypeOfExpr _) = error "export of TypeOfExpr isn't supported"
+    exportTy dd (DirectType ity quals) = (map CTypeQual (exportTypeQuals quals) ++
+                                        map CTypeSpec (exportTypeSpec ity), reverse dd)
+    exportTy _ (TypeOfExpr _) = error "export of TypeOfExpr isn't supported"
 
 exportTypeQuals :: TypeQuals -> [CTypeQual]
-exportTypeQuals quals = mapMaybe (select quals) [(constant,CConstQual ni),(volatile,CVolatQual ni),(restrict,CRestrQual ni)]
+exportTypeQuals quals = mapMaybe select [(constant,CConstQual ni),(volatile,CVolatQual ni),(restrict,CRestrQual ni)]
     where
-    select quals (predicate,tyqual) | predicate quals = Just tyqual
-                                    | otherwise       = Nothing
+    select (predicate,tyqual) | predicate quals = Just tyqual
+                              | otherwise       = Nothing
+
+exportTypeQualsAttrs :: TypeQuals -> Attributes -> [CTypeQual]
+exportTypeQualsAttrs tyqs attrs = (exportTypeQuals tyqs ++ map CAttrQual (exportAttrs attrs))
+
 exportArraySize :: ArraySize -> CArrSize
 exportArraySize (ArraySize static e) = CArrSize static e
 exportArraySize (UnknownArraySize complete) = CNoArrSize complete
@@ -81,7 +85,7 @@ exportTypeSpec tyname =
         TyComplex fty -> exportComplexType fty
         TyComp comp -> exportCompTypeDecl comp
         TyEnum enum -> exportEnumTypeDecl enum
-        TyBuiltin TyVaList -> [CTypeDef (ident "va_list") ni]
+        TyBuiltin TyVaList -> [CTypeDef (internalIdent "va_list") ni]
 
 exportIntType :: IntType -> [CTypeSpec]
 exportIntType ty =
@@ -112,14 +116,14 @@ exportComplexType ty = (CComplexType ni) : exportFloatType ty
 exportCompTypeDecl :: CompTypeRef -> [CTypeSpec]
 exportCompTypeDecl ty = [CSUType (exportComp ty) ni]
     where
-    exportComp (CompTypeRef sue_ref comp_tag node_info) =
+    exportComp (CompTypeRef sue_ref comp_tag _n) =
         CStruct (if comp_tag == StructTag then CStructTag else CUnionTag)
                 (exportSUERef sue_ref) Nothing [] ni
 
 exportEnumTypeDecl :: EnumTypeRef -> [CTypeSpec]
 exportEnumTypeDecl ty = [CEnumType (exportEnum ty) ni]
     where
-    exportEnum (EnumTypeRef sue_ref node_info) =
+    exportEnum (EnumTypeRef sue_ref _n) =
         CEnum (exportSUERef sue_ref) Nothing [] ni
 
 exportCompType :: CompType -> [CTypeSpec]
@@ -136,7 +140,8 @@ exportCompTypeRef (CompType sue_ref com_tag  _ _ node_info) = exportCompTypeDecl
 exportEnumTypeRef :: EnumType -> [CTypeSpec]
 exportEnumTypeRef (EnumType sue_ref _ _ node_info) = exportEnumTypeDecl (EnumTypeRef sue_ref node_info)
 
-exportSUERef = Just . ident . show -- relies on a the source program not having any $'s in it
+exportSUERef :: SUERef -> Maybe Ident
+exportSUERef = Just . internalIdent . show -- relies on a the source program not having any $'s in it
 
 exportMemberDecl :: MemberDecl -> CDecl
 exportMemberDecl (AnonBitField ty expr node_info) =
@@ -149,9 +154,9 @@ exportVarDecl :: VarDecl -> ([CDeclSpec],CDeclr)
 -- NOTE: that there is an ambiguity between two possible places for __attributes__ s here
 exportVarDecl (VarDecl name attrs ty) = exportDeclr (exportDeclAttrs attrs) ty [] name
 exportParamDecl :: ParamDecl -> CDecl
-exportParamDecl (ParamDecl vardecl node_info) =
-    let (specs,declr) = exportVarDecl vardecl
-    in CDecl specs [(Just declr, Nothing , Nothing) ] node_info
+exportParamDecl paramdecl = 
+    let (specs,declr) = exportVarDecl (getVarDecl paramdecl)
+    in CDecl specs [(Just declr, Nothing , Nothing) ] (nodeInfo paramdecl)
 
 exportDeclAttrs :: DeclAttrs -> [CDeclSpec]
 exportDeclAttrs (DeclAttrs inline storage attrs) =
@@ -169,7 +174,7 @@ exportStorage :: Storage -> [CStorageSpec]
 exportStorage NoStorage = []
 exportStorage (Auto reg) = if reg then [CRegister ni] else []
 exportStorage (Static InternalLinkage thread_local) = threadLocal thread_local [CStatic ni]
-exportStorage (Static ExternalLinkage thread_local) = error "external linkage, but inner scope (unsupported in Export)"
+exportStorage (Static ExternalLinkage thread_local) = threadLocal thread_local [CExtern ni]
 exportStorage (FunLinkage ExternalLinkage) = []
 exportStorage (FunLinkage InternalLinkage) = [CStatic ni]
 
@@ -177,8 +182,9 @@ threadLocal :: Bool -> [CStorageSpec] -> [CStorageSpec]
 threadLocal False = id
 threadLocal True = ((CThread ni) :)
 
+exportAttrs :: [Attr] -> [CAttr]
 exportAttrs = map exportAttr where
-    exportAttr (Attr ident es ni) = CAttr ident es ni
+    exportAttr (Attr ident es n) = CAttr ident es n
 
 fromDirectType :: Type -> TypeName
 fromDirectType (DirectType ty _) = ty
@@ -187,6 +193,3 @@ fromDirectType _ = error "fromDirectType"
 
 ni :: NodeInfo
 ni = internalNode
-
-ident :: String -> Ident
-ident = internalIdent

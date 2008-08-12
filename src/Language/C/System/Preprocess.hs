@@ -12,7 +12,7 @@
 module Language.C.System.Preprocess (
     Preprocessor(..),
     CppOption(..),
-    CppArgs(..),simpleCppArgs,addCppOption,addExtraOption,
+    CppArgs(..),rawCppArgs,addCppOption,addExtraOption,
     runPreprocessor,
     isPreprocessed,
 )
@@ -54,8 +54,9 @@ data CppArgs = CppArgs {
         outputFile :: Maybe FilePath
     }
 
-simpleCppArgs :: [String] -> FilePath -> CppArgs
-simpleCppArgs opts input_file =
+-- | use the given preprocessor arguments without analyzing them
+rawCppArgs :: [String] -> FilePath -> CppArgs
+rawCppArgs opts input_file =
     CppArgs { inputFile = input_file, cppOptions = [], extraOptions = opts, outputFile = Nothing, cppTmpDir = Nothing }
 
 addCppOption :: CppArgs -> CppOption -> CppArgs

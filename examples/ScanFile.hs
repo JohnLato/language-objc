@@ -50,11 +50,10 @@ main = do
 
     checkResult :: (Show a) => String -> (Either a b) -> IO b
     checkResult label = either (error . (label++) . show) return
-    fileOfInterest c_file file_name = fileOfInterest' (splitExtension c_file) (splitExtension file_name)
+    fileOfInterest c_file file_name = fileOfInterest' (splitExtensions c_file) (splitExtension file_name)
     fileOfInterest' (c_base,c_ext) (f_base,f_ext) | c_base /= f_base = False
-                                                  | f_ext == ".i"    = True
-                                                  | c_ext == f_ext   = True
-                                                  | otherwise        = error ("?")
+                                                  | f_ext == ".h" && c_ext == ".c"  = False
+                                                  | otherwise = True
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return

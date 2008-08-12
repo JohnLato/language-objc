@@ -28,7 +28,7 @@ main :: IO ()
 main = do
     let usageErr = (hPutStrLn stderr (usageMsg "./ScanFile") >> exitWith (ExitFailure 1))
     args <- getArgs
-    when (length args < 2) usageErr
+    when (length args < 1) usageErr
     doTraceDecls <- liftM (("TRACE_EVENTS" `elem`). map fst) getEnvironment
     -- get cpp options and input file
     let (pat,opts,c_file) = case hasExtension (last args) of

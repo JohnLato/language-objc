@@ -21,7 +21,7 @@ echo "Building test suite"
 make || die "make failed in /test"
 (cd harness && make) || die \
     "test harness failed"
-(cd suite && yes | bash run-dg.sh) || die \
+(cd suite && yes | bash run-smoke.sh && yes | bash run-bugs.sh) || die \
     "run-dg.sh failed - make sure there is a symlink or copy to the gcc.dg testsuite in $TMPDIR/test/suite"
 ( cd results && ../bin/RenderTests regression *dat) || die "rendering tests failed"
 open results/index.html

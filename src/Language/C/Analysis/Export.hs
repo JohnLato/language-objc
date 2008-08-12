@@ -15,7 +15,7 @@ module Language.C.Analysis.Export (
 exportType, exportTypeDecl, exportTypeSpec,
 exportTypeDef,
 exportCompType, exportCompTypeDecl, exportCompTypeRef,
-exportEnumTypeDecl, exportEnumTypeRef,
+exportEnumType, exportEnumTypeDecl, exportEnumTypeRef,
 )
 where
 import Language.C.Data.Ident
@@ -136,6 +136,15 @@ exportCompType (CompType sue_ref comp_tag members attrs node_info) = [CSUType co
                    node_info
 exportCompTypeRef :: CompType -> [CTypeSpec]
 exportCompTypeRef (CompType sue_ref com_tag  _ _ node_info) = exportCompTypeDecl (CompTypeRef sue_ref com_tag node_info)
+
+exportEnumType :: EnumType -> [CTypeSpec]
+exportEnumType (EnumType sue_ref enumerators attrs node_info) = [CEnumType enum ni]
+    where
+    enum = CEnum (exportSUERef sue_ref)
+                 (Just (map exportEnumerator enumerators))
+                 (exportAttrs attrs)
+                 node_info
+    exportEnumerator (Enumerator ident val _ty _) = (ident,Just val)
 
 exportEnumTypeRef :: EnumType -> [CTypeSpec]
 exportEnumTypeRef (EnumType sue_ref _ _ node_info) = exportEnumTypeDecl (EnumTypeRef sue_ref node_info)

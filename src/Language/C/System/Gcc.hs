@@ -50,7 +50,7 @@ gccParseCPPArgs args =
         Left err                   -> Left err
         Right ((Nothing,_,_),_)  -> Left "No .c / .hc / .h source file given"
         Right ((Just input_file,output_file_opt,cpp_opts),(extra_args,other_args))
-            -> Right ((simpleCppArgs (RList.reverse extra_args) input_file)
+            -> Right ((rawCppArgs (RList.reverse extra_args) input_file)
                       { outputFile = output_file_opt, cppOptions = RList.reverse cpp_opts },
                       RList.reverse other_args)
     where

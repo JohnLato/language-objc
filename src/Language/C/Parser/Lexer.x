@@ -52,7 +52,6 @@ module Language.C.Parser.Lexer (lexC, parseError) where
 
 import Data.Char (isDigit)
 import Control.Monad (liftM)
-import Numeric   (readDec, readOct, readHex)
 
 import Language.C.InputStream
 
@@ -165,9 +164,9 @@ $identletter($identletter|$digit)*  { \pos len str -> idkwtok (takeChars len str
 
 -- integer constants (follows K&R A2.5.1, C99 6.4.4.1)
 --
-0$octdigit*@intgnusuffix?       { token_plus CTokILit (readCInteger readOct) }
-$digitNZ$digit*@intgnusuffix?   { token_plus CTokILit (readCInteger readDec) }
-0[xX]$hexdigit+@intgnusuffix?   { token_plus CTokILit (readCInteger readHex . drop 2) }
+0$octdigit*@intgnusuffix?       { token_plus CTokILit (readCInteger OctalRepr) }
+$digitNZ$digit*@intgnusuffix?   { token_plus CTokILit (readCInteger DecRepr) }
+0[xX]$hexdigit+@intgnusuffix?   { token_plus CTokILit (readCInteger HexRepr . drop 2) }
 
 (0$octdigit*|$digitNZ$digit*|0[xX]$hexdigit+)[uUlL]+ { token_fail "Invalid integer constant suffix" }
 

@@ -17,7 +17,7 @@ module Language.C.Syntax.Constants (
   -- * C char constants (and multi-character character constants)
   cChar, cChar_w, cChars, CChar(..), getCChar, getCCharAsInt, isWideChar, showCharConst,
   -- * C integral constants
-  CIntFlag(..), cInteger, CInteger(..), getCInteger,readCInteger,
+  CIntFlag(..), CIntRepr(..), cInteger, CInteger(..), getCInteger,readCInteger,
   -- * C floating point constants
   cFloat,  CFloat(..), readCFloat,
   -- * C string literals
@@ -81,6 +81,9 @@ cChar_w c = CChar c True
 cChars :: [Char] -> Bool -> CChar
 cChars = CChars
 
+-- | datatype for memorizing the representation of an integer
+data CIntRepr = DecRepr | HexRepr | OctalRepr deriving (Eq,Ord,Enum,Bounded,Data,Typeable)
+
 -- | datatype representing type flags for integers
 data CIntFlag = FlagUnsigned | FlagLong | FlagLongLong | FlagImag deriving (Eq,Ord,Enum,Bounded,Data,Typeable)
 instance Show CIntFlag where
@@ -95,21 +98,26 @@ instance Show CIntFlag where
 
 data CInteger = CInteger
                  {-# UNPACK #-} !Integer
+                 {-# UNPACK #-} !CIntRepr
                  {-# UNPACK #-} !(Flags CIntFlag)  -- integer flags
                  deriving (Eq,Ord,Data,Typeable)
 instance Show CInteger where
-    showsPrec _ (CInteger i flags) = shows i . showString (concatMap showIFlag [FlagUnsigned .. ]) where
+    showsPrec _ (CInteger i repr flags) = showInt i . showString (concatMap showIFlag [FlagUnsigned .. ]) where
         showIFlag f = if testFlag f flags then show f else []
+        showInt i = case repr of DecRepr -> shows i
+                                 OctalRepr -> showString "0" . showOct i
+                                 HexRepr -> showString "0x" . showHex i
 
 -- To be used in the lexer
 -- Note that the flag lexer won't scale
-readCInteger :: ReadS Integer -> String -> Either String CInteger
-readCInteger readNum str =
+readCInteger :: (CIntRepr) -> String -> Either String CInteger
+readCInteger repr str =
   case readNum str of
     [(n,suffix)] -> mkCInt n suffix
     parseFailed  -> Left $ "Bad Integer literal: "++show parseFailed
   where
-    mkCInt n suffix = either Left (Right . CInteger n)  $ readSuffix suffix
+    readNum = case repr of DecRepr -> readDec; HexRepr -> readHex; OctalRepr -> readOct
+    mkCInt n suffix = either Left (Right . CInteger n repr)  $ readSuffix suffix
     readSuffix = parseFlags noFlags
     parseFlags flags [] = Right flags
     parseFlags flags ('l':'l':fs) = parseFlags (setFlag FlagLongLong flags) fs
@@ -123,11 +131,12 @@ readCInteger readNum str =
         _ -> Left $ "Unexpected flag " ++ show f
 
 getCInteger :: CInteger -> Integer
-getCInteger (CInteger i _) = i
+getCInteger (CInteger i _ _) = i
 
 -- | construct a integer constant (without type flags) from a haskell integer
 cInteger :: Integer -> CInteger
-cInteger i = CInteger i noFlags
+cInteger i = CInteger i DecRepr noFlags
+
 
 -- | Floats (represented as strings)
 data CFloat = CFloat

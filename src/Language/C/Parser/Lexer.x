@@ -162,7 +162,7 @@ $identletter($identletter|$digit)*  { \pos len str -> idkwtok (takeChars len str
 --
 
 -- integer constants (follows K&R A2.5.1, C99 6.4.4.1)
---
+-- FIXME: 0 is lexed as octal integer constant
 0$octdigit*@intgnusuffix?       { token_plus CTokILit (readCInteger OctalRepr) }
 $digitNZ$digit*@intgnusuffix?   { token_plus CTokILit (readCInteger DecRepr) }
 0[xX]$hexdigit+@intgnusuffix?   { token_plus CTokILit (readCInteger HexRepr . drop 2) }

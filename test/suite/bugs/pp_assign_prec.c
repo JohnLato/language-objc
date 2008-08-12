@@ -1,5 +1,6 @@
 /* Pretty printer: assignment has higher precedence than comma  */
-void main() {
+int main() {
+  int b;
   int a = b, c;         /* Block Decl int */
   int y = (y,0);        /* InitExpr (y,0) */
   int x = ( (y = 3), y - 2);

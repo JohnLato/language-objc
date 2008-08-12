@@ -5,9 +5,9 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  experimental
--- Portability :  unspecified
+-- Portability :  portable
 --
--- Wrapper for invoking a preprocessor
+-- Invoking external preprocessors.
 -----------------------------------------------------------------------------
 module Language.C.System.Preprocess (
     Preprocessor(..),
@@ -27,9 +27,9 @@ import Control.Exception
 import Control.Monad
 import Data.List
 
--- | @Preprocessor@ encapsulates the abstract interface for invoking C preprocessors
+-- | 'Preprocessor' encapsulates the abstract interface for invoking C preprocessors
 class Preprocessor cpp where
-    -- | parse the given command line arguments, and return a pair of preprocessor and unused arguments
+    -- | parse the given command line arguments, and return a pair of parsed and ignored arguments
     parseCPPArgs :: cpp -> [String] -> Either String (CppArgs, [String])
     -- | run the preprocessor
     runCPP :: cpp -> CppArgs -> IO ExitCode
@@ -59,10 +59,12 @@ rawCppArgs :: [String] -> FilePath -> CppArgs
 rawCppArgs opts input_file =
     CppArgs { inputFile = input_file, cppOptions = [], extraOptions = opts, outputFile = Nothing, cppTmpDir = Nothing }
 
+-- | add a typed option to the given preprocessor arguments
 addCppOption :: CppArgs -> CppOption -> CppArgs
 addCppOption cpp_args opt =
     cpp_args { cppOptions = opt : (cppOptions cpp_args) }
 
+-- | add a string option to the given preprocessor arguments
 addExtraOption :: CppArgs -> String -> CppArgs
 addExtraOption cpp_args extra =
     cpp_args { extraOptions = extra : (extraOptions cpp_args) }
@@ -101,6 +103,7 @@ getOutputFileName fp | hasExtension fp = replaceExtension filename preprocessedE
                      | otherwise       = addExtension filename preprocessedExt
     where
     filename = takeFileName fp
+
 -- | create a temporary file
 mkTmpFile :: FilePath -> FilePath -> IO FilePath
 mkTmpFile tmp_dir file_templ = do

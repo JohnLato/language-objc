@@ -1,5 +1,5 @@
 Name:           language-c
-Version:        0.2.9
+Version:        0.3.0
 Cabal-Version:  >= 1.2
 Build-Type:     Simple
 License:        BSD3
@@ -9,7 +9,7 @@ Author:         AUTHORS
 Maintainer:     benedikt.huber@gmail.com
 Stability:      experimental
 Homepage:       http://www.sivity.net/projects/language.c
-Synopsis:       C99 Parser Library
+Synopsis:       Library for analyzing and generating C code
 Category:       Development
 
 Extra-Source-Files: src/Language/C/Parser/Lexer.x
@@ -36,7 +36,7 @@ Library
 
     Hs-Source-Dirs: src
     Exposed-Modules:  
-                      -- provisional
+                      -- top-level
                       Language.C
                       -- data
                       Language.C.Data
@@ -45,7 +45,7 @@ Library
                       Language.C.Data.Error
                       Language.C.Data.Name
                       Language.C.Data.Node
-                      Language.C.InputStream
+                      Language.C.Data.InputStream
                       -- syntax
                       Language.C.Syntax
                       Language.C.Syntax.AST
@@ -71,8 +71,8 @@ Library
                       Language.C.Analysis.Export
     Other-Modules:    
                       Language.C.Analysis.NameSpaceMap
-                      -- parser implementation
                       Language.C.Data.RList
+                      -- parser implementation
                       Language.C.Parser.Builtin
                       Language.C.Parser.Lexer 
                       Language.C.Parser.ParserMonad 

@@ -23,7 +23,7 @@ module Language.C.Analysis.DefTable (
     globalDefs,
     enterFunctionScope,leaveFunctionScope,enterBlockScope,leaveBlockScope,
     enterMemberDecl,leaveMemberDecl,
-    DeclarationStatus(..),
+    DeclarationStatus(..),declStatusDescr,
     defineTypeDef, defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
     declareTag,defineTag,defineLabel,lookupIdent,
     lookupTag,lookupLabel,lookupIdentInner,lookupTagInner,
@@ -162,6 +162,12 @@ data DeclarationStatus t =
     | Shadowed t      -- ^ new def shadows one in outer scope
     | KindMismatch t  -- ^ kind mismatch
     deriving (Data,Typeable)
+declStatusDescr :: DeclarationStatus t -> String
+declStatusDescr NewDecl = "new"
+declStatusDescr (Redeclared _) = "redeclared"
+declStatusDescr (KeepDef _) = "keep old"
+declStatusDescr (Shadowed _) = "shadowed"
+declStatusDescr (KindMismatch _) = "kind mismatch"
 
 compatIdentEntry :: IdentEntry -> IdentEntry -> Bool
 compatIdentEntry (Left _tydef) = either (const True) (const False)
@@ -263,7 +269,11 @@ defineTag sueref def deftbl =
     (redeclStatus, deftbl { tagDecls = decls'})
     where
     (decls',olddecl) = defLocal (tagDecls deftbl) sueref (Right def)
-    redeclStatus = defRedeclStatusLocal compatTagEntry sueref (Right def) olddecl (tagDecls deftbl)
+    redeclStatus =
+      case olddecl of
+        Just fwd_decl@(Left decl) | tagKind fwd_decl == tagKind (Right def) -> NewDecl -- should be NewDef
+                                  | otherwise -> KindMismatch fwd_decl
+        _ -> defRedeclStatusLocal compatTagEntry sueref (Right def) olddecl (tagDecls deftbl)
 
 -- | define a label
 -- Return the old label if it is already defined in this function's scope

@@ -7,7 +7,7 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  provisional
--- Portability :  CPP, BangPatterns
+-- Portability :  requires CPP, BangPatterns
 --
 -- Compile time input abstraction for the parser.
 -- Supports either ByteString or String.

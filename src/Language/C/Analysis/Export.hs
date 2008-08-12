@@ -154,7 +154,7 @@ exportVarDecl :: VarDecl -> ([CDeclSpec],CDeclr)
 -- NOTE: that there is an ambiguity between two possible places for __attributes__ s here
 exportVarDecl (VarDecl name attrs ty) = exportDeclr (exportDeclAttrs attrs) ty [] name
 exportParamDecl :: ParamDecl -> CDecl
-exportParamDecl paramdecl = 
+exportParamDecl paramdecl =
     let (specs,declr) = exportVarDecl (getVarDecl paramdecl)
     in CDecl specs [(Just declr, Nothing , Nothing) ] (nodeInfo paramdecl)
 

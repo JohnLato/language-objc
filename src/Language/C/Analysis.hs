@@ -14,6 +14,33 @@
 --
 -- /NOTE/ This is an experimental interface, and therefore the API will change in the
 -- future.
+--
+-- DONE:
+--
+--  * Name analysis framework
+--
+--  * File-scope analysis
+--
+--  * Declaration analysis
+--
+-- TODO:
+--
+--  * Type checking expressions
+--
+--  * Constant expression evaluation (CEE)
+--
+--  * Typed representation of attributes (depends on CEE)
+--
+--  * Normalized representation of initializers
+--
+--  * Support for analyzing function bodies (depends on CEE)
+--
+--  * Normalizing expressions and statements
+--
+--  * Formal rules how to link back to the AST using NodeInfo fields
+--
+--  * Typed assembler representation
+
 -----------------------------------------------------------------------------
 module Language.C.Analysis (
     -- * Semantic representation

@@ -110,14 +110,16 @@ instance Show CInteger where
 
 -- To be used in the lexer
 -- Note that the flag lexer won't scale
-readCInteger :: (CIntRepr) -> String -> Either String CInteger
+readCInteger :: CIntRepr -> String -> Either String CInteger
 readCInteger repr str =
   case readNum str of
     [(n,suffix)] -> mkCInt n suffix
     parseFailed  -> Left $ "Bad Integer literal: "++show parseFailed
   where
     readNum = case repr of DecRepr -> readDec; HexRepr -> readHex; OctalRepr -> readOct
-    mkCInt n suffix = either Left (Right . CInteger n repr)  $ readSuffix suffix
+    mkCInt n suffix = either Left (Right . CInteger n (repr' str))  $ readSuffix suffix
+    repr' ('0':[]) = DecRepr -- hacking away lexer bug
+    repr' _ = repr
     readSuffix = parseFlags noFlags
     parseFlags flags [] = Right flags
     parseFlags flags ('l':'l':fs) = parseFlags (setFlag FlagLongLong flags) fs

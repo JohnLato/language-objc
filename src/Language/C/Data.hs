@@ -3,9 +3,9 @@
 -- Module      :  Language.C.Data
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  provisional
--- Portability :  DeriveDataTypable
+-- Maintainer  : benedikt.huber@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
 --
 -- Common data types for Language.C: Identifiers, unique names, source code locations,
 -- ast node attributes and extensible errors.

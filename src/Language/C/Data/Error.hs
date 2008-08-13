@@ -6,7 +6,7 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  experimental
--- Portability :  non-portable (ExistentialQuantification)
+-- Portability :  ghc
 --
 -- Base type for errors occuring in parsing, analysing and pretty-printing.
 -- With ideas from Simon Marlow's

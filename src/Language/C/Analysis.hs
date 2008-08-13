@@ -5,6 +5,7 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  alpha
+-- Portability :  ghc
 --
 -- Analysis of the AST.
 --

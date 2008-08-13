@@ -6,7 +6,7 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  alpha
--- Portability :  non-portable (DeriveDataTypeable)
+-- Portability :  ghc
 --
 -- This module contains definitions for representing C translation units.
 -- In contrast to 'Language.C.Syntax.AST', the representation tries to express the semantics of

@@ -5,8 +5,9 @@
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber (stripped radically)
 -- License     :  BSD-style
--- Maintainer  :  -
--- Portability :  portable
+-- Maintainer  :  benedikt.huber@gmail.com
+-- Stability   :  experimental
+-- Portability :  ghc
 --
 -- source position and unqiue name
 -----------------------------------------------------------------------------

@@ -6,7 +6,8 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Stability   :  alpha
+-- Portability :  ghc
 --
 -- Monad for Traversals of the C AST.
 --

@@ -4,8 +4,8 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  alpha
--- Portability :  unspecified
+-- Stability   :  prototype
+-- Portability :  ghc
 --
 -- /WARNING/ : This is just an implementation sketch and not very well tested.
 --

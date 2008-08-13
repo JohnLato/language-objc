@@ -5,8 +5,8 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  experimental
--- Portability :  unspecified
+-- Stability   :  alpha
+-- Portability :  ghc
 --
 -- This module performs the analysis of declarations and the translation of
 -- type specifications in the AST.

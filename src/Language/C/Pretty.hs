@@ -5,8 +5,9 @@
 -- Copyright   :  Copyright (c) 2007 Bertram Felgenhauer
 --                          (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Maintainer  : benedikt.huber@gmail.com
+-- Stability   : experimental
+-- Portability : portable
 --
 -- This module provides a pretty printer for the parse tree
 -- ('Language.C.Syntax.AST').

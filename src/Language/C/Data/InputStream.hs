@@ -6,8 +6,8 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  provisional
--- Portability :  requires CPP, BangPatterns
+-- Stability   :  experimental
+-- Portability :  ghc
 --
 -- Compile time input abstraction for the parser.
 -- Supports either ByteString or String.

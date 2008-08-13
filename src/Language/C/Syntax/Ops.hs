@@ -4,8 +4,9 @@
 -- Module      :  Language.C.Syntax.Ops
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Maintainer  : benedikt.huber@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
 --
 -- Unary, binary and asssignment operators. Exported via AST.
 -----------------------------------------------------------------------------

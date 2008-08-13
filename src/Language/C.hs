@@ -8,10 +8,12 @@
 --                   Betram Felgenhauer
 -- License     :  BSD-style
 -- Maintainer  : benedikt.huber@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
 --
--- The C99 parser and pretty printer library.
+-- Library for analysing and generating C code.
 --
--- See http:\/\/www.sivity.net\/projects\/language.c 
+-- See <http://www.sivity.net/projects/language.c>
 -----------------------------------------------------------------------------
 module Language.C (
     parseCFile,

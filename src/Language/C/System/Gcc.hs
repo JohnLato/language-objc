@@ -6,7 +6,7 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  experimental
--- Portability :  unspecified
+-- Portability :  portable
 --
 -- Invoking gcc for preprocessing and compiling.
 -----------------------------------------------------------------------------

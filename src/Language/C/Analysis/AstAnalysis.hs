@@ -5,8 +5,8 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable (ScopedTypeVariables,PatternGuards)
 -- Stability   :  alpha
+-- Portability :  ghc
 --
 -- Analyse the parse tree
 --

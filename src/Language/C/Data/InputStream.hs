@@ -2,7 +2,7 @@
 {-# OPTIONS -Wall #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Language.C.InputStream
+-- Module      :  Language.C.Data.InputStream
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com

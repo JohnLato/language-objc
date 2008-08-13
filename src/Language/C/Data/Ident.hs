@@ -17,7 +17,7 @@
 module Language.C.Data.Ident (
     Ident(..),
     SUERef(..), isAnonymousRef,
-    mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
+    mkIdent, builtinIdent, internalIdent, internalIdentAt, isInternalIdent, identToString, dumpIdent)
 where
   
 -- TODO (comment from manuel):
@@ -114,13 +114,17 @@ mkIdent pos s name  = Ident s (quad s) (mkNodeInfo pos name)
 internalIdent   :: String -> Ident
 internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos internalPos)
 
+-- | return an /internal/ identifier with position info
+internalIdentAt :: Position -> String -> Ident
+internalIdentAt pos s = Ident s (quad s) (mkNodeInfoOnlyPos pos)
+
 -- | returns a /builtin/ identifier (has builtin position and no unique name)
 builtinIdent   :: String -> Ident
 builtinIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos builtinPos)
 
 -- | return @True@ if the given identifier is /internal/
 isInternalIdent :: Ident -> Bool
-isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (posOfNode nodeinfo) || isBuiltinPos (posOfNode nodeinfo)
+isInternalIdent (Ident _ _ nodeinfo) = isInternalPos (posOfNode nodeinfo)
 
 -- | string of an identifier
 identToString               :: Ident -> String

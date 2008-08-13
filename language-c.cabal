@@ -10,6 +10,9 @@ Maintainer:     benedikt.huber@gmail.com
 Stability:      experimental
 Homepage:       http://www.sivity.net/projects/language.c
 Synopsis:       Analysis and generation of C code
+Description:    Language C is a haskell library for the analysis and generation of C code.
+                It features a complete, well tested parser and pretty printer for all of C99 and a large 
+                set of GNU extensions.
 Category:       Development
 
 Extra-Source-Files: src/Language/C/Parser/Lexer.x

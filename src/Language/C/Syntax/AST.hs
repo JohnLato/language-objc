@@ -5,8 +5,9 @@
 -- Copyright   :  (c) [1999..2007] Manuel M T Chakravarty
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  -
--- Portability :  portable
+-- Maintainer  : benedikt.huber@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
 --
 -- Abstract syntax of C source and header files.
 --

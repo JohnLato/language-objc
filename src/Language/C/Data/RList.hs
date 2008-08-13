@@ -3,9 +3,9 @@
 -- Module      :  Language.C.Data.RList
 -- Copyright   :  (c) [2007..2008] Duncan Coutts, Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  experimental
--- Portability :  portable
+-- Maintainer  : benedikt.huber@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
 --
 -- Due to the way the grammar is constructed we very often have to build lists
 -- in reverse. To make sure we do this consistently and correctly we have a

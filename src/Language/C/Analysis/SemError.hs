@@ -6,7 +6,7 @@
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  alpha
--- Portability :  unspecified
+-- Portability :  ghc
 --
 -- Errors in the semantic analysis
 -----------------------------------------------------------------------------

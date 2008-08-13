@@ -6,31 +6,22 @@
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Stability   :  experimental
+-- Portability :  ghc
 --
 -- This module provides the notion of identifiers in C, speed up using hashing.
--- Identifiers are associated with a 'NodeInfo', i.e. with a unique 'Name' and
--- a source code position 'Pos'
-
---
---  * We speed up the equality test between identifiers by keeping a hash
---
---  * The ordering relation on identifiers is also based on the hash and,
---    hence, does *not* follow the alphanumerical ordering of the lexemes of
---    the identifiers. Instead, it provides a fast ordering when identifiers
---    are used as keys in a `Data.Map'.
---
---  * Identifiers shall be associated with a unique name, unless they are `internal'
---
---- TODO ----------------------------------------------------------------------
---
---  * Hashing is not 8bit clean.
---
+-- Identifiers are associated optionally associated with a 'NodeInfo', i.e. with 
+-- a unique 'Name' and a source location ('Position'). The ordering relation on
+-- identifiers is based on the hash and does not follow the lexical order.
+-----------------------------------------------------------------------------
 module Language.C.Data.Ident (
     Ident(..),
     SUERef(..), isAnonymousRef,
     mkIdent, internalIdent, builtinIdent, isInternalIdent, identToString, dumpIdent)
 where
+  
+-- TODO (comment from manuel):
+--  * Hashing is not 8bit clean.
 
 import Data.Char
 import Language.C.Data.Position

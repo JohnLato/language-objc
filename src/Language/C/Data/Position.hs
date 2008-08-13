@@ -5,7 +5,8 @@
 -- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Stability   :  experimental
+-- Portability :  ghc
 --
 -- Source code position
 -----------------------------------------------------------------------------

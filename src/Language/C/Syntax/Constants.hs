@@ -4,8 +4,9 @@
 -- Module      :  Language.C.Syntax.Constants
 -- Copyright   :  (c) 2007..2008 Duncan Coutts, Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Maintainer  : benedikt.huber@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
 --
 -- This module provides support for representing, checking and exporting c
 -- constants, i.e. integral, float, character and string constants.

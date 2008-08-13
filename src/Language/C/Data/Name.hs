@@ -5,7 +5,8 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Stability   :  experimental
+-- Portability :  ghc
 --
 -- Unique Names with fast equality (newtype 'Int')
 module Language.C.Data.Name (

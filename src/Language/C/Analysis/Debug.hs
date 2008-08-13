@@ -6,8 +6,8 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  internal use
--- Portability :  unspecified
+-- Stability   :  prototype
+-- Portability :  ghc
 --
 -- Pretty printing the semantic analysis representation.
 -- This is currently only intended for debugging purposes.

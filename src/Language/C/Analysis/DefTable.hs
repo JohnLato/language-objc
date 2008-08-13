@@ -7,7 +7,8 @@
 --                (c) [1999..2001] Manuel M. T. Chakravarty
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Portability :  portable
+-- Stability   :  alpha
+-- Portability :  ghc
 --
 -- This module manages symbols in local and global scopes.
 --

@@ -5,6 +5,7 @@
 --                (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
+-- Stability   :  alpha
 -- Portability :  portable
 --
 -- This module manages name spaces.

@@ -54,6 +54,10 @@ data CppArgs = CppArgs {
         outputFile :: Maybe FilePath
     }
 
+-- | Cpp arguments that only specify the input file name.
+cppFile :: FilePath -> CppArgs
+cppFile input_file = CppArgs { cppOptions = [], extraOptions = [], cppTmpDir = Nothing, inputFile = input_file, outputFile = Nothing }
+
 -- | use the given preprocessor arguments without analyzing them
 rawCppArgs :: [String] -> FilePath -> CppArgs
 rawCppArgs opts input_file =

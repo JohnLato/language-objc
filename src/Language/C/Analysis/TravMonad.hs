@@ -34,7 +34,7 @@ module Language.C.Analysis.TravMonad (
     hadHardErrors,handleTravError,throwOnLeft,
     astError, warn,
     -- * Trav - default MonadTrav implementation
-    Trav(..),
+    Trav,
     runTrav,runTrav_,
     TravState,initTravState,withExtDeclHandler,modifyUserState,userState,
     -- * Helpers

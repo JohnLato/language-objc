@@ -30,7 +30,7 @@ TypeDef(..),identOfTypeDef,
 VarDecl(..),
 -- * Declaration attributes
 DeclAttrs(..),isExtDecl,
-Storage(..),declStorage,ThreadLocal,
+Storage(..),declStorage,ThreadLocal,Register,
 Linkage(..),
 -- * Types
 Type(..),

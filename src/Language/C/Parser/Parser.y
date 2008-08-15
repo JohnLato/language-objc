@@ -29,7 +29,12 @@
 --    <http://www.sivity.net/projects/language.c/wiki/Cee>
 ------------------------------------------------------------------
 {
-module Language.C.Parser.Parser (parseC, ParseError(..)) where
+module Language.C.Parser.Parser (
+  -- * Parse a C translation unit
+  parseC,
+  -- * Exposed Parsers
+  translUnitP, extDeclP, statementP, expressionP
+) where
 
 -- Relevant C99 sections:
 --
@@ -116,9 +121,10 @@ import Language.C.Syntax
 
 }
 
-%name header header
-%name statement statement
-%name expression expression
+%name translUnitP translation_unit
+%name extDeclP external_declaration
+%name statementP statement
+%name expressionP expression
 
 %tokentype { CToken }
 
@@ -234,24 +240,24 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 %%
 
 
--- parse a complete C header file
+-- parse a complete C translation unit
 --
-header :: { CTranslUnit }
-header
-  : translation_unit	{% withNodeInfo $1 $ CTranslUnit (reverse $1) }
+translation_unit :: { CTranslUnit }
+translation_unit
+  : ext_decl_list	{% withNodeInfo $1 $ CTranslUnit (reverse $1) }
 
 
--- parse a complete C translation unit (C99 6.9)
+-- parse a list of external declarations, making up a C translation unit (C99 6.9)
 --
 -- * GNU extensions:
 --     allow empty translation_unit
 --     allow redundant ';'
 --
-translation_unit :: { Reversed [CExtDecl] }
-translation_unit
+ext_decl_list :: { Reversed [CExtDecl] }
+ext_decl_list
   : {- empty -}					{ empty }
-  | translation_unit ';'			{ $1 }
-  | translation_unit external_declaration	{ $1 `snoc` $2 }
+  | ext_decl_list ';'			{ $1 }
+  | ext_decl_list external_declaration	{ $1 `snoc` $2 }
 
 
 -- parse external C declaration (C99 6.9)
@@ -2234,5 +2240,5 @@ happyError = parseError
 -- | @parseC input initialPos@ parses the given preprocessed C-source input and returns the AST or a list of parse errors.
 parseC :: InputStream -> Position -> Either ParseError CTranslUnit
 parseC input initialPosition =
-  execParser header input initialPosition builtinTypeNames (namesStartingFrom 0)
+  fmap fst $ execParser translUnitP input initialPosition builtinTypeNames (namesStartingFrom 0)
 }

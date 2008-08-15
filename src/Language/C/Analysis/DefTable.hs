@@ -31,13 +31,14 @@ module Language.C.Analysis.DefTable (
 )
 where
 import Language.C.Data
-import Language.C.Data.Name (NameMap,emptyNameMap)
 import Language.C.Analysis.NameSpaceMap
 import Language.C.Analysis.SemRep
 
 import Control.Applicative ((<|>))
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Data.Generics
 
 {- Name spaces, scopes and contexts [Scopes]
@@ -94,12 +95,12 @@ data DefTable = DefTable
         tagDecls   :: NameSpaceMap SUERef TagEntry,       -- ^ declared struct/union/enum  tags
         labelDefs  :: NameSpaceMap Ident Ident,            -- ^ defined labels
         memberDecls :: NameSpaceMap Ident MemberDecl,      -- ^ member declarations (only local)
-        refTable   :: NameMap Name                         -- ^ link names with definitions
+        refTable   :: IntMap Name                          -- ^ link names with definitions
     }
 
 -- | empty definition table, with all name space maps in global scope
 emptyDefTable :: DefTable
-emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap emptyNameMap
+emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap IntMap.empty
 
 -- | get the globally defined entries of a definition table
 globalDefs :: DefTable -> GlobalDecls

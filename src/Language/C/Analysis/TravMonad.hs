@@ -399,7 +399,7 @@ initTravState userst =
     TravState {
         symbolTable = emptyDefTable,
         rerrors = RList.empty,
-        nameGenerator = namesStartingFrom 0,
+        nameGenerator = newNameSupply,
         doHandleExtDecl = const (return ()),
         userState = userst
       }

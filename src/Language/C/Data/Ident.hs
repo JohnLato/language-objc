@@ -132,4 +132,4 @@ identToString (Ident s _ _)  = s
 
 -- | dump the identifier string and its positions for debugging purposes
 dumpIdent     :: Ident -> String
-dumpIdent ide  = identToString ide ++ " at " ++ show (posOf ide)
+dumpIdent ide  = identToString ide ++ " at " ++ show (nodeInfo ide)

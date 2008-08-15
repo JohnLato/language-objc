@@ -1,72 +1,31 @@
-Mon Jun 16 10:30:23 CEST 2008  benedikt.huber@gmail.com
-  * Record and pretty print local label declarations
+Changes since 0.3
+==========================================================================
 
-Mon Jun 16 09:39:30 CEST 2008  benedikt.huber@gmail.com
-  * Support for GNU __complex__ extension
+Fri Aug 15 benedikt.huber@gmail.com
+  * Remove NameMap from Data.Name. We will do this right when neccessary.
+  * Parser public API: expose parsers and the Parser Monad
+  * ParserMonad: Return updated name supply when executing parser
+  * Parser: Expose expression, statement, declaration and file parsers
+  * Data: Add newNameSupply ~ (namesStartingFrom 0)
 
-Mon Jun 16 09:33:55 CEST 2008  benedikt.huber@gmail.com
-  * AST and pretty printer support for __attribute__
+Thu Aug 14 17:13:29 CEST 2008  iavor.diatchki@gmail.com
+  * Add a utility function to create a "blank" set of cpp arguments.
+  * Make that analysis traversal monad abstract.
+  * Export the type synonym "Register" (and bump version)
 
-Sat Jun 14 09:00:17 CEST 2008  benedikt.huber@gmail.com
-  * Fixed empty_struct AST design bug (`struct' != `struct { }')
+Wed Aug 13 12:00:57 CEST 2008  benedikt.huber@gmail.com
+  * add Data.Position: internalIdentAt
 
-Thu Jun 12 19:08:41 CEST 2008  benedikt.huber@gmail.com
-  * pretty printer unary operator bug (`- -' /= `--')
 
-Wed Jun 11 18:34:56 CEST 2008  benedikt.huber@gmail.com
-  * AST and PP support for special form GNU builtin functions.
-
-Wed Jun 11 14:22:40 CEST 2008  benedikt.huber@gmail.com
-  * Fix Compound-expression pretty printing
-
-Wed Jun 11 09:15:24 CEST 2008  benedikt.huber@gmail.com
-  * Improve Old-Style function declarations
-
-Wed Jun 11 09:14:08 CEST 2008  benedikt.huber@gmail.com
-  * Adding support for assembler statements
+Old Changes
+==========================================================================
 
 Mon Jun  9 23:12:46 CEST 2008  benedikt.huber@gmail.com
   * License switched to 3-clause BSD
-  
-  In accordance with the original authors, Language.C is now licensed as BSD-3.
-  See:
-  http://haskell.org/pipermail/c2hs/2008-June/000833.html
-  http://haskell.org/pipermail/c2hs/2008-June/000834.html
-  http://haskell.org/pipermail/c2hs/2008-June/000835.html
+  $
+-  In accordance with the original authors, Language.C is now licensed as BSD-3.
+   See:
+   http://haskell.org/pipermail/c2hs/2008-June/000833.html
+   http://haskell.org/pipermail/c2hs/2008-June/000834.html
+   http://haskell.org/pipermail/c2hs/2008-June/000835.html
 
-
-Mon Jun  9 17:43:53 CEST 2008  benedikt.huber@gmail.com
-  * Pretty Printer fixes (assign precedence, array type qualifiers, empty enums, builtins)
-  
-Sun Jun  8 11:00:29 CEST 2008  benedikt.huber@gmail.com
-  * The lexer now supports hexadecimal floating point constants (C99), and produces better error messages 
-  when faced with unsupported features or some common, hard to track errors.
-
-Sun Jun  8 10:52:08 CEST 2008  benedikt.huber@gmail.com
-  * Correct pretty printing of chars and strings. 
-  * Fix `else if' pretty-printing bug.
-
-Fri Jun  6 17:23:29 CEST 2008  benedikt.huber@gmail.com
-  * Fix constant export bugs in pretty printer. 
-  
-Tue Jun  3 10:45:36 CEST 2008  benedikt.huber@gmail.com
-  * tagged 0.1
-
-Mon Jun  2 18:32:42 CEST 2008  benedikt.huber@gmail.com
-  * Initial Darcs Import
-
-2008-06-1 benedikt.huber@gmail.com
-	* Removed the PreCST monad for now, as the initial code base should be as small 
-	as possible.
-	It is easy to inject the parse results back into PreCST later.
-	As a consequence, the NameSupply isn't used anymore.
-	
-2008-05-29 benedikt.huber@gmail.com
-  * Add a top-level module acting as facade (Language.C)
-
-2008-05-26 benedikt.huber@gmail.com
-  * Renaming / Hierarchical Modules.
-	Language.C         
-	Language.C.Parser
-	Language.C.AST
-	Language.C.Toolkit

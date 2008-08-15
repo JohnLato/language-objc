@@ -17,7 +17,7 @@ module Language.C.Data (
      SUERef(..), isAnonymousRef,
      Ident,mkIdent, identToString, internalIdent, isInternalIdent, builtinIdent,
      -- * Unqiue names
-     Name(..),namesStartingFrom,
+     Name(..),newNameSupply,
      -- * Source code positions
      Position(..),Pos(..),
      posFile,posRow,posColumn,

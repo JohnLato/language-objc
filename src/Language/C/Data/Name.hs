@@ -10,8 +10,8 @@
 --
 -- Unique Names with fast equality (newtype 'Int')
 module Language.C.Data.Name (
-Name(..),namesStartingFrom,
-NameMap,emptyNameMap,
+Name(..),newNameSupply, namesStartingFrom,
+NameMap,emptyNameMap,insertName,lookupName,
 ) where
 import Data.Ix
 import Data.IntMap (IntMap)
@@ -25,6 +25,10 @@ instance Enum Name where
     toEnum = Name
     fromEnum (Name n) = n
 
+-- | return an infinite stream of 'Name's starting with @nameId@ 0
+newNameSupply :: [Name]
+newNameSupply = namesStartingFrom 0
+
 -- | get the infinite stream of unique names starting from the given integer
 namesStartingFrom :: Int -> [Name]
 namesStartingFrom k = [Name k..]
@@ -33,4 +37,7 @@ namesStartingFrom k = [Name k..]
 type NameMap = IntMap
 emptyNameMap :: NameMap v
 emptyNameMap = IntMap.empty
-
+insertName :: Name -> v -> NameMap v -> NameMap v
+insertName (Name nid) = IntMap.insert nid
+lookupName :: Name -> NameMap v -> Maybe v
+lookupName (Name nid) = IntMap.lookup nid

@@ -71,12 +71,18 @@ instance Monad P where
   (>>=) = thenP
   fail m = getPos >>= \pos -> failP pos [m]
 
+
+-- | execute the given parser on the supplied input stream.
+--   returns 'ParseError' if the parser failed, and a pair of
+--   result and remaining name supply otherwise
+--
+-- Synopsis: @execParser parser inputStream initialPos predefinedTypedefs uniqNameSupply@
 execParser :: P a -> InputStream -> Position -> [Ident] -> [Name]
-           -> Either ParseError a
+           -> Either ParseError (a,[Name])
 execParser (P parser) input pos builtins names =
   case parser initialState of
     PFailed message errpos -> Left (ParseError (message,errpos))
-    POk _ result -> Right result
+    POk st result -> Right (result, namesupply st)
   where initialState = PState {
           curPos = pos,
           curInput = input,

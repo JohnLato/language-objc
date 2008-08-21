@@ -120,11 +120,11 @@ import Language.C.Data.Position
 import Language.C.Syntax
 
 }
-
-%name translUnitP translation_unit
-%name extDeclP external_declaration
-%name statementP statement
-%name expressionP expression
+-- in order to document the parsers, we have to alias them
+%name translation_unit translation_unit
+%name external_declaration external_declaration
+%name statement statement
+%name expression expression
 
 %tokentype { CToken }
 
@@ -2241,4 +2241,17 @@ happyError = parseError
 parseC :: InputStream -> Position -> Either ParseError CTranslUnit
 parseC input initialPosition =
   fmap fst $ execParser translUnitP input initialPosition builtinTypeNames (namesStartingFrom 0)
+
+-- | @translUnitP@ provides a parser for a complete C translation unit, i.e. a list of external declarations.
+translUnitP :: P CTranslUnit
+translUnitP = translation_unit
+-- | @extDeclP@ provides a parser for an external (file-scope) declaration
+extDeclP :: P CExtDecl
+extDeclP = external_declaration
+-- | @statementP@ provides a parser for C statements
+statementP :: P CStat
+statementP = statement
+-- | @expressionP@ provides a parser for C expressions
+expressionP :: P CExpr
+expressionP = expression
 }

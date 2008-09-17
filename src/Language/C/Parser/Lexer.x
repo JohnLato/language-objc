@@ -346,7 +346,7 @@ tok :: (Position -> CToken) -> Position -> P CToken
 tok tc pos = return (tc pos)
 
 adjustPos :: String -> Position -> Position
-adjustPos str (Position fname row _) = Position fname' row' 0
+adjustPos str (Position fname row _) = Position fname' row' 1
     where
     str'            = dropWhite . drop 1 $ str
     (rowStr, str'') = span isDigit str'

@@ -11,8 +11,8 @@ $CTEST_BINDIR/CheckGccArgs $@
 if [ $? -eq 0 ]; then
 	sh $CTEST_BINDIR/run-test $@
     # Invoke gcc
-    gcc $@
+    gcc "$@"
 else
-    gcc $@
+    gcc "$@"
 fi
 

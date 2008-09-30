@@ -16,7 +16,7 @@
 -- See <http://www.sivity.net/projects/language.c>
 -----------------------------------------------------------------------------
 module Language.C (
-    parseCFile,
+    parseCFile, parseCFilePre, -- maybe change ?
     module Language.C.Data,
     module Language.C.Syntax,
     module Language.C.Pretty,
@@ -29,7 +29,7 @@ import Language.C.Pretty
 import Language.C.Parser
 import Language.C.System.Preprocess
 
--- | preprocess and parse a C source file
+-- | preprocess (if neccessary) and parse a C source file
 --
 --   > Synopsis: parseCFile preprocesssor tmp-dir? cpp-opts file
 --   > Example:  parseCFile (newGCC "gcc") Nothing ["-I/usr/include/gtk-2.0"] my-gtk-exts.c
@@ -39,7 +39,15 @@ parseCFile cpp tmp_dir_opt args input_file = do
                         then  let cpp_args = (rawCppArgs args input_file) { cppTmpDir = tmp_dir_opt }
                               in  runPreprocessor cpp cpp_args >>= handleCppError
                         else  readInputStream input_file
-    return$ parseC input_stream (Position input_file 1 1)
+    return$ parseC input_stream (initPos input_file)
     where
     handleCppError (Left exitCode) = fail $ "Preprocessor failed with " ++ show exitCode
     handleCppError (Right ok)      = return ok
+
+-- | parse an already preprocessed C file
+--
+--   > Synopsis: parseCFilePre file.i
+parseCFilePre :: FilePath -> IO (Either ParseError CTranslUnit)
+parseCFilePre file = do
+    input_stream <- readInputStream file
+    return $ parseC input_stream (initPos file)

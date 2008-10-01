@@ -201,4 +201,4 @@ fromDirectType (TypeDefType (TypeDefRef _ ref _)) = maybe (error "undefined type
 fromDirectType _ = error "fromDirectType"
 
 ni :: NodeInfo
-ni = internalNode
+ni = undefNode

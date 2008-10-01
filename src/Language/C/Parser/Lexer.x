@@ -54,7 +54,7 @@ import Data.Char (isDigit)
 import Control.Monad (liftM)
 
 import Language.C.Data.InputStream
-import Language.C.Data.Position  (Position(..),posOf)
+import Language.C.Data.Position  (Position(..),posOf,PosLength)
 import Language.C.Data.Ident    (mkIdent)
 
 import Language.C.Syntax.Constants
@@ -135,7 +135,7 @@ $white+         ;
 --   doesn't say how many ints there can be, we allow an unbound number
 --
 \#$space*@int$space*(\"($infname|@charesc)*\"$space*)?(@int$space*)*$eol
-  { \pos len str -> setPos (adjustPos (takeChars len str) pos) >> lexToken }
+  { \pos len str -> setPos (adjustPos len (takeChars len str) pos) >> lexToken }
 
 -- #pragma directive (K&R A12.8)
 --
@@ -196,52 +196,52 @@ L?\"($inchar|@charesc)*@ucn($inchar|@charesc|@ucn)*\" { token_fail "Universal ch
 
 -- operators and separators
 --
-"("   { token_ CTokLParen }
-")"   { token_ CTokRParen  }
-"["   { token_ CTokLBracket }
-"]"   { token_ CTokRBracket }
-"->"  { token_ CTokArrow }
-"."   { token_ CTokDot }
-"!"   { token_ CTokExclam }
-"~"   { token_ CTokTilde }
-"++"  { token_ CTokInc }
-"--"  { token_ CTokDec }
-"+"   { token_ CTokPlus }
-"-"   { token_ CTokMinus }
-"*"   { token_ CTokStar }
-"/"   { token_ CTokSlash }
-"%"   { token_ CTokPercent }
-"&"   { token_ CTokAmper }
-"<<"  { token_ CTokShiftL }
-">>"  { token_ CTokShiftR }
-"<"   { token_ CTokLess }
-"<="  { token_ CTokLessEq }
-">"   { token_ CTokHigh }
-">="  { token_ CTokHighEq }
-"=="  { token_ CTokEqual }
-"!="  { token_ CTokUnequal }
-"^"   { token_ CTokHat }
-"|"   { token_ CTokBar }
-"&&"  { token_ CTokAnd }
-"||"  { token_ CTokOr }
-"?"   { token_ CTokQuest }
-":"   { token_ CTokColon }
-"="   { token_ CTokAssign }
-"+="  { token_ CTokPlusAss }
-"-="  { token_ CTokMinusAss }
-"*="  { token_ CTokStarAss }
-"/="  { token_ CTokSlashAss }
-"%="  { token_ CTokPercAss }
-"&="  { token_ CTokAmpAss }
-"^="  { token_ CTokHatAss }
-"|="  { token_ CTokBarAss }
-"<<=" { token_ CTokSLAss }
-">>=" { token_ CTokSRAss }
-","   { token_ CTokComma }
-\;    { token_ CTokSemic }
-"{"   { token_ CTokLBrace }
-"}"   { token_ CTokRBrace }
-"..." { token_ CTokEllipsis }
+"("   { token_ 1 CTokLParen }
+")"   { token_ 1 CTokRParen  }
+"["   { token_ 1 CTokLBracket }
+"]"   { token_ 1 CTokRBracket }
+"->"  { token_ 2 CTokArrow }
+"."   { token_ 1 CTokDot }
+"!"   { token_ 1 CTokExclam }
+"~"   { token_ 1 CTokTilde }
+"++"  { token_ 2 CTokInc }
+"--"  { token_ 2 CTokDec }
+"+"   { token_ 1 CTokPlus }
+"-"   { token_ 1 CTokMinus }
+"*"   { token_ 1 CTokStar }
+"/"   { token_ 1 CTokSlash }
+"%"   { token_ 1 CTokPercent }
+"&"   { token_ 1 CTokAmper }
+"<<"  { token_ 2 CTokShiftL }
+">>"  { token_ 2 CTokShiftR }
+"<"   { token_ 1 CTokLess }
+"<="  { token_ 2 CTokLessEq }
+">"   { token_ 1 CTokHigh }
+">="  { token_ 2 CTokHighEq }
+"=="  { token_ 2 CTokEqual }
+"!="  { token_ 2 CTokUnequal }
+"^"   { token_ 1 CTokHat }
+"|"   { token_ 1 CTokBar }
+"&&"  { token_ 2 CTokAnd }
+"||"  { token_ 2 CTokOr }
+"?"   { token_ 1 CTokQuest }
+":"   { token_ 1 CTokColon }
+"="   { token_ 1 CTokAssign }
+"+="  { token_ 2 CTokPlusAss }
+"-="  { token_ 2 CTokMinusAss }
+"*="  { token_ 2 CTokStarAss }
+"/="  { token_ 2 CTokSlashAss }
+"%="  { token_ 2 CTokPercAss }
+"&="  { token_ 2 CTokAmpAss }
+"^="  { token_ 2 CTokHatAss }
+"|="  { token_ 2 CTokBarAss }
+"<<=" { token_ 3 CTokSLAss }
+">>=" { token_ 3 CTokSRAss }
+","   { token_ 1 CTokComma }
+\;    { token_ 1 CTokSemic }
+"{"   { token_ 1 CTokLBrace }
+"}"   { token_ 1 CTokRBrace }
+"..." { token_ 3 CTokEllipsis }
 
 
 {
@@ -250,86 +250,110 @@ L?\"($inchar|@charesc)*@ucn($inchar|@charesc|@ucn)*\" { token_fail "Universal ch
 -- string literals since GHC converts the latter into a sequence of string
 -- comparisons (ie a linear search) but it translates the former using its
 -- effecient pattern matching which gives us the expected radix-style search.
--- This gives change makes a significant performance difference.
+-- This change makes a significant performance difference [chak]
 --
-idkwtok :: String -> Position -> P CToken
-idkwtok ('a':'l':'i':'g':'n':'o':'f':[])         = tok CTokAlignof
-idkwtok ('_':'_':'a':'l':'i':'g':'n':'o':'f':[])       = tok CTokAlignof
-idkwtok ('_':'_':'a':'l':'i':'g':'n':'o':'f':'_':'_':[])     = tok CTokAlignof
-idkwtok ('a':'s':'m':[])             = tok CTokAsm
-idkwtok ('_':'_':'a':'s':'m':[])           = tok CTokAsm
-idkwtok ('_':'_':'a':'s':'m':'_':'_':[])         = tok CTokAsm
-idkwtok ('a':'u':'t':'o':[])             = tok CTokAuto
-idkwtok ('b':'r':'e':'a':'k':[])           = tok CTokBreak
-idkwtok ('_':'B':'o':'o':'l':[])           = tok CTokBool
-idkwtok ('c':'a':'s':'e':[])             = tok CTokCase
-idkwtok ('c':'h':'a':'r':[])             = tok CTokChar
-idkwtok ('c':'o':'n':'s':'t':[])           = tok CTokConst
-idkwtok ('_':'_':'c':'o':'n':'s':'t':[])         = tok CTokConst
-idkwtok ('_':'_':'c':'o':'n':'s':'t':'_':'_':[])       = tok CTokConst
-idkwtok ('c':'o':'n':'t':'i':'n':'u':'e':[])         = tok CTokContinue
-idkwtok ('_':'C':'o':'m':'p':'l':'e':'x':[])         = tok CTokComplex
-idkwtok ('_':'_':'c':'o':'m':'p':'l':'e':'x':'_':'_':[]) = tok CTokComplex
-idkwtok ('d':'e':'f':'a':'u':'l':'t':[])         = tok CTokDefault
-idkwtok ('d':'o':[])               = tok CTokDo
-idkwtok ('d':'o':'u':'b':'l':'e':[])           = tok CTokDouble
-idkwtok ('e':'l':'s':'e':[])             = tok CTokElse
-idkwtok ('e':'n':'u':'m':[])             = tok CTokEnum
-idkwtok ('e':'x':'t':'e':'r':'n':[])           = tok CTokExtern
-idkwtok ('f':'l':'o':'a':'t':[])           = tok CTokFloat
-idkwtok ('f':'o':'r':[])             = tok CTokFor
-idkwtok ('g':'o':'t':'o':[])             = tok CTokGoto
-idkwtok ('i':'f':[])               = tok CTokIf
-idkwtok ('i':'n':'l':'i':'n':'e':[])           = tok CTokInline
-idkwtok ('_':'_':'i':'n':'l':'i':'n':'e':[])         = tok CTokInline
-idkwtok ('_':'_':'i':'n':'l':'i':'n':'e':'_':'_':[])       = tok CTokInline
-idkwtok ('i':'n':'t':[])             = tok CTokInt
-idkwtok ('l':'o':'n':'g':[])             = tok CTokLong
-idkwtok ('r':'e':'g':'i':'s':'t':'e':'r':[])         = tok CTokRegister
-idkwtok ('r':'e':'s':'t':'r':'i':'c':'t':[])         = tok CTokRestrict
-idkwtok ('_':'_':'r':'e':'s':'t':'r':'i':'c':'t':[])       = tok CTokRestrict
-idkwtok ('_':'_':'r':'e':'s':'t':'r':'i':'c':'t':'_':'_':[]) = tok CTokRestrict
-idkwtok ('r':'e':'t':'u':'r':'n':[])           = tok CTokReturn
-idkwtok ('s':'h':'o':'r':'t':[])           = tok CTokShort
-idkwtok ('s':'i':'g':'n':'e':'d':[])           = tok CTokSigned
-idkwtok ('_':'_':'s':'i':'g':'n':'e':'d':[])         = tok CTokSigned
-idkwtok ('_':'_':'s':'i':'g':'n':'e':'d':'_':'_':[])       = tok CTokSigned
-idkwtok ('s':'i':'z':'e':'o':'f':[])           = tok CTokSizeof
-idkwtok ('s':'t':'a':'t':'i':'c':[])           = tok CTokStatic
-idkwtok ('s':'t':'r':'u':'c':'t':[])           = tok CTokStruct
-idkwtok ('s':'w':'i':'t':'c':'h':[])           = tok CTokSwitch
-idkwtok ('t':'y':'p':'e':'d':'e':'f':[])         = tok CTokTypedef
-idkwtok ('t':'y':'p':'e':'o':'f':[])           = tok CTokTypeof
-idkwtok ('_':'_':'t':'y':'p':'e':'o':'f':[])         = tok CTokTypeof
-idkwtok ('_':'_':'t':'y':'p':'e':'o':'f':'_':'_':[])       = tok CTokTypeof
-idkwtok ('_':'_':'t':'h':'r':'e':'a':'d':[])         = tok CTokThread
-idkwtok ('u':'n':'i':'o':'n':[])           = tok CTokUnion
-idkwtok ('u':'n':'s':'i':'g':'n':'e':'d':[])         = tok CTokUnsigned
-idkwtok ('v':'o':'i':'d':[])             = tok CTokVoid
-idkwtok ('v':'o':'l':'a':'t':'i':'l':'e':[])         = tok CTokVolatile
-idkwtok ('_':'_':'v':'o':'l':'a':'t':'i':'l':'e':[])       = tok CTokVolatile
-idkwtok ('_':'_':'v':'o':'l':'a':'t':'i':'l':'e':'_':'_':[]) = tok CTokVolatile
-idkwtok ('w':'h':'i':'l':'e':[])           = tok CTokWhile
-idkwtok ('_':'_':'l':'a':'b':'e':'l':'_':'_':[])             = tok CTokLabel
-idkwtok ('_':'_':'a':'t':'t':'r':'i':'b':'u':'t':'e':[]) = tok (CTokGnuC GnuCAttrTok)
-idkwtok ('_':'_':'a':'t':'t':'r':'i':'b':'u':'t':'e':'_':'_':[]) = tok (CTokGnuC GnuCAttrTok)
-idkwtok ('_':'_':'e':'x':'t':'e':'n':'s':'i':'o':'n':'_':'_':[]) = tok (CTokGnuC GnuCExtTok)
-idkwtok ('_':'_':'r':'e':'a':'l':[])   = tok (CTokGnuC GnuCComplexReal)
-idkwtok ('_':'_':'r':'e':'a':'l':'_':'_':[])   = tok (CTokGnuC GnuCComplexReal)
-idkwtok ('_':'_':'i':'m':'a':'g':[])   = tok (CTokGnuC GnuCComplexImag)
-idkwtok ('_':'_':'i':'m':'a':'g':'_':'_':[])   = tok (CTokGnuC GnuCComplexImag)
-idkwtok ('_':'_':'b':'u':'i':'l':'t':'i':'n':'_':rest)
-        | rest == "va_arg"             = tok (CTokGnuC GnuCVaArg)
-        | rest == "offsetof"           = tok (CTokGnuC GnuCOffsetof)
-        | rest == "types_compatible_p" = tok (CTokGnuC GnuCTyCompat)
+-- To make this a little more maintainable, we autogenerate it from this list,
+-- using the script GenerateKeywordMatch.hs (in /src)
+{-
+alignof @__, asm @__, auto
+break, bool _Bool, 
+case, char, const @__, continue, complex _Complex __complex__
+default, do, double,
+else, enum, extern, 
+float, for, goto,
+if, inline @__, int, long, 
+register, restrict @__, return
+short, signed @__, sizeof, static, struct, switch, 
+typedef, typeof @__, thread __thread, 
+union, unsigned, void, volatile @__, 
+while, 
+label __label__
+(CTokGnuC GnuCAttrTok) __attribute __attribute__
+(CTokGnuC GnuCExtTok) __extension__
+(CTokGnuC GnuCComplexReal) __real __real__
+(CTokGnuC GnuCComplexImag) __imag __imag__
+(CTokGnuC GnuCVaArg) __builtin_va_arg
+(CTokGnuC GnuCOffsetof) __builtin_offsetof
+(CTokGnuC GnuCTyCompat) __builtin_types_compatible_p
+-}
+-- Tokens: alignof __alignof __alignof__ asm __asm __asm__ __attribute __attribute__ auto _Bool break __builtin_offsetof __builtin_types_compatible_p __builtin_va_arg case char _Complex __complex__ const __const __const__ continue default do double else enum __extension__ extern float for goto if __imag __imag__ inline __inline __inline__ int __label__ long __real __real__ register __restrict __restrict__ return short signed __signed __signed__ sizeof static struct switch __thread typedef typeof __typeof __typeof__ union unsigned void volatile __volatile __volatile__ while
+idkwtok ('_' : 'B' : 'o' : 'o' : 'l' : []) = tok 5 CTokBool
+idkwtok ('_' : 'C' : 'o' : 'm' : 'p' : 'l' : 'e' : 'x' : []) = tok 8 CTokComplex
+idkwtok ('_' : '_' : 'a' : 'l' : 'i' : 'g' : 'n' : 'o' : 'f' : []) = tok 9 CTokAlignof
+idkwtok ('a' : 'l' : 'i' : 'g' : 'n' : 'o' : 'f' : []) = tok 7 CTokAlignof
+idkwtok ('_' : '_' : 'a' : 'l' : 'i' : 'g' : 'n' : 'o' : 'f' : '_' : '_' : []) = tok 11 CTokAlignof
+idkwtok ('_' : '_' : 'a' : 's' : 'm' : []) = tok 5 CTokAsm
+idkwtok ('a' : 's' : 'm' : []) = tok 3 CTokAsm
+idkwtok ('_' : '_' : 'a' : 's' : 'm' : '_' : '_' : []) = tok 7 CTokAsm
+idkwtok ('_' : '_' : 'a' : 't' : 't' : 'r' : 'i' : 'b' : 'u' : 't' : 'e' : []) = tok 11 (CTokGnuC GnuCAttrTok)
+idkwtok ('_' : '_' : 'a' : 't' : 't' : 'r' : 'i' : 'b' : 'u' : 't' : 'e' : '_' : '_' : []) = tok 13 (CTokGnuC GnuCAttrTok)
+idkwtok ('a' : 'u' : 't' : 'o' : []) = tok 4 CTokAuto
+idkwtok ('b' : 'r' : 'e' : 'a' : 'k' : []) = tok 5 CTokBreak
+idkwtok ('_' : '_' : 'b' : 'u' : 'i' : 'l' : 't' : 'i' : 'n' : '_' : 'o' : 'f' : 'f' : 's' : 'e' : 't' : 'o' : 'f' : []) = tok 18 (CTokGnuC GnuCOffsetof)
+idkwtok ('_' : '_' : 'b' : 'u' : 'i' : 'l' : 't' : 'i' : 'n' : '_' : 't' : 'y' : 'p' : 'e' : 's' : '_' : 'c' : 'o' : 'm' : 'p' : 'a' : 't' : 'i' : 'b' : 'l' : 'e' : '_' : 'p' : []) = tok 28 (CTokGnuC GnuCTyCompat)
+idkwtok ('_' : '_' : 'b' : 'u' : 'i' : 'l' : 't' : 'i' : 'n' : '_' : 'v' : 'a' : '_' : 'a' : 'r' : 'g' : []) = tok 16 (CTokGnuC GnuCVaArg)
+idkwtok ('c' : 'a' : 's' : 'e' : []) = tok 4 CTokCase
+idkwtok ('c' : 'h' : 'a' : 'r' : []) = tok 4 CTokChar
+idkwtok ('_' : '_' : 'c' : 'o' : 'm' : 'p' : 'l' : 'e' : 'x' : '_' : '_' : []) = tok 11 CTokComplex
+idkwtok ('_' : '_' : 'c' : 'o' : 'n' : 's' : 't' : []) = tok 7 CTokConst
+idkwtok ('c' : 'o' : 'n' : 's' : 't' : []) = tok 5 CTokConst
+idkwtok ('_' : '_' : 'c' : 'o' : 'n' : 's' : 't' : '_' : '_' : []) = tok 9 CTokConst
+idkwtok ('c' : 'o' : 'n' : 't' : 'i' : 'n' : 'u' : 'e' : []) = tok 8 CTokContinue
+idkwtok ('d' : 'e' : 'f' : 'a' : 'u' : 'l' : 't' : []) = tok 7 CTokDefault
+idkwtok ('d' : 'o' : []) = tok 2 CTokDo
+idkwtok ('d' : 'o' : 'u' : 'b' : 'l' : 'e' : []) = tok 6 CTokDouble
+idkwtok ('e' : 'l' : 's' : 'e' : []) = tok 4 CTokElse
+idkwtok ('e' : 'n' : 'u' : 'm' : []) = tok 4 CTokEnum
+idkwtok ('_' : '_' : 'e' : 'x' : 't' : 'e' : 'n' : 's' : 'i' : 'o' : 'n' : '_' : '_' : []) = tok 13 (CTokGnuC GnuCExtTok)
+idkwtok ('e' : 'x' : 't' : 'e' : 'r' : 'n' : []) = tok 6 CTokExtern
+idkwtok ('f' : 'l' : 'o' : 'a' : 't' : []) = tok 5 CTokFloat
+idkwtok ('f' : 'o' : 'r' : []) = tok 3 CTokFor
+idkwtok ('g' : 'o' : 't' : 'o' : []) = tok 4 CTokGoto
+idkwtok ('i' : 'f' : []) = tok 2 CTokIf
+idkwtok ('_' : '_' : 'i' : 'm' : 'a' : 'g' : []) = tok 6 (CTokGnuC GnuCComplexImag)
+idkwtok ('_' : '_' : 'i' : 'm' : 'a' : 'g' : '_' : '_' : []) = tok 8 (CTokGnuC GnuCComplexImag)
+idkwtok ('_' : '_' : 'i' : 'n' : 'l' : 'i' : 'n' : 'e' : []) = tok 8 CTokInline
+idkwtok ('i' : 'n' : 'l' : 'i' : 'n' : 'e' : []) = tok 6 CTokInline
+idkwtok ('_' : '_' : 'i' : 'n' : 'l' : 'i' : 'n' : 'e' : '_' : '_' : []) = tok 10 CTokInline
+idkwtok ('i' : 'n' : 't' : []) = tok 3 CTokInt
+idkwtok ('_' : '_' : 'l' : 'a' : 'b' : 'e' : 'l' : '_' : '_' : []) = tok 9 CTokLabel
+idkwtok ('l' : 'o' : 'n' : 'g' : []) = tok 4 CTokLong
+idkwtok ('_' : '_' : 'r' : 'e' : 'a' : 'l' : []) = tok 6 (CTokGnuC GnuCComplexReal)
+idkwtok ('_' : '_' : 'r' : 'e' : 'a' : 'l' : '_' : '_' : []) = tok 8 (CTokGnuC GnuCComplexReal)
+idkwtok ('r' : 'e' : 'g' : 'i' : 's' : 't' : 'e' : 'r' : []) = tok 8 CTokRegister
+idkwtok ('_' : '_' : 'r' : 'e' : 's' : 't' : 'r' : 'i' : 'c' : 't' : []) = tok 10 CTokRestrict
+idkwtok ('r' : 'e' : 's' : 't' : 'r' : 'i' : 'c' : 't' : []) = tok 8 CTokRestrict
+idkwtok ('_' : '_' : 'r' : 'e' : 's' : 't' : 'r' : 'i' : 'c' : 't' : '_' : '_' : []) = tok 12 CTokRestrict
+idkwtok ('r' : 'e' : 't' : 'u' : 'r' : 'n' : []) = tok 6 CTokReturn
+idkwtok ('s' : 'h' : 'o' : 'r' : 't' : []) = tok 5 CTokShort
+idkwtok ('_' : '_' : 's' : 'i' : 'g' : 'n' : 'e' : 'd' : []) = tok 8 CTokSigned
+idkwtok ('s' : 'i' : 'g' : 'n' : 'e' : 'd' : []) = tok 6 CTokSigned
+idkwtok ('_' : '_' : 's' : 'i' : 'g' : 'n' : 'e' : 'd' : '_' : '_' : []) = tok 10 CTokSigned
+idkwtok ('s' : 'i' : 'z' : 'e' : 'o' : 'f' : []) = tok 6 CTokSizeof
+idkwtok ('s' : 't' : 'a' : 't' : 'i' : 'c' : []) = tok 6 CTokStatic
+idkwtok ('s' : 't' : 'r' : 'u' : 'c' : 't' : []) = tok 6 CTokStruct
+idkwtok ('s' : 'w' : 'i' : 't' : 'c' : 'h' : []) = tok 6 CTokSwitch
+idkwtok ('_' : '_' : 't' : 'h' : 'r' : 'e' : 'a' : 'd' : []) = tok 8 CTokThread
+idkwtok ('t' : 'y' : 'p' : 'e' : 'd' : 'e' : 'f' : []) = tok 7 CTokTypedef
+idkwtok ('_' : '_' : 't' : 'y' : 'p' : 'e' : 'o' : 'f' : []) = tok 8 CTokTypeof
+idkwtok ('t' : 'y' : 'p' : 'e' : 'o' : 'f' : []) = tok 6 CTokTypeof
+idkwtok ('_' : '_' : 't' : 'y' : 'p' : 'e' : 'o' : 'f' : '_' : '_' : []) = tok 10 CTokTypeof
+idkwtok ('u' : 'n' : 'i' : 'o' : 'n' : []) = tok 5 CTokUnion
+idkwtok ('u' : 'n' : 's' : 'i' : 'g' : 'n' : 'e' : 'd' : []) = tok 8 CTokUnsigned
+idkwtok ('v' : 'o' : 'i' : 'd' : []) = tok 4 CTokVoid
+idkwtok ('_' : '_' : 'v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : []) = tok 10 CTokVolatile
+idkwtok ('v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : []) = tok 8 CTokVolatile
+idkwtok ('_' : '_' : 'v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : '_' : '_' : []) = tok 12 CTokVolatile
+idkwtok ('w' : 'h' : 'i' : 'l' : 'e' : []) = tok 5 CTokWhile
 
 idkwtok cs = \pos -> do
   name <- getNewName
+  let len = case length cs of l -> l
   let ident = mkIdent pos cs name
   tyident <- isTypeIdent ident
   if tyident
-    then return (CTokTyIdent pos ident)
-    else return (CTokIdent   pos ident)
+    then return (CTokTyIdent (pos,len) ident)
+    else return (CTokIdent   (pos,len) ident)
 
 ignoreAttribute :: P ()
 ignoreAttribute = skipTokens (0::Int)
@@ -342,12 +366,14 @@ ignoreAttribute = skipTokens (0::Int)
             CTokLParen _             -> skipTokens (n+1)
             _                        -> skipTokens n
 
-tok :: (Position -> CToken) -> Position -> P CToken
-tok tc pos = return (tc pos)
+tok :: Int -> (PosLength -> CToken) -> Position -> P CToken
+tok len tc pos = return (tc (pos,len))
 
-adjustPos :: String -> Position -> Position
-adjustPos str (Position fname row _) = Position fname' row' 1
+adjustPos :: Int -> String -> Position -> Position
+adjustPos pragmaLen str (Position offs fname row col) =
+    offs' `seq` fname' `seq` row' `seq` (Position offs' fname' row' 1)
     where
+    offs'           = offs + pragmaLen
     str'            = dropWhite . drop 1 $ str
     (rowStr, str'') = span isDigit str'
     row'      = read rowStr
@@ -368,8 +394,8 @@ unescapeMultiChars _ = error "Unexpected end of multi-char constant"
 
 {-# INLINE token_ #-}
 -- token that ignores the string
-token_ :: (Position -> CToken) -> Position -> Int -> InputStream -> P CToken
-token_ tok pos _ _ = return (tok pos)
+token_ :: Int -> (PosLength -> CToken) -> Position -> Int -> InputStream -> P CToken
+token_ len tok pos _ _ = return (tok (pos,len))
 
 {-# INLINE token_fail #-}
 -- error token
@@ -380,17 +406,17 @@ token_fail errmsg pos _ _ =   failP pos [ "Lexical Error !", errmsg ]
 
 {-# INLINE token #-}
 -- token that uses the string
-token :: (Position -> a -> CToken) -> (String -> a)
+token :: (PosLength -> a -> CToken) -> (String -> a)
       -> Position -> Int -> InputStream -> P CToken
-token tok read pos len str = return (tok pos (read $ takeChars len str))
+token tok read pos len str = return (tok (pos,len) (read $ takeChars len str))
 
 {-# INLINE token_plus #-}
 -- token that may fail
-token_plus :: (Position -> a -> CToken) -> (String -> Either String a)
+token_plus :: (PosLength -> a -> CToken) -> (String -> Either String a)
       -> Position -> Int -> InputStream -> P CToken
 token_plus tok read pos len str =
   case read (takeChars len str) of Left err -> failP pos [ "Lexical error ! ", err ]
-                                   Right ok -> return $! tok pos ok
+                                   Right ok -> return $! tok (pos,len) ok
 
 -- -----------------------------------------------------------------------------
 -- The input type
@@ -408,11 +434,10 @@ alexGetChar (p,is) | inputStreamEmpty is = Nothing
                                   Just (c, (p', s))
 
 alexMove :: Position -> Char -> Position
-alexMove (Position f l c) ' '  = Position f l (c+1)
-alexMove (Position f l c) '\n' = Position f (l+1) 1
-alexMove (Position f l c) '\t' = Position f l (((c+7) `div` 8)*8+1)
-alexMove p                '\r' = p
-alexMove (Position f l c) _    = Position f l     (c+1)
+alexMove (Position o f l c) ' '  = Position (o+1) f l (c+1)
+alexMove (Position o f l c) '\n' = Position (o+1) f (l+1) 1
+alexMove (Position o f l c) '\r' = Position (o+1) f l c
+alexMove (Position o f l c) _    = Position (o+1) f l (c+1)
 
 lexicalError :: P a
 lexicalError = do
@@ -434,7 +459,7 @@ lexToken = do
   pos <- getPos
   inp <- getInput
   case alexScan (pos, inp) 0 of
-    AlexEOF -> return CTokEof
+    AlexEOF -> handleEofToken >> return CTokEof
     AlexError inp' -> lexicalError
     AlexSkip  (pos', inp') len -> do
         setPos pos'

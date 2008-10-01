@@ -21,12 +21,13 @@ module Language.C.Data (
      -- * Source code positions
      Position(..),Pos(..),
      posFile,posRow,posColumn,
-     nopos,builtinPos,internalPos,
+     initPos, nopos,builtinPos,internalPos,
      isSourcePos,isBuiltinPos,isInternalPos,
      -- * Syntax tree nodes
      NodeInfo(..),CNode(..),
      fileOfNode,posOfNode,nameOfNode,
-     internalNode,mkNodeInfoOnlyPos,mkNodeInfo,
+     undefNode,mkNodeInfoOnlyPos,mkNodeInfo,
+     internalNode, -- DEPRECATED
      -- * Extensible errors
      module Language.C.Data.Error
 )

@@ -65,7 +65,7 @@ data CTranslUnit = CTranslUnit [CExtDecl] NodeInfo
 -- Either a toplevel declaration, function definition or external assembler.
 data CExtDecl = CDeclExt CDecl
               | CFDefExt CFunDef
-              | CAsmExt  CStrLit
+              | CAsmExt  CStrLit NodeInfo
               deriving (Data,Typeable {-! CNode !-})
 
 -- | C function definition (C99 6.9.1, K&R A10.1)
@@ -538,7 +538,7 @@ liftStrLit (CStrLit str at) = CStrConst str at
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 1181183062
+-- CHECKSUM: 583262931
 
 instance CNode CTranslUnit
     where nodeInfo (CTranslUnit _ nodeinfo) = nodeinfo
@@ -548,7 +548,7 @@ instance Pos CTranslUnit
 instance CNode CExtDecl
     where nodeInfo (CDeclExt d) = nodeInfo d
           nodeInfo (CFDefExt d) = nodeInfo d
-          nodeInfo (CAsmExt d) = nodeInfo d
+          nodeInfo (CAsmExt _ nodeinfo) = nodeinfo
 instance Pos CExtDecl
     where posOf x = posOfNode (nodeInfo x)
 

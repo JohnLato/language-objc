@@ -305,8 +305,8 @@ tEnumType sue_ref enumerators attrs node = do
     nextEnrExpr (Left i) Nothing = (Left (succ i), intExpr i)
     nextEnrExpr (Right (e,offs)) Nothing = (Right (e, succ offs), offsExpr e offs)
     nextEnrExpr _ (Just e) = (Right (e,1), e)
-    intExpr i = CConst (CIntConst (cInteger i) internalNode)
-    offsExpr e offs = CBinary CAddOp e (intExpr offs) internalNode
+    intExpr i = CConst (CIntConst (cInteger i) undefNode)
+    offsExpr e offs = CBinary CAddOp e (intExpr offs) undefNode
 
 -- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier.
 tNumType :: (MonadTrav m) => NumTypeSpec -> m (Either (FloatType,Bool) IntType)

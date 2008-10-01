@@ -104,12 +104,12 @@ module Language.C.Parser.Parser (
 
 import Prelude    hiding (reverse)
 import qualified Data.List as List
-
+import Control.Monad (mplus)
 import Language.C.Parser.Builtin   (builtinTypeNames)
 import Language.C.Parser.Lexer     (lexC, parseError)
-import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..))
-import Language.C.Parser.ParserMonad (P, failP, execParser, getNewName, addTypedef, shadowTypedef,
-                                      enterScope, leaveScope, ParseError(..))
+import Language.C.Parser.Tokens    (CToken(..), GnuCTok(..), posLenOfTok)
+import Language.C.Parser.ParserMonad (P, failP, execParser, getNewName, addTypedef, shadowTypedef, getCurrentPosition,
+                                      enterScope, leaveScope, getLastToken, getSavedToken, ParseError(..))
 
 import Language.C.Data.RList
 import Language.C.Data.InputStream
@@ -241,10 +241,13 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 
 
 -- parse a complete C translation unit
---
+-- we have to take special care of empty translation units
 translation_unit :: { CTranslUnit }
 translation_unit
-  : ext_decl_list	{% withNodeInfo $1 $ CTranslUnit (reverse $1) }
+  : ext_decl_list	{% let decls = reverse $1 in
+                       case decls of
+                           []     -> do{ n <- getNewName; p <- getCurrentPosition; return $ CTranslUnit decls (mkNodeInfo' p (p,0) n) }
+                           (d:ds) -> withNodeInfo d $ CTranslUnit decls }
 
 
 -- parse a list of external declarations, making up a C translation unit (C99 6.9)
@@ -255,8 +258,8 @@ translation_unit
 --
 ext_decl_list :: { Reversed [CExtDecl] }
 ext_decl_list
-  : {- empty -}					{ empty }
-  | ext_decl_list ';'			{ $1 }
+  : {- empty -}					        { empty }
+  | ext_decl_list ';'			        { $1 }
   | ext_decl_list external_declaration	{ $1 `snoc` $2 }
 
 
@@ -270,7 +273,7 @@ external_declaration
   : function_definition		              { CFDefExt $1 }
   | declaration			                  { CDeclExt $1 }
   | "__extension__" external_declaration  { $2 }
-  | asm '(' string_literal ')' ';'		  { CAsmExt $3 }
+  | asm '(' string_literal ')' ';'		  {% withNodeInfo $1 $ CAsmExt $3 }
 
 
 -- parse C function definition (C99 6.9.1)
@@ -295,7 +298,7 @@ function_definition
   	{% leaveScope >> (withNodeInfo $1 $ CFunDef [] $1 [] $2) }
 
   |                      attrs function_declarator compound_statement
-    {% leaveScope >> (withNodeInfo $2 $ CFunDef (liftCAttrs $1) $2 [] $3) }
+    {% leaveScope >> (withNodeInfo $1 $ CFunDef (liftCAttrs $1) $2 [] $3) }
 
   | declaration_specifier      function_declarator compound_statement
 	  {% leaveScope >> (withNodeInfo $1 $ CFunDef $1 $2 [] $3) }
@@ -364,7 +367,7 @@ statement
 --
 labeled_statement :: { CStat }
 labeled_statement
-  : identifier ':' attrs_opt statement		{% withNodeInfo $2 $ CLabel $1 $4 $3 }
+  : identifier ':' attrs_opt statement		{% withNodeInfo $1 $ CLabel $1 $4 $3 }
   | case constant_expression ':' statement	{% withNodeInfo $1 $ CCase $2 $4 }
   | default ':' statement			{% withNodeInfo $1 $ CDefault $3 }
   | case constant_expression "..." constant_expression ':' statement
@@ -428,7 +431,7 @@ nested_function_definition
 
 label_declarations :: { Reversed [Ident] }
 label_declarations
-  : "__label__" identifier_list ';'			{ $2 }
+  : "__label__" identifier_list ';'			{ $2  } --TODO
   | label_declarations "__label__" identifier_list ';'	{ $1 `rappendr` $3 }
 
 
@@ -479,9 +482,9 @@ jump_statement :: { CStat }
 jump_statement
   : goto identifier ';'			{% withNodeInfo $1 $ CGoto $2 }
   | goto '*' expression ';'		{% withNodeInfo $1 $ CGotoPtr $3 }
-  | continue ';'			{% withNodeInfo $1 $ CCont }
-  | break ';'				{% withNodeInfo $1 $ CBreak }
-  | return expression_opt ';'		{% withNodeInfo $1 $ CReturn $2 }
+  | continue ';'			    {% withNodeInfo $1 $ CCont }
+  | break ';'				    {% withNodeInfo $1 $ CBreak }
+  | return expression_opt ';'	{% withNodeInfo $1 $ CReturn $2 }
 
 
 -- parse GNU C __asm__ statement (compatible with C99: J.5.10)
@@ -508,28 +511,28 @@ asm_statement
 maybe_type_qualifier :: { Maybe CTypeQual }
 maybe_type_qualifier
   : {- empty -}		  { Nothing }
-  | type_qualifier	{ Just $1 }
+  | type_qualifier	  { Just $1 }
 
 asm_operands :: { [CAsmOperand] }
 asm_operands
   : {- empty -}				{ [] }
-  | nonnull_asm_operands		{ reverse $1 }
+  | nonnull_asm_operands    { reverse $1 }
 
 nonnull_asm_operands :: { Reversed [CAsmOperand] }
 nonnull_asm_operands
-  : asm_operand					{ singleton $1 }
-  | nonnull_asm_operands ',' asm_operand	{ $1 `snoc` $3 }
+  : asm_operand					          { singleton $1 }
+  | nonnull_asm_operands ',' asm_operand  { $1 `snoc` $3 }
 
 asm_operand :: { CAsmOperand }
 asm_operand
-  : string_literal '(' expression ')'			            {% withNodeInfo $1 $ CAsmOperand Nothing $1 $3 }
-  | '[' ident ']' string_literal '(' expression ')'   {% withNodeInfo $4 $ CAsmOperand (Just $2) $4 $6 }
-  | '[' tyident ']' string_literal '(' expression ')'	{% withNodeInfo $4 $ CAsmOperand (Just $2) $4 $6 }
+  : string_literal '(' expression ')'			      {% withNodeInfo $1 $ CAsmOperand Nothing $1 $3 }
+  | '[' ident ']' string_literal '(' expression ')'   {% withNodeInfo $1 $ CAsmOperand (Just $2) $4 $6 }
+  | '[' tyident ']' string_literal '(' expression ')' {% withNodeInfo $1 $ CAsmOperand (Just $2) $4 $6 }
 
 
 asm_clobbers :: { Reversed [CStrLit] }
 asm_clobbers
-  : string_literal			            { singleton $1 }
+  : string_literal			        { singleton $1 }
   | asm_clobbers ',' string_literal	{ $1 `snoc` $3 }
 
 {-
@@ -647,27 +650,18 @@ declaration
   	{% withNodeInfo $1 $ CDecl (reverse $1) [] }
 
   | declaring_list ';'
-  	{ case $1 of
-            CDecl declspecs dies at ->
-              CDecl declspecs (List.reverse dies) at }
+  	{% case $1 of CDecl declspecs dies at -> withLength at (CDecl declspecs (List.reverse dies)) }
 
   | default_declaring_list ';'
-  	{ case $1 of
-            CDecl declspecs dies at ->
-              CDecl declspecs (List.reverse dies) at }
+  	{% case $1 of CDecl declspecs dies at -> withLength at (CDecl declspecs (List.reverse dies)) }
 
 
 declaration_list :: { Reversed [CDecl] }
 declaration_list
-  : {- empty -}					{ empty }
-  | declaration_list declaration		{ $1 `snoc` $2 }
+  : {- empty -}					 { empty }
+  | declaration_list declaration { $1 `snoc` $2 }
 
 
--- Note that if a typedef were redeclared, then a declaration
--- specifier must be supplied
---
--- Can't redeclare typedef names
---
 -- * SUMMARY: default_declaring_list :- qualifier* identifier_declarator asm_attrs initializer?
 --                                                 { ',' identifier_declarator asm_attrs initializer? }
 --
@@ -682,7 +676,8 @@ default_declaring_list
   	{% let declspecs = reverse $1 in
   	   do{ declr <- withAsmNameAttrs $3 $2
            ; doDeclIdent declspecs declr
-           ; withNodeInfo $1 $ CDecl declspecs [(Just (reverseDeclr declr), $4, Nothing)] }}
+           ; withNodeInfo $1 $
+                CDecl declspecs [(Just (reverseDeclr declr), $4, Nothing)] }}
 
   | type_qualifier_list identifier_declarator asm_attrs_opt {-{}-} initializer_opt
   	{% let declspecs = liftTypeQuals $1 in
@@ -708,7 +703,7 @@ default_declaring_list
              CDecl declspecs dies at -> do
                declr <- withAsmNameAttrs (fst $5, snd $5 ++ $3) $4
                doDeclIdent declspecs declr
-               return (CDecl declspecs ((Just (reverseDeclr declr), $6, Nothing) : dies) at) }
+               withLength at $ CDecl declspecs ((Just (reverseDeclr declr), $6, Nothing) : dies)  }
 
 -- assembler, followed by attribute annotation
 asm_attrs_opt :: { (Maybe CStrLit, [CAttr]) }
@@ -995,32 +990,32 @@ typedef_type_specifier
   	{% withNodeInfo $1 $ \at -> singleton (CTypeSpec (CTypeOfType $3 at)) }
 
   | type_qualifier_list tyident
-  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeDef $2 at) }
+  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeDef $2 at) }
 
   | type_qualifier_list typeof '(' expression ')'
-  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
+  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
 
   | type_qualifier_list typeof '(' type_name ')'
-  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfType $4 at) }
+  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfType $4 at) }
 
   -- repeat with attrs (this could be easier if type qualifier list wouldn't allow leading attributes)
   | attrs tyident
-  	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc` (CTypeSpec (CTypeDef $2 at)) }
+  	{% withNodeInfo $1 $ \at -> reverseList (liftCAttrs $1) `snoc` (CTypeSpec (CTypeDef $2 at)) }
 
   | attrs typeof '(' expression ')'
-  	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfExpr $4 at)) }
+  	{% withNodeInfo $1 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfExpr $4 at)) }
 
   | attrs typeof '(' type_name ')'
-  	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfType $4 at)) }
+  	{% withNodeInfo $1 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfType $4 at)) }
 
   | type_qualifier_list attrs tyident
-  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeDef $3 at) }
+  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeDef $3 at) }
 
   | type_qualifier_list attrs typeof '(' expression ')'
-  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfExpr $5 at) }
+  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfExpr $5 at) }
 
   | type_qualifier_list attrs typeof '(' type_name ')'
-  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfType $5 at) }
+  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfType $5 at) }
 
   | typedef_type_specifier type_qualifier
   	{ $1 `snoc` CTypeQual $2 }
@@ -1406,7 +1401,7 @@ old_function_declarator
 postfix_old_function_declarator :: { CDeclrR }
 postfix_old_function_declarator
   : paren_identifier_declarator '(' identifier_list ')'
-  	{% withNodeInfo $2 $ funDeclr $1 (Left $ reverse $3) [] }
+  	{% withNodeInfo $1 $ funDeclr $1 (Left $ reverse $3) [] }
 
   | '(' old_function_declarator ')'
   	{ $2 }
@@ -1695,8 +1690,8 @@ primary_expression
 offsetof_member_designator :: { Reversed [CDesignator] }
 offsetof_member_designator
   : identifier						                        {% withNodeInfo $1 $ singleton . CMemberDesig $1 }
-  | offsetof_member_designator '.' identifier		  {% withNodeInfo $3 $ ($1 `snoc`) . CMemberDesig $3 }
-  | offsetof_member_designator '[' expression ']'	{% withNodeInfo $3 $ ($1 `snoc`) . CArrDesig $3 }
+  | offsetof_member_designator '.' identifier		  {% withNodeInfo $1 $ ($1 `snoc`) . CMemberDesig $3 }
+  | offsetof_member_designator '[' expression ']'	{% withNodeInfo $1 $ ($1 `snoc`) . CArrDesig $3 }
 
 
 -- parse C postfix expression (C99 6.5.2)
@@ -1707,31 +1702,31 @@ postfix_expression
   	{ $1 }
 
   | postfix_expression '[' expression ']'
-  	{% withNodeInfo $2 $ CIndex $1 $3 }
+  	{% withNodeInfo $1 $ CIndex $1 $3 }
 
   | postfix_expression '(' ')'
-  	{% withNodeInfo $2 $ CCall $1 [] }
+  	{% withNodeInfo $1 $ CCall $1 [] }
 
   | postfix_expression '(' argument_expression_list ')'
-  	{% withNodeInfo $2 $ CCall $1 (reverse $3) }
+  	{% withNodeInfo $1 $ CCall $1 (reverse $3) }
 
   | postfix_expression '.' identifier
-  	{% withNodeInfo $2 $ CMember $1 $3 False }
+  	{% withNodeInfo $1 $ CMember $1 $3 False }
 
   | postfix_expression "->" identifier
-  	{% withNodeInfo $2 $ CMember $1 $3 True }
+  	{% withNodeInfo $1 $ CMember $1 $3 True }
 
   | postfix_expression "++"
-  	{% withNodeInfo $2 $ CUnary CPostIncOp $1 }
+  	{% withNodeInfo $1 $ CUnary CPostIncOp $1 }
 
   | postfix_expression "--"
-  	{% withNodeInfo $2 $ CUnary CPostDecOp $1 }
+  	{% withNodeInfo $1 $ CUnary CPostDecOp $1 }
 
   | '(' type_name ')' '{' initializer_list '}'
-  	{% withNodeInfo $4 $ CCompoundLit $2 (reverse $5) }
+  	{% withNodeInfo $1 $ CCompoundLit $2 (reverse $5) }
 
   | '(' type_name ')' '{' initializer_list ',' '}'
-  	{% withNodeInfo $4 $ CCompoundLit $2 (reverse $5) }
+  	{% withNodeInfo $1 $ CCompoundLit $2 (reverse $5) }
 
 
 argument_expression_list :: { Reversed [CExpr] }
@@ -1791,13 +1786,13 @@ multiplicative_expression
   	{ $1 }
 
   | multiplicative_expression '*' cast_expression
-  	{% withNodeInfo $2 $ CBinary CMulOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CMulOp $1 $3 }
 
   | multiplicative_expression '/' cast_expression
-  	{% withNodeInfo $2 $ CBinary CDivOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CDivOp $1 $3 }
 
   | multiplicative_expression '%' cast_expression
-  	{% withNodeInfo $2 $ CBinary CRmdOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CRmdOp $1 $3 }
 
 
 -- parse C additive expression (C99 6.5.6)
@@ -1808,10 +1803,10 @@ additive_expression
   	{ $1 }
 
   | additive_expression '+' multiplicative_expression
-  	{% withNodeInfo $2 $ CBinary CAddOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CAddOp $1 $3 }
 
   | additive_expression '-' multiplicative_expression
-  	{% withNodeInfo $2 $ CBinary CSubOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CSubOp $1 $3 }
 
 
 -- parse C shift expression (C99 6.5.7)
@@ -1822,10 +1817,10 @@ shift_expression
   	{ $1 }
 
   | shift_expression "<<" additive_expression
-  	{% withNodeInfo $2 $ CBinary CShlOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CShlOp $1 $3 }
 
   | shift_expression ">>" additive_expression
-  	{% withNodeInfo $2 $ CBinary CShrOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CShrOp $1 $3 }
 
 
 -- parse C relational expression (C99 6.5.8)
@@ -1836,16 +1831,16 @@ relational_expression
   	{ $1 }
 
   | relational_expression '<' shift_expression
-  	{% withNodeInfo $2 $ CBinary CLeOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CLeOp $1 $3 }
 
   | relational_expression '>' shift_expression
-  	{% withNodeInfo $2 $ CBinary CGrOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CGrOp $1 $3 }
 
   | relational_expression "<=" shift_expression
-  	{% withNodeInfo $2 $ CBinary CLeqOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CLeqOp $1 $3 }
 
   | relational_expression ">=" shift_expression
-  	{% withNodeInfo $2 $ CBinary CGeqOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CGeqOp $1 $3 }
 
 
 -- parse C equality expression (C99 6.5.9)
@@ -1856,10 +1851,10 @@ equality_expression
   	{ $1 }
 
   | equality_expression "==" relational_expression
-  	{% withNodeInfo $2 $ CBinary CEqOp  $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CEqOp  $1 $3 }
 
   | equality_expression "!=" relational_expression
-  	{% withNodeInfo $2 $ CBinary CNeqOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CNeqOp $1 $3 }
 
 
 -- parse C bitwise and expression (C99 6.5.10)
@@ -1870,7 +1865,7 @@ and_expression
   	{ $1 }
 
   | and_expression '&' equality_expression
-  	{% withNodeInfo $2 $ CBinary CAndOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CAndOp $1 $3 }
 
 
 -- parse C bitwise exclusive or expression (C99 6.5.11)
@@ -1881,7 +1876,7 @@ exclusive_or_expression
   	{ $1 }
 
   | exclusive_or_expression '^' and_expression
-  	{% withNodeInfo $2 $ CBinary CXorOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CXorOp $1 $3 }
 
 
 -- parse C bitwise or expression (C99 6.5.12)
@@ -1892,7 +1887,7 @@ inclusive_or_expression
   	{ $1 }
 
   | inclusive_or_expression '|' exclusive_or_expression
-  	{% withNodeInfo $2 $ CBinary COrOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary COrOp $1 $3 }
 
 
 -- parse C logical and expression (C99 6.5.13)
@@ -1903,7 +1898,7 @@ logical_and_expression
   	{ $1 }
 
   | logical_and_expression "&&" inclusive_or_expression
-  	{% withNodeInfo $2 $ CBinary CLndOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CLndOp $1 $3 }
 
 
 -- parse C logical or expression (C99 6.5.14)
@@ -1914,7 +1909,7 @@ logical_or_expression
   	{ $1 }
 
   | logical_or_expression "||" logical_and_expression
-  	{% withNodeInfo $2 $ CBinary CLorOp $1 $3 }
+  	{% withNodeInfo $1 $ CBinary CLorOp $1 $3 }
 
 
 -- parse C conditional expression (C99 6.5.15)
@@ -1927,10 +1922,10 @@ conditional_expression
   	{ $1 }
 
   | logical_or_expression '?' expression ':' conditional_expression
-  	{% withNodeInfo $2 $ CCond $1 (Just $3) $5 }
+  	{% withNodeInfo $1 $ CCond $1 (Just $3) $5 }
 
   | logical_or_expression '?' ':' conditional_expression
-  	{% withNodeInfo $2 $ CCond $1 Nothing $4 }
+  	{% withNodeInfo $1 $ CCond $1 Nothing $4 }
 
 
 -- parse C assignment expression (C99 6.5.16)
@@ -1944,7 +1939,7 @@ assignment_expression
   	{ $1 }
 
   | unary_expression assignment_operator assignment_expression
-  	{% withNodeInfo $2 $ CAssign (unL $2) $1 $3 }
+  	{% withNodeInfo $1 $ CAssign (unL $2) $1 $3 }
 
 
 assignment_operator :: { Located CAssignOp }
@@ -2081,17 +2076,34 @@ unL (L a pos) = a
 instance Pos (Located a) where
   posOf (L _ pos) = pos
 
+-- FIXME: the next 3 inlines here increase the object file size by  70%
+-- Check whether the speed win is worth it
 {-# INLINE withNodeInfo #-}
 withNodeInfo :: Pos node => node -> (NodeInfo -> a) -> P a
-withNodeInfo node mkAttributedNode = do
+withNodeInfo node mkAttrNode = do
   name <- getNewName
-  let attrs = mkNodeInfo (posOf node) name
-  attrs `seq` return (mkAttributedNode attrs)
+  lastTok <- getSavedToken
+  let firstPos = posOf node
+  let attrs = mkNodeInfo' firstPos (posLenOfTok $! lastTok) name
+  attrs `seq` return (mkAttrNode attrs)
+
+{-# INLINE withLength #-}
+withLength :: NodeInfo -> (NodeInfo -> a) -> P a
+withLength nodeinfo mkAttrNode = do
+  lastTok <- getSavedToken
+  let firstPos = posOfNode nodeinfo
+  let attrs = mkNodeInfo' firstPos (posLenOfTok $! lastTok) 
+              (maybe (error "nameOfNode") id (nameOfNode nodeinfo))
+  attrs `seq` return (mkAttrNode attrs)
 
 data CDeclrR = CDeclrR (Maybe Ident) (Reversed [CDerivedDeclr]) (Maybe CStrLit) [CAttr] NodeInfo
 reverseDeclr :: CDeclrR -> CDeclr
 reverseDeclr (CDeclrR ide reversedDDs asmname cattrs at)
     = CDeclr ide (reverse reversedDDs) asmname cattrs at
+instance CNode (CDeclrR) where
+    nodeInfo (CDeclrR _ _ _ _ n) = n
+instance Pos (CDeclrR) where
+    posOf (CDeclrR _ _ _ _ n) = posOf n
 
 {-# INLINE withAttribute #-}
 withAttribute :: Pos node => node -> [CAttr] -> (NodeInfo -> CDeclrR) -> P CDeclrR
@@ -2172,9 +2184,7 @@ arrDeclr (CDeclrR ident derivedDeclrs asmname cattrs dat) tyquals var_sized stat
                  Nothing -> CNoArrSize var_sized
 
 liftTypeQuals :: Reversed [CTypeQual] -> [CDeclSpec]
-liftTypeQuals (Reversed tyqs) = revmap [] tyqs
-  where revmap a []     = a
-        revmap a (x:xs) = revmap (CTypeQual x : a) xs
+liftTypeQuals = map CTypeQual . reverse
 
 -- lift CAttrs to DeclSpecs
 --
@@ -2201,7 +2211,9 @@ instance Pos a => Pos [a] where
 instance Pos a => Pos (Reversed a) where
   posOf (Reversed x) = posOf x
 
-emptyDeclr     = CDeclrR Nothing empty Nothing [] (mkNodeInfoOnlyPos nopos)
+emptyDeclr :: CDeclrR
+emptyDeclr       = CDeclrR Nothing empty Nothing [] undefNode
+mkVarDeclr :: Ident -> NodeInfo -> CDeclrR
 mkVarDeclr ident = CDeclrR (Just ident) empty Nothing []
 
 -- Take the identifiers and use them to update the typedef'ed identifier set
@@ -2213,7 +2225,7 @@ doDeclIdent declspecs (CDeclrR mIdent _ _ _ _) =
   case mIdent of
     Nothing -> return ()
     Just ident | any iypedef declspecs -> addTypedef ident
-               | otherwise               -> shadowTypedef ident
+               | otherwise             -> shadowTypedef ident
 
   where iypedef (CStorageSpec (CTypedef _)) = True
         iypedef _                           = False

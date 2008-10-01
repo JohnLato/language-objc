@@ -457,7 +457,7 @@ instance HasCompTyKind CompType where compTag (CompType _ tag _ _ _) = tag
 
 -- | return the type of a composite type definition
 typeOfCompDef :: CompType -> TypeName
-typeOfCompDef (CompType ref tag _ _ _) = TyComp (CompTypeRef ref tag internalNode)
+typeOfCompDef (CompType ref tag _ _ _) = TyComp (CompTypeRef ref tag undefNode)
 
 -- | a tag to determine wheter we refer to a @struct@ or @union@, see 'CompType'.
 data CompTyKind =  StructTag
@@ -477,7 +477,7 @@ instance HasSUERef EnumType where sueRef  (EnumType ref _ _ _) = ref
 
 -- | return the type of an enum definition
 typeOfEnumDef :: EnumType -> TypeName
-typeOfEnumDef (EnumType ref _ _ _) = TyEnum (EnumTypeRef ref internalNode)
+typeOfEnumDef (EnumType ref _ _ _) = TyEnum (EnumTypeRef ref undefNode)
 
 -- | An Enumerator consists of an identifier, a constant expressions and the link to its type
 data Enumerator = Enumerator Ident Expr EnumType NodeInfo

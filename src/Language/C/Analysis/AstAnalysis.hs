@@ -55,7 +55,7 @@ analyseAST (CTranslUnit decls _file_node) = do
 
 -- | Analyse an top-level declaration
 analyseExt :: (MonadTrav m) => CExtDecl -> m ()
-analyseExt (CAsmExt asm)
+analyseExt (CAsmExt asm _)
     = handleAsmBlock asm
 analyseExt (CFDefExt fundef)
     = analyseFunDef fundef

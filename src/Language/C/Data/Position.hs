@@ -14,99 +14,99 @@ module Language.C.Data.Position (
   --
   -- source text positions
   --
-  Position(Position),
-  posFile,posRow,posColumn,isSourcePos,
+  Position(Position),PosLength,
+  posFile,posRow,posColumn,posOffset,
+  initPos, isSourcePos,
   nopos, isNoPos,
   builtinPos, isBuiltinPos,
   internalPos, isInternalPos,
-  incPos, tabPos, retPos,
+  incPos, retPos,
   Pos(..),
 ) where
 import Data.Generics
 
--- | uniform representation of source file positions; the order of the arguments
--- is important as it leads to the desired ordering of source positions
-data Position = Position String         -- file name
+-- | uniform representation of source file positions 
+data Position = Position 
+        {-# UNPACK #-}   !Int           -- offset/id
+        String                          -- file name
         {-# UNPACK #-}   !Int           -- row
-        {-# UNPACK #-}   !Int           -- column
+        {-# UNPACK #-}   !Int           -- column (remove ?)
   deriving (Eq, Ord, Typeable, Data)
 
+type PosLength = (Position,Int)
+
 instance Show Position where
-  show pos@(Position fname row col)
+  show pos@(Position _ fname row _)
     | isNoPos pos = "<no file>"
     | isBuiltinPos pos = "<builtin>"
     | isInternalPos pos = "<internal>"
-    | otherwise = show (fname, row, col)
-instance Read Position where
-    readsPrec p s = case s of
-                       '<' : _  -> readInternal s
-                       _        -> map (\((file,row,pos),r) -> (Position file row pos,r)) . readsPrec p $ s
-readInternal :: ReadS Position
-readInternal s | (Just rest) <- readString "<no file>" s = [(nopos,rest)]
-               | (Just rest) <- readString "<builtin>" s = [(builtinPos,rest)]
-               | (Just rest) <- readString "<internal>" s = [(internalPos,rest)]
-               | otherwise                             = []
-    where readString [] r = return r
-          readString (c:cs) (c':cs') | c == c'    = readString cs cs'
-                                     | otherwise = Nothing
-          readString (_:_) [] = Nothing
-
+    | otherwise = "(" ++ show fname ++ ": line " ++ show row ++ ")"
+    
 -- | get the source file of the specified position. Fails unless @isSourcePos pos@.
 posFile :: Position -> String
-posFile (Position fname _ _) = fname
+posFile (Position _ fname _ col) = fname
 
 -- | get the line number of the specified position. Fails unless @isSourcePos pos@
 posRow  :: Position -> Int
-posRow (Position _ row _) = row
+posRow (Position _ _ row col) = row
 
--- | get the column of the specified position. Fails unless @isSourcePos pos@
+{-# DEPRECATED posColumn "column number information is inaccurate in presence of macros - do not rely on it." #-}
+
+-- | get the column of the specified position.
+-- Has been removed, as column information is inaccurate before preprocessing,
+-- and meaningless afterwards (because of #LINE pragmas).
 posColumn :: Position -> Int
-posColumn (Position _ _ col) = col
+posColumn (Position _ _ _ col) = col
+
+-- | get the absolute offset of the position (in the preprocessed source)
+posOffset :: Position -> Int
+posOffset (Position off _ _ col) = off
 
 -- | class of type which aggregate a source code location
 class Pos a where
     posOf :: a -> Position
 
+-- | initialize a Position to the start of the translation unit starting in the given file
+initPos :: FilePath -> Position
+initPos file = Position 0 file 1 1
+
 -- | returns @True@ if the given position refers to an actual source file
 isSourcePos :: Position -> Bool
-isSourcePos (Position _ row col) = row >= 0 && col >= 0
+isSourcePos (Position _ _ row col) = row >= 0
 
 -- | no position (for unknown position information)
 nopos :: Position
-nopos  = Position "<no file>" (-1) 0
+nopos  = Position (-1) "<no file>" (-1) 0 
 
 isNoPos :: Position -> Bool
-isNoPos (Position _ (-1) 0) = True
-isNoPos _                   = False
+isNoPos (Position _ _ (-1) _) = True
+isNoPos _                     = False
 
 -- | position attached to built-in objects
 --
 builtinPos :: Position
-builtinPos  = Position "<built into the parser>" (-1) 1
+builtinPos  = Position (-2) "<built into the parser>" (-2) 0
 
 -- | returns @True@ if the given position refers to a builtin definition
 isBuiltinPos :: Position -> Bool
-isBuiltinPos (Position _ (-1) 1) = True
+isBuiltinPos (Position _ _ (-2) _) = True
 isBuiltinPos _                   = False
 
 -- | position used for internal errors
 internalPos :: Position
-internalPos = Position "<internal error>" (-1) 2
+internalPos = Position (-3) "<internal error>" (-3) 0
 
 -- | returns @True@ if the given position is internal
 isInternalPos :: Position -> Bool
-isInternalPos (Position _ (-1) 2) = True
-isInternalPos _                      = False
+isInternalPos (Position _ _ (-3) _) = True
+isInternalPos _                   = False
 
+{-# INLINE incPos #-}
 -- | advance column
 incPos :: Position -> Int -> Position
-incPos (Position fname row col) n = Position fname row (col + n)
+incPos (Position offs fname row col) n = Position (offs+n) fname row (col+n)
 
--- | advance column to next tab positions (tabs are considered to be at every 8th column)
-tabPos :: Position -> Position
-tabPos (Position fname row col) =
-        Position fname row (col + 8 - (col - 1) `mod` 8)
-
+{-# INLINE retPos #-}
 -- | advance to next line
 retPos :: Position -> Position
-retPos (Position fname row _col) = Position fname (row + 1) 1
+retPos (Position offs fname row _) = Position (offs+1) fname (row + 1) 1

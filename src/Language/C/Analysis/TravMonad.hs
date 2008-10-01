@@ -343,7 +343,7 @@ runTrav state traversal =
     va_list = (TypeDef (internalIdent "__builtin_va_list")
                        (DirectType (TyBuiltin TyVaList) noTypeQuals)
                        []
-                       (internalNode))
+                       (undefNode))
 
 runTrav_ :: Trav () a -> Either [CError] (a,[CError])
 runTrav_ t = fmap fst . runTrav () $

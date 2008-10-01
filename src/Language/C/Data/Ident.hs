@@ -46,8 +46,8 @@ isAnonymousRef _ = False
 
 -- | C identifiers
 data Ident = Ident String       -- lexeme
-                   {-# UNBOXED #-}   !Int         -- hash to speed up equality check
-                   NodeInfo        -- attributes of this ident. incl. position
+                   {-# UNBOXED #-}   !Int     -- hash to speed up equality check
+                   NodeInfo                   -- attributes of this ident. incl. position
              deriving (Data,Typeable)
 
 -- the definition of the equality allows identifiers to be equal that are
@@ -108,7 +108,7 @@ bits28 = 2^(28::Int)
 --
 -- * for reasons of simplicity the complete lexeme is hashed.
 mkIdent            :: Position -> String -> Name -> Ident
-mkIdent pos s name  = Ident s (quad s) (mkNodeInfo pos name)
+mkIdent pos s name  = Ident s (quad s) (mkNodeInfo' pos (pos,length s) name)
 
 -- | returns an /internal/ identifier (has internal position and no unique name)
 internalIdent   :: String -> Ident
@@ -116,7 +116,7 @@ internalIdent s  = Ident s (quad s) (mkNodeInfoOnlyPos internalPos)
 
 -- | return an /internal/ identifier with position info
 internalIdentAt :: Position -> String -> Ident
-internalIdentAt pos s = Ident s (quad s) (mkNodeInfoOnlyPos pos)
+internalIdentAt pos s = Ident s (quad s) (mkNodeInfoPosLen pos (pos, length s))
 
 -- | returns a /builtin/ identifier (has builtin position and no unique name)
 builtinIdent   :: String -> Ident

@@ -33,7 +33,10 @@ module Language.C.Parser.ParserMonad (
   getInput,          -- :: P String
   setInput,          -- :: String -> P ()
   getLastToken,      -- :: P CToken
+  getSavedToken,     -- :: P CToken
   setLastToken,      -- :: CToken -> P ()
+  handleEofToken,    -- :: P ()
+  getCurrentPosition,-- :: P Position
   ParseError(..),
   ) where
 import Language.C.Data.Error (internalErr, showErrorInfo,ErrorInfo(..),ErrorLevel(..))
@@ -41,7 +44,7 @@ import Language.C.Data.Position  (Position(..))
 import Language.C.Data.InputStream
 import Language.C.Data.Name    (Name)
 import Language.C.Data.Ident    (Ident)
-import Language.C.Parser.Tokens (CToken)
+import Language.C.Parser.Tokens (CToken(CTokEof))
 
 import Data.Set  (Set)
 import qualified Data.Set as Set (fromList, insert, member, delete)
@@ -59,6 +62,7 @@ data PState = PState {
         curPos     :: !Position,        -- position at current input location
         curInput   :: !InputStream,      -- the current input
         prevToken  ::  CToken,          -- the previous token
+        savedToken ::  CToken,          -- and the token before that
         namesupply :: ![Name],          -- the name unique supply
         tyidents   :: !(Set Ident),     -- the set of typedef'ed identifiers
         scopes     :: ![Set Ident]      -- the tyident sets for outer scopes
@@ -87,6 +91,7 @@ execParser (P parser) input pos builtins names =
           curPos = pos,
           curInput = input,
           prevToken = internalErr "CLexer.execParser: Touched undefined token!",
+          savedToken = internalErr "CLexer.execParser: Touched undefined token (safed token)!",
           namesupply = names,
           tyidents = Set.fromList builtins,
           scopes   = []
@@ -107,7 +112,7 @@ failP :: Position -> [String] -> P a
 failP pos msg = P $ \_ -> PFailed msg pos
 
 getNewName :: P Name
-getNewName = P $ \s@PState{namesupply=(n:ns)} -> POk s{namesupply=ns} n
+getNewName = P $ \s@PState{namesupply=(n:ns)} -> n `seq` POk s{namesupply=ns} n
 
 setPos :: Position -> P ()
 setPos pos = P $ \s -> POk s{curPos=pos} ()
@@ -151,5 +156,16 @@ setInput i = P $ \s -> POk s{curInput=i} ()
 getLastToken :: P CToken
 getLastToken = P $ \s@PState{prevToken=tok} -> POk s tok
 
+getSavedToken :: P CToken
+getSavedToken = P $ \s@PState{savedToken=tok} -> POk s tok
+
 setLastToken :: CToken -> P ()
-setLastToken tok = P $ \s -> POk s{prevToken=tok} ()
+setLastToken CTokEof = handleEofToken
+setLastToken tok     = P $ \s -> POk s{prevToken=tok,savedToken=(prevToken s)} ()
+
+-- | handle an End-Of-File token (changes savedToken)
+handleEofToken :: P ()
+handleEofToken = P $ \s -> POk s{savedToken=(prevToken s)} ()
+
+getCurrentPosition :: P Position
+getCurrentPosition = P $ \s@PState{curPos=pos} -> POk s pos

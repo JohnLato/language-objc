@@ -102,7 +102,7 @@ runP config parser str =
   where
   is = inputStreamFromString str
   pResult = execParser_ parser is (argPos)
-  argPos = Position "<cmd-line-arg>" 1 1
+  argPos = initPos "<cmd-line-arg>"
 
 output :: CTestConfig -> FilePath -> CTranslUnit -> IO ()
 output config file ast = do

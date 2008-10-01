@@ -54,7 +54,7 @@ theParseTest' origFile gccArgs = do
 
     (cFile, preFile) <- runCPP origFile gccArgs
     modify $ setTestRunResults (emptyTestResults (takeBaseName origFile) [cFile])
-    parseResult <- runParseTest preFile (Position cFile 1 1)
+    parseResult <- runParseTest preFile (initPos cFile)
     case expectNonParse of
       True -> 
         let parseTest1 = initializeTestResult (parseTestTemplate { testName = "01-fail-parse" }) [origFile] in

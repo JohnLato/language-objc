@@ -49,7 +49,7 @@ roundtripTest' origFile gccArgs = do
 
     -- parse
     let parseTest1 = initializeTestResult (parseTestTemplate { testName = "01-parse" }) [origFile]
-    parseResult <- runParseTest preFile (Position cFile 1 1)
+    parseResult <- runParseTest preFile (initPos cFile)
     addTestM $
       setTestStatus parseTest1 $ 
         either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult
@@ -64,7 +64,7 @@ roundtripTest' origFile gccArgs = do
 
     -- parse again (TODO: factor out code duplication with first parse test)
     let parseTest2 = initializeTestResult (parseTestTemplate { testName = "03-parse-pretty-printed" }) [prettyFile]
-    parseResult2 <- runParseTest prettyFile (Position prettyFile 1 1)
+    parseResult2 <- runParseTest prettyFile (initPos prettyFile)
     addTestM $
       setTestStatus parseTest2 $ 
         either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult2

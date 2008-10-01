@@ -20,7 +20,7 @@ import Control.Monad.State
 import System.FilePath (takeBaseName)
 import Text.PrettyPrint
 
-import Language.C.Data.Position
+import Language.C.Data
 import Language.C.Test.Environment
 import Language.C.Test.Framework
 import Language.C.Test.ParseTests
@@ -60,13 +60,13 @@ theEquivTest' f1 f2 gccArgs = do
     let parseTest2 = initializeTestResult (parseTestTemplate { testName = "02-parse" }) [f2]
 
     modify $ setTmpTemplate (takeBaseName f1)
-    parseResult1 <- runParseTest preFile1 (Position cFile1 1 1)
+    parseResult1 <- runParseTest preFile1 (initPos cFile1)
     addTestM $
       setTestStatus parseTest1 $ 
         either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult1
     ast1 <- either (const exitTest) (return . fst) parseResult1
     modify $ setTmpTemplate (takeBaseName f2)
-    parseResult2 <- runParseTest preFile2 (Position cFile2 1 1)
+    parseResult2 <- runParseTest preFile2 (initPos cFile2)
     addTestM $
       setTestStatus parseTest2 $ 
         either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult2

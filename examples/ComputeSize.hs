@@ -32,11 +32,9 @@ main = do
     checkResult :: (Show a) => String -> (Either a b) -> IO b
     checkResult label = either (error . (label++) . show) return
 
-ni :: NodeInfo
-ni = internalNode
 generateSizeTests :: String -> GlobalDecls -> CTranslUnit
 generateSizeTests pat globals = 
-      flip CTranslUnit ni $
+      flip CTranslUnit undefNode $
       -- forward declare all composite types
          map declareComp (Map.elems all_comps)
       -- declare enums
@@ -92,13 +90,13 @@ computeRefClosure all_comps initial_comps =
     fromDirectRefdType _ = Nothing
 
 defineEnum :: EnumType -> CExtDecl
-defineEnum ty = CDeclExt (CDecl (map CTypeSpec (exportEnumType $ ty)) [] ni)
+defineEnum ty = CDeclExt (CDecl (map CTypeSpec (exportEnumType $ ty)) [] undefNode)
 
 declareComp :: CompType -> CExtDecl
-declareComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompTypeRef ty)) [] ni)
+declareComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompTypeRef ty)) [] undefNode)
 
 defineComp :: CompType -> CExtDecl
-defineComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompType $ derefTypeDefs ty)) [] ni)
+defineComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompType $ derefTypeDefs ty)) [] undefNode)
     where
     derefTypeDefs ty = everywhere (mkT derefTypeDef `extT` replaceEnum) ty
     derefTypeDef (TypeDefType (TypeDefRef _ (Just ty) _)) = ty
@@ -107,15 +105,15 @@ defineComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompType $ derefTypeDefs t
     replaceEnum dty = dty
     
 defineTyDef :: (CompTypeRef, Ident) -> CExtDecl
-defineTyDef (ctr,tydef) = CDeclExt (CDecl specs [(Just$ CDeclr (Just tydef) [] Nothing [] ni, Nothing, Nothing)] ni)
+defineTyDef (ctr,tydef) = CDeclExt (CDecl specs [(Just$ CDeclr (Just tydef) [] Nothing [] undefNode, Nothing, Nothing)] undefNode)
   where 
-  specs = [CStorageSpec (CTypedef ni)] ++ map CTypeSpec (exportCompTypeDecl ctr)
+  specs = [CStorageSpec (CTypedef undefNode)] ++ map CTypeSpec (exportCompTypeDecl ctr)
 
 -- This is were we'd like to have quasi-quoting.
 -- For now, as we lack any code generation facilies, we'll parse a string :)
 genSizeTest :: Map SUERef (CompTypeRef,Ident) -> [CompType] -> CExtDecl
 genSizeTest typeDefs tys = either (error.show) fromExtDecl $
-                  parseC (inputStreamFromString test) (Position "genSizeTest" 1 1) 
+                  parseC (inputStreamFromString test) (initPos "genSizeTest") 
     where
     fromExtDecl (CTranslUnit [decl] _ ) = decl
     fromExtDecl (CTranslUnit decls _) = error $ "Expected one declaration, but found: "++show (length decls)

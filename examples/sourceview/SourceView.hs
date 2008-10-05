@@ -10,10 +10,12 @@ import Control.Monad.Error as Err
 import Data.List
 import Text.PrettyPrint.HughesPJ
 import Data.Tree
+import Data.Maybe (fromMaybe)
 --import Debug.Trace
 
-import Language.C              -- simple API
 
+import Language.C              -- simple API
+import Language.C.Data.Node
 import GenericTree
 import SourceBrowser
 
@@ -34,7 +36,18 @@ main = do
                 _    -> usageErr
     -- parse the file
     ast <- errorOnLeftM "Parse Error" (parseCFilePre c_file)
+    -- split the AST by input file
+    let groups = groupAstBySourceFile ast
     -- show the generic tree
-    putStrLn (drawTree . fmap show $ treeView c_file ast)
+    putStrLn . drawTree . fmap show . (uncurry treeView) $ last groups
     -- run the source view
-    runGTK (treeView c_file ast) c_file
+    runGTK (map (uncurry treeView) groups) c_file
+
+groupAstBySourceFile :: CTranslUnit -> [(FilePath,CTranslUnit)]
+groupAstBySourceFile (CTranslUnit decls _) = 
+    map (\decls -> (fileOfNode (head decls), CTranslUnit decls (topNodePos decls))) .
+    groupBy (\a b -> (fileOfNode a) == fileOfNode b) $ decls
+    where
+    topNodePos decls = 
+        let lastDecl = nodeInfo (last decls) in
+        mkNodeInfoPosLen (posOf (head decls)) (getLastTokenPos lastDecl)

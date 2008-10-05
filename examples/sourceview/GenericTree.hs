@@ -34,7 +34,7 @@ leaf n = Node n []
 constLeaf :: CConst -> Tree AstNode
 constLeaf = leaf . ConstNode
 
-ideLeaf = leaf . IdentNode
+identLeaf = leaf . IdentNode
 
 infoLeaf :: String -> Tree AstNode
 infoLeaf = leaf . InfoNode
@@ -85,14 +85,16 @@ instance TreeView CExtDecl where
 
 instance TreeView CFunDef where
     treeView lab t@(CFunDef specs declr params stat ni) =
-        node lab t $
+        node (addName declr) t $
             [ listNode "fun-def-specs" specs,
               treeView "fun-def-declr" declr,
               listNode "old-style-param-decls" params,
               treeView "fun-def-stmt" stat ]
-
+        where
+        addName (CDeclr (Just ide) _ _ _ _) = lab ++ " " ++ show ide
+        addName _ = lab
 instance TreeView CDecl where
-   treeView lab t@(CDecl specs decllist ni) = node lab t $
+   treeView lab t@(CDecl specs decllist ni) = node (addNames lab) t $
         [ listNode "decl-specs" specs,
           listNode "declaration-body" (map declListEntry decllist)
         ]
@@ -104,14 +106,20 @@ instance TreeView CDecl where
           fmap (treeView "initializer") initi,
           fmap (treeView "bitsize") bitsize
         ]
-
+    addNames lab = case catMaybes (map nameOfEntry decllist) of 
+                    [] -> lab
+                    names -> lab ++ " {" ++ unwords (map show names) ++ "}"
+    nameOfEntry (Just (CDeclr (Just ide) _ _ _ _),_,_) = Just ide
+    nameOfEntry _ = Nothing
 instance TreeView CDeclr where
     treeView lab t@(CDeclr ide derived asm attrs ni) =
-        node lab t $
-            [ maybe emptyList ideLeaf ide,
+        node (addName lab ide) t $
+            [ maybe emptyList identLeaf ide,
               listNode "type-derivations" derived,
               attrsNode attrs
             ]
+        where 
+        addName lab = maybe lab (\s -> lab ++ " " ++ show s) 
 
 instance TreeView CDerivedDeclr where
     treeView lab t@(CPtrDeclr quals ni) = node "ptr-deriv" t $ map (treeView "ptr-qual") quals
@@ -169,16 +177,59 @@ instance TreeView CDeclSpec where
     treeView _ t@(CStorageSpec v) = renderLeaf "" t v
     treeView _ t@(CTypeSpec v)    = renderLeaf "" t v
     treeView _ t@(CTypeQual v)    = renderLeaf "" t v
+instance TreeView CExpr where
+    treeView lab t = 
+        case t of
+          CComma es _ -> node "comma-expr" t $ map (treeView "expr") es
+          CAssign op e1 e2 _ -> node "assign-expr" t [ treeView "assign-op" op, treeView "lhs" e1, treeView "rhs" e2]
+          CCond guardE mTrueE falseE _ -> node "cond-expr" t [ treeView "guard-expr" guardE, 
+                                                               maybe (infoLeaf "ommited-true-expr") (treeView "true-expr") mTrueE,
+                                                               treeView "false-expr" falseE]
+          CBinary op e1 e2 _ -> node "binary-expr" t [treeView "binary-op" op, treeView "left-expr" e1, treeView "right-expr" e2 ]
+          CCast decl expr _ -> node "cast-expr" t [ treeView "cast-type" decl, treeView "cast-expr" expr]
+          CUnary unop expr _ -> node "" t [treeView "unary-op" unop, treeView "sub-expr" expr]
+          CSizeofExpr expr _ -> node "sizeof-expr" t [ treeView "expr" expr ]
+          CSizeofType decl _ -> node "sizeof-expr" t [ treeView "type-decl" decl ]
+          CAlignofExpr expr _ -> node "alignof-expr" t [ treeView "expr" expr]
+          CAlignofType decl _ -> node "alignof-type" t [ treeView "type-decl" decl]
+          CComplexReal expr _ -> node "complex-real" t [ treeView "expr" expr]
+          CComplexImag expr _ -> node "complex-imag-expr" t [ treeView "expr" expr]
+          CIndex target ix _ -> node "index-expr" t [ treeView "target-expr" target, treeView "index-expr" ix]
+          CCall fun args _ -> node "call-expr" t [ treeView "callee-expr" fun, listNode "call-args" args ]
+          CMember expr member False _ -> node "member-of-struct" t [ treeView "struct-expr" expr, treeView "member-expr" member]
+          CMember expr member True _ -> node "member-of-ptr" t [ treeView "ptr-expr" expr, treeView "member-expr" member]
+          CVar ide _ -> node "var-expr" t [ identLeaf ide ]
+          CConst c -> treeView "const-expr" c
+          CCompoundLit decl initList _ -> node "compound-literal" t [ treeView "compound-type" decl, 
+                                                                      initListTree "compound-lit" initList ]
+          CStatExpr stat _ -> node "stmt-expr" t [ treeView "expr-stmt" stat ]
+          CLabAddrExpr lab _ -> node "address-of-label" t [ treeView "label" lab ]
+          CBuiltinExpr builtin -> treeView "builtin-expr" builtin
+
+instance TreeView CBuiltin where
+    treeView lab t = renderLeaf lab t t
+instance TreeView CDesignator where
+    treeView lab t = renderLeaf lab t t
 instance TreeView CAttr where
     treeView lab t = renderLeaf lab t t
 instance TreeView CTypeQual where
     treeView lab t = renderLeaf "" t t
 instance TreeView CInit where
     treeView lab t = renderLeaf lab t t
-instance TreeView CExpr where
-    treeView lab t = renderLeaf lab t t
+initListTree :: String -> CInitList -> Tree AstNode
+initListTree lab = listNode lab . map initComp where
+    initComp (desigs,init) = listNode "member-init" [ listNode "designators" desigs, treeView "sub-init" init ]
 instance TreeView CAsmStmt where
     treeView lab t = renderLeaf lab t t
+instance TreeView CAssignOp where
+    treeView _ t = infoLeaf $ (show.pretty) t
+instance TreeView CBinaryOp where
+    treeView _ t = infoLeaf $ (show.pretty) t
+instance TreeView CUnaryOp where
+    treeView _ t = infoLeaf $ (show.pretty) t
+instance TreeView CConst where
+    treeView lab t = renderLeaf lab t t
+    
 -- data CArrSize
 -- = CNoArrSize Bool
 -- | CArrSize Bool CExpr
@@ -192,70 +243,6 @@ instance TreeView CAsmStmt where
 -- | CRangeDesig CExpr CExpr NodeInfo
 -- data CAsmStmt = CAsmStmt (Maybe CTypeQual) CStrLit [CAsmOperand] [CAsmOperand] [CStrLit] NodeInfo
 -- data CAsmOperand = CAsmOperand (Maybe Ident) CStrLit CExpr NodeInfo
--- data CExpr
--- = CComma [CExpr] NodeInfo
--- | CAssign CAssignOp CExpr CExpr NodeInfo
--- | CCond CExpr (Maybe CExpr) CExpr NodeInfo
--- | CBinary CBinaryOp CExpr CExpr NodeInfo
--- | CCast CDecl CExpr NodeInfo
--- | CUnary CUnaryOp CExpr NodeInfo
--- | CSizeofExpr CExpr NodeInfo
--- | CSizeofType CDecl NodeInfo
--- | CAlignofExpr CExpr NodeInfo
--- | CAlignofType CDecl NodeInfo
--- | CComplexReal CExpr NodeInfo
--- | CComplexImag CExpr NodeInfo
--- | CIndex CExpr CExpr NodeInfo
--- | CCall CExpr [CExpr] NodeInfo
--- | CMember CExpr Ident Bool NodeInfo
--- | CVar Ident NodeInfo
--- | CConst CConst
--- | CCompoundLit CDecl CInitList NodeInfo
--- | CStatExpr CStat NodeInfo
--- | CLabAddrExpr Ident NodeInfo
--- | CBuiltinExpr CBuiltin
--- data CAssignOp
--- = CAssignOp
--- | CMulAssOp
--- | CDivAssOp
--- | CRmdAssOp
--- | CAddAssOp
--- | CSubAssOp
--- | CShlAssOp
--- | CShrAssOp
--- | CAndAssOp
--- | CXorAssOp
--- | COrAssOp
--- data CBinaryOp
--- = CMulOp
--- | CDivOp
--- | CRmdOp
--- | CAddOp
--- | CSubOp
--- | CShlOp
--- | CShrOp
--- | CLeOp
--- | CGrOp
--- | CLeqOp
--- | CGeqOp
--- | CEqOp
--- | CNeqOp
--- | CAndOp
--- | CXorOp
--- | COrOp
--- | CLndOp
--- | CLorOp
--- data CUnaryOp
--- = CPreIncOp
--- | CPreDecOp
--- | CPostIncOp
--- | CPostDecOp
--- | CAdrOp
--- | CIndOp
--- | CPlusOp
--- | CMinOp
--- | CCompOp
--- | CNegOp
 -- data CBuiltin
 -- = CBuiltinVaArg CExpr CDecl NodeInfo
 -- | CBuiltinOffsetOf CDecl [CDesignator] NodeInfo

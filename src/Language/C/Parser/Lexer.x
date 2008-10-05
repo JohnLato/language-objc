@@ -51,7 +51,7 @@
 module Language.C.Parser.Lexer (lexC, parseError) where
 
 import Data.Char (isDigit)
-import Control.Monad (liftM)
+import Control.Monad (liftM, when)
 
 import Language.C.Data.InputStream
 import Language.C.Data.Position  (Position(..),posOf,PosLength)
@@ -135,7 +135,7 @@ $white+         ;
 --   doesn't say how many ints there can be, we allow an unbound number
 --
 \#$space*@int$space*(\"($infname|@charesc)*\"$space*)?(@int$space*)*$eol
-  { \pos len str -> setPos (adjustPos len (takeChars len str) pos) >> lexToken }
+  { \pos len str -> setPos (adjustPos len (takeChars len str) pos) >> lexToken' False }
 
 -- #pragma directive (K&R A12.8)
 --
@@ -359,7 +359,7 @@ ignoreAttribute :: P ()
 ignoreAttribute = skipTokens (0::Int)
   where skipTokens :: Int -> P ()
         skipTokens n = do
-          tok <- lexToken
+          tok <- lexToken' False
           case tok of
             CTokRParen _ | n == 1    -> return ()
                          | otherwise -> skipTokens (n-1)
@@ -454,8 +454,23 @@ parseError = do
         ["Syntax error !",
          "The symbol `" ++ show tok ++ "' does not fit here."]
 
+-- there is a problem with ignored tokens here (that aren't skipped)
+-- consider
+-- 1 > int x;
+-- 2 > LINE "ex.c" 4
+-- 4 > int y;
+-- when we get to LINE, we have [int (1,1),x (1,4)] in the token cache.
+-- Now we run
+-- > action  (pos 2,0) 14 "LINE \"ex.c\" 3\n"
+-- which in turn adjusts the position and then calls lexToken again
+-- we get `int (pos 4,0)', and have [x (1,4), int (4,1) ] in the token cache (fine)
+-- but then, we again call setLastToken when returning and get [int (4,1),int (4,1)] in the token cache (bad)
+-- to resolve this, recursive calls invoke lexToken' False.
 lexToken :: P CToken
-lexToken = do
+lexToken = lexToken' True
+
+lexToken' :: Bool -> P CToken
+lexToken' modifyCache = do
   pos <- getPos
   inp <- getInput
   case alexScan (pos, inp) 0 of
@@ -469,7 +484,7 @@ lexToken = do
         setPos pos'
         setInput inp'
         tok <- action pos len inp
-        setLastToken tok
+        when modifyCache $ setLastToken tok
         return tok
 
 lexC :: (CToken -> P a) -> P a

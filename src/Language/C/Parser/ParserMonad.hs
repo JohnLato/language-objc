@@ -159,9 +159,10 @@ getLastToken = P $ \s@PState{prevToken=tok} -> POk s tok
 getSavedToken :: P CToken
 getSavedToken = P $ \s@PState{savedToken=tok} -> POk s tok
 
+-- | @setLastToken modifyCache tok@
 setLastToken :: CToken -> P ()
-setLastToken CTokEof = handleEofToken
-setLastToken tok     = P $ \s -> POk s{prevToken=tok,savedToken=(prevToken s)} ()
+setLastToken CTokEof = P $ \s -> POk s{savedToken=(prevToken s)} ()
+setLastToken tok      = P $ \s -> POk s{prevToken=tok,savedToken=(prevToken s)} ()
 
 -- | handle an End-Of-File token (changes savedToken)
 handleEofToken :: P ()

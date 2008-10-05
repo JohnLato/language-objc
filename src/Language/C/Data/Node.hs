@@ -16,7 +16,7 @@ module Language.C.Data.Node (
    mkNodeInfoOnlyPos,mkNodeInfoPosLen, mkNodeInfo,mkNodeInfo',
    internalNode, -- deprecated, use undefNode
    CNode(nodeInfo), fileOfNode,
-   posOfNode, nameOfNode, lengthOfNode,
+   posOfNode, nameOfNode, getLastTokenPos, lengthOfNode,
    eqByName,
 ) where
 import Language.C.Data.Position
@@ -53,10 +53,10 @@ lengthOfNode ni = len
     computeLength pos (lastPos,len) | len < 0   = Nothing
                                     | otherwise = Just (posOffset lastPos + len - posOffset pos)
 
--- | get the position of the last token
-getLastTokenPos :: NodeInfo -> Position
-getLastTokenPos (NodeInfo _ lastTok _) = fst lastTok
-getLastTokenPos (OnlyPos _ lastTok) = fst lastTok
+-- | get the position and length of the last token
+getLastTokenPos :: NodeInfo -> PosLength
+getLastTokenPos (NodeInfo _ lastTok _) = lastTok
+getLastTokenPos (OnlyPos _ lastTok) = lastTok
 
 -- | a class for convenient access to the attributes of an attributed object
 class CNode a where

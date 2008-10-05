@@ -810,7 +810,7 @@ storage_class
 -- This recignises a whole list of type specifiers rather than just one
 -- as in the C99 grammar.
 --
--- type_specifier :- <permute> type_qualifier* (basic_type_name+ | elaborated_type_name | tyident)
+-- type_specifier :- <permute> type_qualifier* (basic_type_name+ | elaborated_type_name | g)
 --
 type_specifier :: { [CDeclSpec] }
 type_specifier
@@ -958,13 +958,13 @@ typedef_declaration_specifier
   	{ $1 `snoc` CStorageSpec $2 }
   	
   | declaration_qualifier_list tyident
-  	{% withNodeInfo $1 $ \at -> $1 `snoc` CTypeSpec (CTypeDef $2 at) }
+  	{% withNodeInfo $2 $ \at -> $1 `snoc` CTypeSpec (CTypeDef $2 at) }
 
   | declaration_qualifier_list typeof '(' expression ')'
-  	{% withNodeInfo $1 $ \at -> $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
+  	{% withNodeInfo $2 $ \at -> $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
 
   | declaration_qualifier_list typeof '(' type_name ')'
-  	{% withNodeInfo $1 $ \at -> $1 `snoc` CTypeSpec (CTypeOfType $4 at) }
+  	{% withNodeInfo $2 $ \at -> $1 `snoc` CTypeSpec (CTypeOfType $4 at) }
 
   | typedef_declaration_specifier declaration_qualifier
   	{ $1 `snoc` $2 }
@@ -990,32 +990,32 @@ typedef_type_specifier
   	{% withNodeInfo $1 $ \at -> singleton (CTypeSpec (CTypeOfType $3 at)) }
 
   | type_qualifier_list tyident
-  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeDef $2 at) }
+  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeDef $2 at) }
 
   | type_qualifier_list typeof '(' expression ')'
-  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
+  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
 
   | type_qualifier_list typeof '(' type_name ')'
-  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfType $4 at) }
+  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfType $4 at) }
 
   -- repeat with attrs (this could be easier if type qualifier list wouldn't allow leading attributes)
   | attrs tyident
-  	{% withNodeInfo $1 $ \at -> reverseList (liftCAttrs $1) `snoc` (CTypeSpec (CTypeDef $2 at)) }
+  	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc` (CTypeSpec (CTypeDef $2 at)) }
 
   | attrs typeof '(' expression ')'
   	{% withNodeInfo $1 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfExpr $4 at)) }
 
   | attrs typeof '(' type_name ')'
-  	{% withNodeInfo $1 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfType $4 at)) }
+  	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfType $4 at)) }
 
   | type_qualifier_list attrs tyident
-  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeDef $3 at) }
+  	{% withNodeInfo $3 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeDef $3 at) }
 
   | type_qualifier_list attrs typeof '(' expression ')'
-  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfExpr $5 at) }
+  	{% withNodeInfo $3 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfExpr $5 at) }
 
   | type_qualifier_list attrs typeof '(' type_name ')'
-  	{% withNodeInfo $1 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfType $5 at) }
+  	{% withNodeInfo $3 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfType $5 at) }
 
   | typedef_type_specifier type_qualifier
   	{ $1 `snoc` CTypeQual $2 }
@@ -1690,8 +1690,8 @@ primary_expression
 offsetof_member_designator :: { Reversed [CDesignator] }
 offsetof_member_designator
   : identifier						                        {% withNodeInfo $1 $ singleton . CMemberDesig $1 }
-  | offsetof_member_designator '.' identifier		  {% withNodeInfo $1 $ ($1 `snoc`) . CMemberDesig $3 }
-  | offsetof_member_designator '[' expression ']'	{% withNodeInfo $1 $ ($1 `snoc`) . CArrDesig $3 }
+  | offsetof_member_designator '.' identifier		  {% withNodeInfo $3 $ ($1 `snoc`) . CMemberDesig $3 }
+  | offsetof_member_designator '[' expression ']'	{% withNodeInfo $3 $ ($1 `snoc`) . CArrDesig $3 }
 
 
 -- parse C postfix expression (C99 6.5.2)

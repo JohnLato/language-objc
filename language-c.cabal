@@ -27,7 +27,7 @@ Library
     Build-Depends:  filepath
 
     if flag(splitBase)
-        Build-Depends: base >= 3, process, directory, array, containers, pretty
+        Build-Depends: base >= 3 && < 4, process, directory, array, containers, pretty
     else
         Build-Depends: base < 3
         

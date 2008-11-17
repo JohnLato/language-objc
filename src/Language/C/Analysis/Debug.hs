@@ -102,6 +102,9 @@ instance Pretty VarDecl where
 instance Pretty ParamDecl where
     pretty (ParamDecl (VarDecl name declattrs ty) _) =
         pretty declattrs <+> pretty name <+> text "::" <+> pretty ty
+    pretty (AbstractParamDecl (VarDecl name declattrs ty) _) =
+        text "abstract" <+> pretty declattrs <+> pretty name <+>
+             text "::" <+> pretty ty
 instance Pretty DeclAttrs where
     pretty (DeclAttrs inline storage attrs) =
         (if inline then (text "inline") else empty) <+>

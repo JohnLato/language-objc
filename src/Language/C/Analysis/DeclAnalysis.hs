@@ -232,6 +232,11 @@ mergeTypeAttributes node_info quals attrs typ =
         FunctionType (FunType return_ty params inline attrs')
             | not (null attrs) -> astError node_info "type qualifiers for function type"
             | otherwise        -> return$ FunctionType (FunType return_ty params inline (attrs' ++ attrs))
+        TypeDefType tdr | not (null attrs) -> astError node_info "attributes for typedef type"
+                        | constant quals -> astError node_info "constant qualifier on typedef"
+                        | volatile quals -> astError node_info "volatile qualifier on typedef"
+                        | restrict quals -> astError node_info "restrict qualifier on typedef"
+                        | otherwise -> return $ TypeDefType tdr
     where
     mkDirect ty_name quals' attrs' | null attrs' = DirectType ty_name quals'
                                    | otherwise   = error "_attribute__ s for DirectType"

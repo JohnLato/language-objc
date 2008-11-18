@@ -167,22 +167,22 @@ checkVarRedef def redecl =
 -- variable declarations are either function prototypes, or external declarations, and not very
 -- interesting on their own. we only put them in the symbol table and call the handle.
 -- declarations never override definitions
-handleVarDecl :: (MonadTrav m) => Decl -> m ()
-handleVarDecl decl = do
+handleVarDecl :: (MonadTrav m) => Bool -> Decl -> m ()
+handleVarDecl is_local decl = do
     def <- enterDecl decl (const False)
-    handleDecl (DeclEvent def)
+    handleDecl ((if is_local then LocalEvent else DeclEvent) def)
 
 -- | handle parameter declaration. The interesting part is that parameters can be abstract
 -- (if they are part of a type). If they have a name, we enter the name (usually in function prototype or function scope),
 -- checking if there are duplicate definitions. 
 -- FIXME: I think it would be more transparent to handle parameter declarations in a special way
 handleParamDecl :: (MonadTrav m) => ParamDecl -> m ()
-handleParamDecl (AbstractParamDecl _ _) = return ()
-handleParamDecl (ParamDecl vardecl node) = do
+handleParamDecl pd@(AbstractParamDecl _ _) = handleDecl (ParamEvent pd)
+handleParamDecl pd@(ParamDecl vardecl node) = do
     let def = ObjectDef (ObjDef vardecl Nothing node)
     redecl <- withDefTable $ defineScopedIdent (declIdent def) def
     checkVarRedef def redecl
-    return ()
+    handleDecl (ParamEvent pd)
 
 -- shared impl
 enterDecl :: (MonadTrav m) => Decl -> (IdentDecl -> Bool) -> m IdentDecl
@@ -210,13 +210,13 @@ checkCompatibleTypes :: Type -> Type -> Either TypeMismatch ()
 checkCompatibleTypes _ _ = Right ()
 
 -- | handle object defintions (maybe tentative)
-handleObjectDef :: (MonadTrav m) => Ident -> ObjDef -> m ()
-handleObjectDef ident obj_def = do
+handleObjectDef :: (MonadTrav m) => Bool -> Ident -> ObjDef -> m ()
+handleObjectDef local ident obj_def = do
     let def = ObjectDef obj_def
     redecl <- withDefTable $
               defineScopedIdentWhen (\o -> shouldOverride def o) ident def
     checkVarRedef def redecl
-    handleDecl (DeclEvent def)
+    handleDecl ((if local then LocalEvent else DeclEvent) def)
     where
     isTentativeDef (ObjectDef object_def) = isTentative object_def
     isTentativeDef _ = False

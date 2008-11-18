@@ -20,7 +20,7 @@ where
 import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
-import Language.C.Analysis.DefTable
+import Language.C.Analysis.DefTable (globalDefs)
 import Language.C.Analysis.DeclAnalysis
 
 import Language.C.Data
@@ -66,7 +66,7 @@ analyseExt (CDeclExt decls)
 analyseFunDef :: (MonadTrav m) => CFunDef -> m ()
 analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     -- analyse the declarator
-    var_decl_info <- analyseVarDecl True declspecs declr oldstyle_decls
+    var_decl_info <- analyseVarDecl True declspecs declr oldstyle_decls Nothing
     let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl_info
     let ident = identOfVarName name
     -- compute storage
@@ -75,7 +75,7 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     -- improve incomplete type
     ty' <- improveFunDefType ty
     -- callback
-    handleVarDecl (Decl var_decl node_info)
+    handleVarDecl False (Decl var_decl node_info)
     -- translate the body
     stmt' <- analyseFunctionBody var_decl stmt
     -- define the function
@@ -104,7 +104,7 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
 
     analyseVarDeclr handle_sue_def (Just declr, init_opt, Nothing) = do
         -- analyse the declarator
-        vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <- analyseVarDecl handle_sue_def declspecs declr []
+        vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <- analyseVarDecl handle_sue_def declspecs declr [] Nothing
         -- declare / define the object
         init_opt' <- mapMaybeM init_opt tInit
         when (isTypeOfExpr typ) $ astError node "we cannot analyse typeof(expr) yet"
@@ -121,7 +121,7 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
 analyseTypeDef :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
 analyseTypeDef handle_sue_def declspecs declr node_info = do
     -- analyse the declarator
-    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl handle_sue_def declspecs declr []
+    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr []
     checkValidTypeDef is_inline storage_spec attrs
     let ident = identOfVarName name
     handleTypeDef (TypeDef ident ty attrs node_info)
@@ -129,24 +129,6 @@ analyseTypeDef handle_sue_def declspecs declr node_info = do
     checkValidTypeDef True _ _ = astError node_info "inline specifier for typeDef"
     checkValidTypeDef _ NoStorageSpec _ = return ()
     checkValidTypeDef _ bad_storage _ = astError node_info $ "storage specified for typeDef: " ++ show bad_storage
-
--- | Analyse declarators
-analyseVarDecl :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> [CDecl] -> m VarDeclInfo
-analyseVarDecl handle_sue_def declspecs declr oldstyle_params = do
-    let (storagespecs, decl_attrs, typequals, typespecs, inline) = partitionDeclSpecs declspecs
-    -- analyse the storage specifiers
-    storage_spec  <- canonicalStorageSpec storagespecs
-    -- translate the type into semantic representation
-    typ          <- tType handle_sue_def node typequals typespecs derived_declrs oldstyle_params
-    -- translate attributes
-    attrs'       <- mapM tAttr (decl_attrs ++ declr_attrs)
-    -- create the variable name
-    name         <- mkVarName node nameOpt asmname_opt
-    return $ VarDeclInfo name inline storage_spec attrs' typ node
-    where
-    (CDeclr nameOpt derived_declrs asmname_opt declr_attrs node) = declr
-    isInlineSpec (CInlineQual _) = True
-    isInlineSpec _ = False
 
 -- | compute storage of a function definition
 --
@@ -172,7 +154,7 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
     do  old_fun <- lookupObject (identOfVarName var_name)
         checkValidSpecs
         let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) ty
-        handleVarDecl (Decl decl node_info)
+        handleVarDecl False (Decl decl node_info)
     where
     funDeclLinkage old_fun =
         case storage_spec of
@@ -201,30 +183,75 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
        let decl linkage = Decl (vardecl linkage) node_info
        case storage_spec of
            NoStorageSpec           -- tentative if there is no initializer, external
-               -> handleObjectDef ident $ ObjDef (vardecl (Static ExternalLinkage False)) init_opt node_info
+               -> handleObjectDef False ident $ ObjDef (vardecl (Static ExternalLinkage False)) init_opt node_info
            StaticSpec thread_local -- tentative if there is no initializer, internal
-               -> handleObjectDef ident $ ObjDef (vardecl (Static InternalLinkage thread_local)) init_opt node_info
+               -> handleObjectDef False ident $ ObjDef (vardecl (Static InternalLinkage thread_local)) init_opt node_info
            ExternSpec thread_local
              | Nothing <- init_opt  -- declaration with either external or old storage
-               -> handleVarDecl $ decl $ maybe (Static ExternalLinkage thread_local) declStorage old_decl
+               -> handleVarDecl False $ decl $ maybe (Static ExternalLinkage thread_local) declStorage old_decl
              | otherwise            -- warning, external definition
                -> do warn $ badSpecifierError node_info
                             "Both initializer and `extern` specifier given - treating as definition"
-                     handleObjectDef ident $ ObjDef (vardecl (Static ExternalLinkage thread_local)) init_opt node_info
+                     handleObjectDef False ident $ ObjDef (vardecl (Static ExternalLinkage thread_local)) init_opt node_info
            _ -> error$ "extVarDecl: storage_spec: "++show storage_spec
     where
     checkValidVarDeclStorage
-        | is_inline               = astError node_info "invalide `inline' specifier for non-function"
+        | is_inline               = astError node_info "invalid `inline' specifier for non-function"
         | RegSpec <- storage_spec = astError node_info "invalid `register' storage specified for external object"
         | otherwise               = return ()
 
--- | /TODO/: Bogus
-analyseFunctionBody :: (MonadTrav m) => VarDecl -> CStat -> m Stmt
-analyseFunctionBody _ = return
+-- | Typecheck a local variable declaration\/definition
+tLocalDecl :: (MonadTrav m) => CDecl -> m IdentDecl
+tLocalDecl (CDecl declspecs initList node_info) =
+  case initList of
+    [(Just declr, init, Nothing)] ->
+      do (VarDeclInfo name is_inline storage attrs ty decl_ni)
+           <- analyseVarDecl True declspecs declr [] init
+         loc_storage <- localStorage storage
+         let varDecl = VarDecl name (DeclAttrs is_inline loc_storage attrs) ty
+             identDecl = maybe
+                         (Declaration (Decl varDecl decl_ni))
+                         (\_ -> ObjectDef (ObjDef varDecl init decl_ni))
+                         init
+         return identDecl
+    _ -> astError node_info "invalid local declaration"
+  where localStorage NoStorageSpec = return $ Auto False
+        localStorage RegSpec = return $ Auto True
+        localStorage (StaticSpec thread_local) =
+          -- all local variables have internal linkage
+          return $ Static InternalLinkage thread_local
+        localStorage _ = astError node_info "bad storage specifier for local"
 
--- | /TODO/: Bogus
+-- | Handle a local variable declaration\/definition
+analyseLocalDecl :: (MonadTrav m) => CDecl -> m IdentDecl
+analyseLocalDecl d =
+  do identDecl <- tLocalDecl d
+     case identDecl of
+       Declaration d -> handleVarDecl True d
+       ObjectDef od  -> handleObjectDef True (declIdent od) od
+     return identDecl
+
+analyseFunctionBody :: (MonadTrav m) => VarDecl -> CStat -> m Stmt
+analyseFunctionBody _ s =
+  do enterFunctionScope
+     s' <- tStmt s
+     leaveFunctionScope
+     return s'
+
+analyseBlockItem :: (MonadTrav m) => CBlockItem -> m ()
+analyseBlockItem (CBlockStmt s) = tStmt s >> return ()
+analyseBlockItem (CBlockDecl d) = analyseLocalDecl d >> return ()
+-- TODO: fixup analyseFunDef to handle nested functions
+analyseBlockItem (CNestedFunDef fd) = analyseFunDef fd
+
+-- | /TODO/: Bogus: only handles compound blocks, to get at declarations
 tStmt :: (MonadTrav m) => CStat -> m Stmt
-tStmt = return
+tStmt s@(CCompound _ items _) =
+  do enterBlockScope
+     mapM_ analyseBlockItem items
+     leaveBlockScope
+     return s
+tStmt s = return s
 
 -- | /TODO/: Bogus
 tExpr :: (MonadTrav m) => CExpr -> m Expr

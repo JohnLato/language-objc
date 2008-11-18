@@ -21,7 +21,7 @@ module Language.C.Analysis.DeclAnalysis (
   canonicalStorageSpec, StorageSpec(..),hasThreadLocalSpec,
   -- * Helpers
   VarDeclInfo(..),
-  tAttr,mkVarName,getOnlyDeclr,nameOfDecl,
+  tAttr,mkVarName,getOnlyDeclr,nameOfDecl,analyseVarDecl
 )
 where
 import Language.C.Data.Error

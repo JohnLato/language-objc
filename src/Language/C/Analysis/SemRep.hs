@@ -190,6 +190,10 @@ data DeclEvent =
        -- ^ file-scope struct\/union\/enum event
      | DeclEvent IdentDecl
        -- ^ file-scope declaration or definition
+     | ParamEvent ParamDecl
+       -- ^ parameter declaration
+     | LocalEvent IdentDecl
+       -- ^ local variable declaration or definition
      | TypeDefEvent TypeDef
        -- ^ a type definition
      | AsmEvent AsmBlock

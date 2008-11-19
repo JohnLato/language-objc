@@ -20,6 +20,8 @@ prettyAssocs, prettyAssocsWith,
 where
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.Export
+import Language.C.Analysis.DefTable
+import Language.C.Analysis.NameSpaceMap
 
 import Language.C.Data
 import Language.C.Pretty
@@ -36,6 +38,16 @@ prettyAssocsWith label prettyKey prettyVal theMap =
     text label $$ (nest 8) (vcat $ map prettyEntry theMap)
     where
     prettyEntry (k,v) = prettyKey k <+> text " ~> " <+> prettyVal v
+
+instance Pretty DefTable where
+    pretty dt = text "DefTable" $$ (nest 4 $ vcat defMaps)
+        where
+        defMaps = [ prettyNSMap "idents" identDecls
+                  , prettyNSMap "tags" tagDecls
+                  , prettyNSMap "labels" labelDefs
+                  , prettyNSMap "members" memberDecls
+                  ]
+        prettyNSMap label f = prettyAssocs label . nsMapToList $ f dt
 
 instance Pretty GlobalDecls where
     pretty gd = text "Global Declarations" $$ (nest 4 $ vcat declMaps)
@@ -63,11 +75,18 @@ globalDeclStats file_filter gmap =
     filterFile :: (CNode n) => n -> Bool
     filterFile = file_filter . posFile . posOfNode . nodeInfo
 
-
-instance Pretty (Either VarDecl ObjDef) where
+instance (Pretty a, Pretty b) => Pretty (Either a b) where
     pretty = either pretty pretty
-instance Pretty (Either VarDecl FunDef) where
-    pretty = either pretty pretty
+instance Pretty TagFwdDecl where
+    pretty (CompDecl ct) = pretty ct
+    pretty (EnumDecl et) = pretty et
+instance Pretty CompTyKind where
+    pretty StructTag = text "struct"
+    pretty UnionTag = text "union"
+instance Pretty CompTypeRef where
+    pretty (CompTypeRef sue kind _) = pretty kind <+> pretty sue
+instance Pretty EnumTypeRef where
+    pretty (EnumTypeRef sue _ ) = text "enum" <+> pretty sue
 instance Pretty Ident where
     pretty = text . identToString
 instance Pretty SUERef where

@@ -88,14 +88,21 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
 -- | Analyse a top-level declaration other than a function definition
 analyseExtDecls :: (MonadTrav m) => CDecl -> m ()
 analyseExtDecls decl@(CDecl declspecs declrs node)
-    | (Just declspecs') <- hasTypeDef declspecs =
-        case declrs of
-            [(Just tydeclr,Nothing,Nothing)] -> analyseTypeDef declspecs' tydeclr node
-            _ -> astError node "bad typdef declaration: declarator missing or bitfieldsize/initializer present"
-    | null declrs = analyseTypeDecl decl >> return ()
-    | otherwise   = mapM_ (uncurry convertVarDeclr) $ zip (True : repeat False) declrs
+    | null declrs =
+        case typedef_spec of Just _  -> astError node "bad typedef declaration: missing declarator"
+                             Nothing -> analyseTypeDecl decl >> return ()
+    | (Just declspecs') <- typedef_spec = mapM_ (uncurry (analyseTyDef declspecs')) declr_list
+    | otherwise   = mapM_ (uncurry analyseVarDeclr) declr_list
     where
-    convertVarDeclr handle_sue_def (Just declr, init_opt, Nothing) = do
+    declr_list = zip (True : repeat False) declrs
+    typedef_spec = hasTypeDef declspecs
+
+    analyseTyDef declspecs' handle_sue_def declr =
+        case declr of
+            (Just tydeclr, Nothing , Nothing) -> analyseTypeDef handle_sue_def declspecs' tydeclr node
+            _ -> astError node "bad typdef declaration: bitfieldsize or initializer present"
+
+    analyseVarDeclr handle_sue_def (Just declr, init_opt, Nothing) = do
         -- analyse the declarator
         vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <- analyseVarDecl handle_sue_def declspecs declr []
         -- declare / define the object
@@ -104,16 +111,17 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
         if (isFunctionType typ)
             then extFunProto vardeclInfo
             else extVarDecl vardeclInfo init_opt'
-    convertVarDeclr _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
-    convertVarDeclr _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
+    analyseVarDeclr _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
+    analyseVarDeclr _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
+
     isTypeOfExpr (TypeOfExpr _) = True
     isTypeOfExpr _ = False
 
 -- | Analyse a typedef
-analyseTypeDef :: (MonadTrav m) => [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
-analyseTypeDef declspecs declr node_info = do
+analyseTypeDef :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
+analyseTypeDef handle_sue_def declspecs declr node_info = do
     -- analyse the declarator
-    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr []
+    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl handle_sue_def declspecs declr []
     checkValidTypeDef is_inline storage_spec attrs
     let ident = identOfVarName name
     handleTypeDef (TypeDef ident ty attrs node_info)

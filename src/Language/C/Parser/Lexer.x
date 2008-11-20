@@ -256,17 +256,17 @@ L?\"($inchar|@charesc)*@ucn($inchar|@charesc|@ucn)*\" { token_fail "Universal ch
 -- using the script GenerateKeywordMatch.hs (in /src)
 {-
 alignof @__, asm @__, auto
-break, bool _Bool, 
+break, bool _Bool,
 case, char, const @__, continue, complex _Complex __complex__
 default, do, double,
-else, enum, extern, 
+else, enum, extern,
 float, for, goto,
-if, inline @__, int, long, 
+if, inline @__, int, long,
 register, restrict @__, return
-short, signed @__, sizeof, static, struct, switch, 
-typedef, typeof @__, thread __thread, 
-union, unsigned, void, volatile @__, 
-while, 
+short, signed @__, sizeof, static, struct, switch,
+typedef, typeof @__, thread __thread,
+union, unsigned, void, volatile @__,
+while,
 label __label__
 (CTokGnuC GnuCAttrTok) __attribute __attribute__
 (CTokGnuC GnuCExtTok) __extension__
@@ -474,12 +474,14 @@ lexToken' modifyCache = do
   pos <- getPos
   inp <- getInput
   case alexScan (pos, inp) 0 of
-    AlexEOF -> handleEofToken >> return CTokEof
+    AlexEOF -> do
+        handleEofToken
+        return CTokEof
     AlexError inp' -> lexicalError
     AlexSkip  (pos', inp') len -> do
         setPos pos'
         setInput inp'
-        lexToken
+        lexToken' modifyCache
     AlexToken (pos', inp') len action -> do
         setPos pos'
         setInput inp'

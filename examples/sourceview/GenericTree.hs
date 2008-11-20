@@ -5,7 +5,7 @@
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
--- Stability   :  ALPHA !!!
+-- Stability   :  alpha
 -- Portability :  unspecified
 --
 -- This module can be used to debug AST trees, by converting them into a
@@ -66,23 +66,26 @@ instance Show AstNode where
     show (InfoNode s) = s
 
 class TreeView n where
+    -- it is ok to implement only one of treeView or treeView'
     treeView :: String -> n -> Tree AstNode
+    treeView' :: n -> Tree AstNode
+    treeView' n = treeView (defaultLabel n) n
+    defaultLabel :: n -> String
+    defaultLabel _ = "ast-node"
 
 instance TreeView (Tree AstNode) where
     treeView _ = id
-
 instance TreeView Ident where
     treeView _ = leaf . IdentNode
-
+    defaultLabel = identToString
 instance TreeView CTranslUnit where
     treeView name t@(CTranslUnit decls ni) =
-        node name t $ map (treeView "") decls
-
+        node name t $ map treeView' decls
+    defaultLabel (CTranslUnit _ ni) = fileOfNode ni
 instance TreeView CExtDecl where
     treeView _ (CDeclExt decl) = treeView "ext-decl" decl
     treeView _ (CFDefExt fundef) = treeView "ext-fundef" fundef
     treeView _ t@(CAsmExt asm ni) = node "ext-asm" t [constLeaf $ liftStrLit asm]
-
 instance TreeView CFunDef where
     treeView lab t@(CFunDef specs declr params stat ni) =
         node (addName declr) t $
@@ -135,22 +138,22 @@ instance TreeView CDerivedDeclr where
         attrsView = [listNode "fun-attrs" attrs]
 
 instance TreeView CArrSize where
-    treeView lab (CNoArrSize True) = infoLeaf $ "variable size"
-    treeView lab (CNoArrSize False) = emptyList
+    treeView _ (CNoArrSize True) = infoLeaf $ "variable size"
+    treeView _ (CNoArrSize False) = emptyList
     treeView lab (CArrSize False c) = treeView lab c
-    treeView lab (CArrSize True c) = Node (ListNode lab) [ infoLeaf "static size", treeView "size-expr" c ]
+    treeView lab (CArrSize True c) = Node (ListNode lab) [ infoLeaf "static size", treeView "size" c ]
 
 instance TreeView CStat where
     treeView _ t =
         case t of
             CLabel ide stat attrs _ -> node "label" t [treeView "label-ident" ide,attrsNode attrs,treeView "label-stmt" stat]
-            CCase e s _ -> node "case" t [treeView "case-expr" e, treeView "case-body" s]
-            CCases el eu s _ -> node "cases" t [treeView "case-expr-lower" el, treeView "case-expr-upper" eu, treeView "case-body" s]
+            CCase e s _ -> node "case" t [treeView "case" e, treeView "case-body" s]
+            CCases el eu s _ -> node "cases" t [treeView "case-lower" el, treeView "case-upper" eu, treeView "case-body" s]
             CCompound i bis _ -> node "block" t [listNode "idents" i,listNode "block-items" bis]
             CDefault s _ -> node "case-default" t [treeView "default-body" s]
-            CExpr Nothing _ ->  node "empty-expr-stmt" t []
+            CExpr Nothing _ ->  node "empty-stmt" t []
             CExpr (Just e) _ -> node "expr-stmt" t [ treeView "expr" e ]
-            CIf ife thens elses _ -> node "if-stmt" t $ [ treeView "if-expr" ife, treeView "then-stmt" thens ] ++
+            CIf ife thens elses _ -> node "if-stmt" t $ [ treeView "if" ife, treeView "then-stmt" thens ] ++
                                                         (maybe [] return $ fmap (treeView "else-stmt") elses)
             CSwitch es s _ -> node "switch-stmt" t $ [treeView "switch-body" s]
             CWhile e s doWhile _ -> node (if doWhile then "do-while" else "while") t $
@@ -159,10 +162,10 @@ instance TreeView CStat where
                                                               maybe (infoLeaf "no-for-guard") (treeView "for-guard") eGuard,
                                                               maybe (infoLeaf "no-for-update") (treeView "for-update") eUpd]
             CGoto ide _ -> node "goto" t [treeView "goto-label" ide]
-            CGotoPtr expr _ -> node "goto-ptr" t [treeView "goto-expr" expr]
+            CGotoPtr expr _ -> node "goto-ptr" t [treeView "goto" expr]
             CCont _ -> node "continue" t []
             CBreak _ -> node "break" t []
-            CReturn e _ -> node "return" t $ maybe [] return $ fmap (treeView "return-expr") e
+            CReturn e _ -> node "return" t $ maybe [] return $ fmap (treeView "return") e
             CAsm asm _ -> node "asm-stmt" t [treeView "asm" asm]
      where
      initTree (Left eInit) = fmap (treeView "for-init") eInit
@@ -177,37 +180,43 @@ instance TreeView CDeclSpec where
     treeView _ t@(CStorageSpec v) = renderLeaf "" t v
     treeView _ t@(CTypeSpec v)    = renderLeaf "" t v
     treeView _ t@(CTypeQual v)    = renderLeaf "" t v
+addLab "" = id
+addLab s  = ((s++).(" "++))
 instance TreeView CExpr where
-    treeView lab t = 
+    treeView mlab t = 
+        let lab = case mlab of "" -> (\s -> s ++ "-expr"); l -> (\s -> l ++ " " ++ s ++ "-expr") in
         case t of
-          CComma es _ -> node "comma-expr" t $ map (treeView "expr") es
-          CAssign op e1 e2 _ -> node "assign-expr" t [ treeView "assign-op" op, treeView "lhs" e1, treeView "rhs" e2]
-          CCond guardE mTrueE falseE _ -> node "cond-expr" t [ treeView "guard-expr" guardE, 
-                                                               maybe (infoLeaf "ommited-true-expr") (treeView "true-expr") mTrueE,
-                                                               treeView "false-expr" falseE]
-          CBinary op e1 e2 _ -> node "binary-expr" t [treeView "binary-op" op, treeView "left-expr" e1, treeView "right-expr" e2 ]
-          CCast decl expr _ -> node "cast-expr" t [ treeView "cast-type" decl, treeView "cast-expr" expr]
-          CUnary unop expr _ -> node "" t [treeView "unary-op" unop, treeView "sub-expr" expr]
-          CSizeofExpr expr _ -> node "sizeof-expr" t [ treeView "expr" expr ]
-          CSizeofType decl _ -> node "sizeof-expr" t [ treeView "type-decl" decl ]
-          CAlignofExpr expr _ -> node "alignof-expr" t [ treeView "expr" expr]
-          CAlignofType decl _ -> node "alignof-type" t [ treeView "type-decl" decl]
-          CComplexReal expr _ -> node "complex-real" t [ treeView "expr" expr]
-          CComplexImag expr _ -> node "complex-imag-expr" t [ treeView "expr" expr]
-          CIndex target ix _ -> node "index-expr" t [ treeView "target-expr" target, treeView "index-expr" ix]
-          CCall fun args _ -> node "call-expr" t [ treeView "callee-expr" fun, listNode "call-args" args ]
-          CMember expr member False _ -> node "member-of-struct" t [ treeView "struct-expr" expr, treeView "member-expr" member]
-          CMember expr member True _ -> node "member-of-ptr" t [ treeView "ptr-expr" expr, treeView "member-expr" member]
-          CVar ide _ -> node "var-expr" t [ identLeaf ide ]
-          CConst c -> treeView "const-expr" c
-          CCompoundLit decl initList _ -> node "compound-literal" t [ treeView "compound-type" decl, 
+          CComma es _ -> node (lab "comma") t $ map (treeView "expr") es
+          CAssign op e1 e2 _ -> node (lab "assign-expr") t [ treeView "assign-op" op, treeView "lhs" e1, treeView "rhs" e2]
+          CCond guardE mTrueE falseE _ -> node (lab "cond") t [ treeView "guard" guardE, 
+                                                               maybe (infoLeaf "ommited-true") (treeView "true") mTrueE,
+                                                               treeView "false" falseE]
+          CBinary op e1 e2 _ -> node (lab "bin") t [treeView "binary-op" op, treeView "left" e1, treeView "right" e2 ]
+          CCast decl expr _ -> node (lab "cast") t [ treeView "cast-type" decl, treeView "cast" expr]
+          CUnary unop expr _ -> node (lab "") t [treeView "unary-op" unop, treeView "sub" expr]
+          CSizeofExpr expr _ -> node (lab "sizeof") t [ treeView "expr" expr ]
+          CSizeofType decl _ -> node (lab "sizeof") t [ treeView "type-decl" decl ]
+          CAlignofExpr expr _ -> node (lab "alignof") t [ treeView "expr" expr]
+          CAlignofType decl _ -> node (lab "alignof-type") t [ treeView "type-decl" decl]
+          CComplexReal expr _ -> node (lab "complex-real") t [ treeView "expr" expr]
+          CComplexImag expr _ -> node (lab "complex-imag") t [ treeView "expr" expr]
+          CIndex target ix _ -> node (lab "index") t [ treeView "target" target, treeView "index" ix]
+          CCall fun args _ -> node (lab "call") t [ treeView "callee" fun, listNode "call-args" args ]
+          CMember expr member False _ -> node "member-of-struct" t [ treeView "struct" expr, treeView "member" member]
+          CMember expr member True _ -> node "member-of-ptr" t [ treeView "ptr" expr, treeView "member" member]
+          CVar ide _ -> node (lab "var") t [ identLeaf ide ]
+          CConst c -> treeView "const" c
+          CCompoundLit decl initList _ -> node (lab "compound-literal") t [ treeView "compound-type" decl, 
                                                                       initListTree "compound-lit" initList ]
-          CStatExpr stat _ -> node "stmt-expr" t [ treeView "expr-stmt" stat ]
-          CLabAddrExpr lab _ -> node "address-of-label" t [ treeView "label" lab ]
-          CBuiltinExpr builtin -> treeView "builtin-expr" builtin
+          CStatExpr stat _ -> node (lab "stmt") t [ treeView "expr-stmt" stat ]
+          CLabAddrExpr label _ -> node (lab "address-of-label") t [ treeView "label" label ]
+          CBuiltinExpr builtin -> treeView "builtin" builtin
 
 instance TreeView CBuiltin where
-    treeView lab t = renderLeaf lab t t
+    treeView lab t@(CBuiltinVaArg expr decl _) = node "builtin-va-arg" t [ treeView "arg-ptr" expr, treeView "type" decl ] 
+    treeView lab t@(CBuiltinOffsetOf typ desigs _) = node "builtin-offset-of" t [ treeView "type" typ, listNode "designators" desigs ]
+    treeView lab t@(CBuiltinTypesCompatible ty1 ty2 _) = node "builtin-types-compatible" t [ treeView "type-1" ty1, treeView "type-2" ty2]
+
 instance TreeView CDesignator where
     treeView lab t = renderLeaf lab t t
 instance TreeView CAttr where
@@ -215,7 +224,8 @@ instance TreeView CAttr where
 instance TreeView CTypeQual where
     treeView lab t = renderLeaf "" t t
 instance TreeView CInit where
-    treeView lab t = renderLeaf lab t t
+    treeView _ (CInitExpr e _) = treeView "init" e
+    treeView lab t@(CInitList l _) = renderLeaf lab t t
 initListTree :: String -> CInitList -> Tree AstNode
 initListTree lab = listNode lab . map initComp where
     initComp (desigs,init) = listNode "member-init" [ listNode "designators" desigs, treeView "sub-init" init ]
@@ -230,12 +240,7 @@ instance TreeView CUnaryOp where
 instance TreeView CConst where
     treeView lab t = renderLeaf lab t t
     
--- data CArrSize
--- = CNoArrSize Bool
--- | CArrSize Bool CExpr
 -- data CInit
--- = CInitExpr CExpr NodeInfo
--- | CInitList CInitList NodeInfo
 -- type CInitList = [([CDesignator], CInit)]
 -- data CDesignator
 -- = CArrDesig CExpr NodeInfo
@@ -243,10 +248,6 @@ instance TreeView CConst where
 -- | CRangeDesig CExpr CExpr NodeInfo
 -- data CAsmStmt = CAsmStmt (Maybe CTypeQual) CStrLit [CAsmOperand] [CAsmOperand] [CStrLit] NodeInfo
 -- data CAsmOperand = CAsmOperand (Maybe Ident) CStrLit CExpr NodeInfo
--- data CBuiltin
--- = CBuiltinVaArg CExpr CDecl NodeInfo
--- | CBuiltinOffsetOf CDecl [CDesignator] NodeInfo
--- | CBuiltinTypesCompatible CDecl CDecl NodeInfo
 -- data CConst
 -- = CIntConst CInteger NodeInfo
 -- | CCharConst CChar NodeInfo

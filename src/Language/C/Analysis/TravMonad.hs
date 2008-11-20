@@ -265,7 +265,8 @@ lookupTypeDef :: (MonadTrav m) => Ident -> m Type
 lookupTypeDef ident =
     getDefTable >>= \symt ->
     case lookupIdent ident symt of
-        Nothing                             -> astError (nodeInfo ident) "unbound typeDef"
+        Nothing                             ->
+          astError (nodeInfo ident) $ "unbound typeDef: " ++ identToString ident
         Just (Left (TypeDef _ident ty _ _)) -> return ty
         Just (Right d)                      -> astError (nodeInfo ident) (wrongKindErrMsg d)
     where

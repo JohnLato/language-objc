@@ -20,7 +20,7 @@ where
 import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
-import Language.C.Analysis.DefTable (globalDefs, defineScopedIdent)
+import Language.C.Analysis.DefTable (globalDefs, defineScopedIdent, defineLabel)
 import Language.C.Analysis.DeclAnalysis
 
 import Language.C.Data
@@ -236,7 +236,30 @@ localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) i
     localStorage _ = astError node_info "bad storage specifier for local"
 
 analyseFunctionBody :: (MonadTrav m) => VarDecl -> CStat -> m Stmt
-analyseFunctionBody _ s = tStmt s
+analyseFunctionBody _ s =
+  do mapM (withDefTable . defineLabel) (getLabels s)
+     tStmt s
+
+getLabels :: CStat -> [Ident]
+getLabels (CLabel l s _ _)      = l : getLabels s
+getLabels (CCase _ s _)         = getLabels s
+getLabels (CCases _ _ s _)      = getLabels s
+getLabels (CDefault s _)        = getLabels s
+getLabels (CExpr _ _)           = []
+getLabels (CCompound _ body _)  = concatMap getBILabels body
+  where getBILabels (CBlockStmt s)    = getLabels s
+        getBILabels (CBlockDecl _)    = []
+        getBILabels (CNestedFunDef _) = []
+getLabels (CIf _ sthen selse _) = getLabels sthen ++ maybe [] getLabels selse
+getLabels (CSwitch _ s _)       = getLabels s
+getLabels (CWhile _ s _ _)      = getLabels s
+getLabels (CFor _ _ _ s _)      = getLabels s
+getLabels (CGoto _ _)           = []
+getLabels (CGotoPtr _ _)        = []
+getLabels (CCont _)             = []
+getLabels (CBreak _)            = []
+getLabels (CReturn _ _)         = []
+getLabels (CAsm _ _)            = []
 
 analyseBlockItem :: (MonadTrav m) => CBlockItem -> m ()
 analyseBlockItem (CBlockStmt s) = tStmt s >> return ()

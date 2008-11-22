@@ -101,12 +101,11 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
 -- | Analyse a declaration other than a function definition
 analyseDecl :: (MonadTrav m) => Bool -> CDecl -> m ()
 analyseDecl is_local decl@(CDecl declspecs declrs node)
-    | (Just declspecs') <- hasTypeDef declspecs =
-        case declrs of
-            [(Just tydeclr,Nothing,Nothing)] -> analyseTypeDef declspecs' tydeclr node
-            _ -> astError node "bad typdef declaration: declarator missing or bitfieldsize/initializer present"
-    | null declrs = analyseTypeDecl decl >> return ()
-    | otherwise   = mapM_ (uncurry convertVarDeclr) $ zip (True : repeat False) declrs
+    | null declrs =
+        case typedef_spec of Just _  -> astError node "bad typedef declaration: missing declarator"
+                             Nothing -> analyseTypeDecl decl >> return ()
+    | (Just declspecs') <- typedef_spec = mapM_ (uncurry (analyseTyDef declspecs')) declr_list
+    | otherwise   = mapM_ (uncurry analyseVarDeclr) declr_list
     where
     declr_list = zip (True : repeat False) declrs
     typedef_spec = hasTypeDef declspecs

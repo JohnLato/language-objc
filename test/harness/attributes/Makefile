@@ -9,5 +9,5 @@ deprecated:
 	sh $(BINDIR)/compile_log.sh deprecated-bitfield-init
 #	$(BINDIR)/compile_log.sh fun_decl # fails
 clean:
-	rm *.log
+	rm -rf *.log
 	

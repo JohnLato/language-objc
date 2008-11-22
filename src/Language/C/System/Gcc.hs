@@ -33,8 +33,11 @@ instance Preprocessor GCC where
     runCPP gcc cpp_args =
         do  -- copy the input to the outputfile, because in case the input is preprocessed,
             -- gcc -E will do nothing.
-            maybe (return()) (copyFile (inputFile cpp_args)) (outputFile cpp_args)
+            maybe (return()) (copyWritable (inputFile cpp_args)) (outputFile cpp_args)
             rawSystem (gccPath gcc) (buildCppArgs cpp_args)
+                where copyWritable source target = do copyFile source target
+                                                      p <- getPermissions target
+                                                      setPermissions target p{writable=True}
 
 -- | Parse arguments for preprocessing via GCC.
 --   At least one .c, .hc or .h file has to be present.

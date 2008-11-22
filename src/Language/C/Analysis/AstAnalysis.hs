@@ -121,7 +121,7 @@ analyseExtDecls decl@(CDecl declspecs declrs node)
 analyseTypeDef :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
 analyseTypeDef handle_sue_def declspecs declr node_info = do
     -- analyse the declarator
-    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr []
+    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl handle_sue_def declspecs declr [] Nothing
     checkValidTypeDef is_inline storage_spec attrs
     let ident = identOfVarName name
     handleTypeDef (TypeDef ident ty attrs node_info)

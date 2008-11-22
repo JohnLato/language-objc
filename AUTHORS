@@ -3,9 +3,10 @@ Manuel M T Chakravarty  <chak@cse.unsw.edu.au>
 Duncan Coutts           <duncan@haskell.org>
 Bertram Felgenhauer     <int-e@gmx.de>
 
-with code contributions from
+with code contributions and patches from
 
 Iavor Diatchki          <iavor.diatchki@gmail.com>
+Kevin Charter           <kcharter@gmail.com>
 
 This project originated from the C parser component of c2hs,
 for many additional contributors see AUTHORS.c2hs.

@@ -332,6 +332,69 @@ get      = Trav (\s -> Right (s,s))
 put :: TravState s -> Trav s ()
 put s    = Trav (\_ -> Right ((),s))
 
+builtins :: DefTable
+builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
+  where doTypeDef d = snd . defineTypeDef (identOfTypeDef d) d
+        doIdent   d = snd . defineGlobalIdent (declIdent d) d
+        dName     s = VarName (internalIdent s) Nothing
+        param ty    = ParamDecl (VarDecl
+                                 NoName
+                                 (DeclAttrs False (Auto False) [])
+                                 ty) undefNode
+        fnAttrs     = DeclAttrs False (FunLinkage ExternalLinkage) []
+        varAttrs    = DeclAttrs False (Static InternalLinkage False) []
+        fnType r as = FunctionType (FunType r (map param as) False [])
+        func n r as = Declaration
+                      (Decl
+                       (VarDecl (dName n) fnAttrs (fnType r as))
+                       undefNode)
+        var n t     = Declaration
+                      (Decl (VarDecl (dName n) varAttrs t) undefNode)
+        typedef n t = TypeDef (internalIdent n) t [] undefNode
+        integral ty = DirectType (TyIntegral ty) noTypeQuals
+        floating ty = DirectType (TyFloating ty) noTypeQuals
+        stringType  = ArrayType
+                      (DirectType (TyIntegral TyChar)
+                                    (TypeQuals True False False))
+                      (UnknownArraySize False)
+                      noTypeQuals
+                      []
+        voidPtr     = PtrType (DirectType TyVoid noTypeQuals) noTypeQuals []
+        valistType  = DirectType (TyBuiltin TyVaList) noTypeQuals
+        typedefs    = [ typedef "__builtin_va_list"
+                                valistType
+                      ]
+        idents      = [ func "__builtin_expect"
+                             (integral TyLong)
+                             [integral TyLong, integral TyLong]
+                      , func "__builtin_fabs"
+                             (floating TyDouble)
+                             [floating TyDouble]
+                      , func "__builtin_fabsf"
+                             (floating TyFloat)
+                             [floating TyFloat]
+                      , func "__builtin_fabsl"
+                               (floating TyLDouble)
+                               [floating TyLDouble]
+                      , func "__builtin_inf" (floating TyDouble) []
+                      , func "__builtin_inff" (floating TyFloat) []
+                      , func "__builtin_infl" (floating TyLDouble) []
+                      , func "__builtin_va_start"
+                             (DirectType TyVoid noTypeQuals)
+                             [ valistType , voidPtr ]
+                      , func "__builtin_va_end"
+                             (DirectType TyVoid noTypeQuals)
+                             [valistType]
+                      , func "__builtin_alloca"
+                             voidPtr
+                             [ integral TyInt ] -- XXX: really size_t
+                      , func "__builtin_constant_p"
+                             (integral TyInt)
+                             [DirectType (TyBuiltin TyAny) noTypeQuals]
+                      , var "__func__"
+                            stringType
+                      ]
+
 runTrav :: forall s a. s -> Trav s a -> Either [CError] (a, TravState s)
 runTrav state traversal =
     case unTrav action (initTravState state) of
@@ -339,12 +402,8 @@ runTrav state traversal =
         Right (v, ts) | hadHardErrors (travErrors ts) -> Left (travErrors ts)
                       | otherwise                     -> Right (v,ts)
     where
-    action = do withDefTable $ defineTypeDef (identOfTypeDef va_list) va_list
+    action = do withDefTable (const ((), builtins))
                 traversal
-    va_list = (TypeDef (internalIdent "__builtin_va_list")
-                       (DirectType (TyBuiltin TyVaList) noTypeQuals)
-                       []
-                       (undefNode))
 
 runTrav_ :: Trav () a -> Either [CError] (a,[CError])
 runTrav_ t = fmap fst . runTrav () $

@@ -391,8 +391,9 @@ data TypeName =
     | TyBuiltin BuiltinType
     deriving (Typeable, Data)
 
--- | Builtin type (va_list)
+-- | Builtin type (va_list, anything)
 data BuiltinType = TyVaList
+                 | TyAny
                    deriving (Typeable, Data)
 
 -- | typdef references

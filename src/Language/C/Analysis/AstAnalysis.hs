@@ -229,10 +229,10 @@ localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) i
     localStorage NoStorageSpec = return $ Auto False
     localStorage RegSpec = return $ Auto True
     localStorage (StaticSpec thread_local) =
-      -- all local variables have internal linkage
-      -- XXX: is this true?
       return $ Static InternalLinkage thread_local
-    localStorage _ = astError node_info "bad storage specifier for local"
+    localStorage (ExternSpec thread_local) =
+      return $ Static ExternalLinkage thread_local
+    localStorage s = astError node_info "bad storage specifier for local"
 
 analyseFunctionBody :: (MonadTrav m) => VarDecl -> CStat -> m Stmt
 analyseFunctionBody _ s =

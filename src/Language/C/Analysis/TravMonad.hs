@@ -376,8 +376,8 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                              (floating TyFloat)
                              [floating TyFloat]
                       , func "__builtin_fabsl"
-                               (floating TyLDouble)
-                               [floating TyLDouble]
+                             (floating TyLDouble)
+                             [floating TyLDouble]
                       , func "__builtin_inf" (floating TyDouble) []
                       , func "__builtin_inff" (floating TyFloat) []
                       , func "__builtin_infl" (floating TyLDouble) []
@@ -410,6 +410,12 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_constant_p"
                              (integral TyInt)
                              [DirectType (TyBuiltin TyAny) noTypeQuals]
+                      , func "__builtin_return_address"
+                             voidPtr
+                             [ integral TyUInt ]
+                      , func "__builtin_frame_address"
+                             voidPtr
+                             [ integral TyUInt ]
                       , var "__func__"
                             stringType
                       ]

@@ -360,7 +360,9 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       noTypeQuals
                       []
         voidPtr     = PtrType (DirectType TyVoid noTypeQuals) noTypeQuals []
+        voidType    = DirectType TyVoid noTypeQuals
         valistType  = DirectType (TyBuiltin TyVaList) noTypeQuals
+        sizeType    = integral TyInt -- XXX: really size_t
         typedefs    = [ typedef "__builtin_va_list"
                                 valistType
                       ]
@@ -379,15 +381,32 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_inf" (floating TyDouble) []
                       , func "__builtin_inff" (floating TyFloat) []
                       , func "__builtin_infl" (floating TyLDouble) []
+                      , func "__builtin_huge_val" (floating TyDouble) []
+                      , func "__builtin_huge_valf" (floating TyFloat) []
+                      , func "__builtin_huge_vall" (floating TyLDouble) []
                       , func "__builtin_va_start"
-                             (DirectType TyVoid noTypeQuals)
+                             voidType
                              [ valistType , voidPtr ]
                       , func "__builtin_va_end"
-                             (DirectType TyVoid noTypeQuals)
+                             voidType
                              [valistType]
+                      , func "__builtin_va_copy"
+                             voidType
+                             [ valistType, valistType ]
                       , func "__builtin_alloca"
                              voidPtr
-                             [ integral TyInt ] -- XXX: really size_t
+                             [ sizeType ]
+                      , func "__builtin_memcpy"
+                             voidPtr
+                             [ voidPtr
+                             , PtrType (DirectType TyVoid noTypeQuals)
+                                       (TypeQuals True False False)
+                                       []
+                             , sizeType
+                             ]
+                      , func "__builtin_bzero"
+                             voidType
+                             [ voidPtr, sizeType ]
                       , func "__builtin_constant_p"
                              (integral TyInt)
                              [DirectType (TyBuiltin TyAny) noTypeQuals]

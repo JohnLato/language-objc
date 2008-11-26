@@ -37,6 +37,7 @@ module Language.C.Analysis.TravMonad (
     Trav,
     runTrav,runTrav_,
     TravState,initTravState,withExtDeclHandler,modifyUserState,userState,
+    travErrors,
     -- * Helpers
     mapMaybeM,maybeM,mapSndM,concatMapM,
 )

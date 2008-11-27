@@ -86,9 +86,9 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
                                              -- XXX: internal error
     -- translate the body
     stmt' <- analyseFunctionBody var_decl stmt
+    leaveFunctionScope
     -- callback for definition
     handleFunDef ident (FunDef var_decl stmt' node_info)
-    leaveFunctionScope
     where
     improveFunDefType (FunctionType (FunTypeIncomplete return_ty attrs)) =
       return . FunctionType $ FunType return_ty [] False attrs

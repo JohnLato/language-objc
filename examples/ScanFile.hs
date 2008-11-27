@@ -68,6 +68,8 @@ declTrace :: DeclEvent -> String
 declTrace event = render $ case event of
                                 TagEvent tag_def     -> (text ("Tag: " ++ show (sueRef tag_def)) <+> file tag_def)
                                 DeclEvent ident_decl -> (text ("Decl: " ++ show (declIdent ident_decl)) <+> file ident_decl)
+                                ParamEvent pd        -> (text ("Param: "++ show (declIdent pd))  <+> file pd)
+                                LocalEvent ident_decl -> (text ("Local: "++ show (declIdent ident_decl))  <+> file ident_decl)
                                 TypeDefEvent tydef   -> (text ("Typedef: " ++ show (identOfTypeDef tydef)) <+> file tydef)
                                 AsmEvent block       -> (text $ "Assembler block")
     where

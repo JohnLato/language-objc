@@ -187,51 +187,53 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
 --
 -- We have to check the storage specifiers here, as they determine wheter we're dealing with decalartions
 -- or definitions
--- see [doc\/ExternalDefinitions.txt]
+-- see [http://www.sivity.net/projects/language.c/wiki/ExternalDefinitions]
 extVarDecl :: (MonadTrav m) => VarDeclInfo -> (Maybe Initializer) -> m ()
 extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) init_opt =
-    do let ident = identOfVarName var_name
-       old_decl <- lookupObject ident
-       checkValidVarDeclStorage
-       let vardecl linkage = VarDecl var_name (DeclAttrs is_inline linkage attrs) typ
-       let decl linkage = Decl (vardecl linkage) node_info
-       case storage_spec of
-           NoStorageSpec           -- tentative if there is no initializer, external
-               -> handleObjectDef False ident $ ObjDef (vardecl (Static ExternalLinkage False)) init_opt node_info
-           StaticSpec thread_local -- tentative if there is no initializer, internal
-               -> handleObjectDef False ident $ ObjDef (vardecl (Static InternalLinkage thread_local)) init_opt node_info
-           ExternSpec thread_local
-             | Nothing <- init_opt  -- declaration with either external or old storage
-               -> handleVarDecl False $ decl $ maybe (Static ExternalLinkage thread_local) declStorage old_decl
-             | otherwise            -- warning, external definition
-               -> do warn $ badSpecifierError node_info
-                            "Both initializer and `extern` specifier given - treating as definition"
-                     handleObjectDef False ident $ ObjDef (vardecl (Static ExternalLinkage thread_local)) init_opt node_info
-           _ -> error$ "extVarDecl: storage_spec: "++show storage_spec
+    do (storage,is_def) <- globalStorage storage_spec
+       let vardecl = VarDecl var_name (DeclAttrs is_inline storage attrs) typ
+       if is_def
+           then handleObjectDef False ident $ ObjDef vardecl init_opt node_info
+           else handleVarDecl False $ Decl vardecl node_info
     where
-    checkValidVarDeclStorage
-        | is_inline               = astError node_info "invalid `inline' specifier for non-function"
-        | RegSpec <- storage_spec = astError node_info "invalid `register' storage specified for external object"
-        | otherwise               = return ()
+       ident = identOfVarName var_name
+       globalStorage _ | is_inline = astError node_info "invalid `inline' specifier external variable"
+       globalStorage RegSpec       = astError node_info "invalid `register' storage specified for external object"
+       -- tentative if there is no initializer, external
+       globalStorage NoStorageSpec = return $ (Static ExternalLinkage False, True)
+       -- tentative if there is no initializer, internal
+       globalStorage (StaticSpec thread_local) = return $ (Static InternalLinkage thread_local, True)
+       globalStorage (ExternSpec thread_local) =
+           case init_opt of
+               -- declaration with either external or old storage
+               Nothing -> do old_decl <- lookupObject ident
+                             return $ (maybe (Static ExternalLinkage thread_local) declStorage old_decl,False)
+               -- warning, external definition
+               Just _  -> do warn $ badSpecifierError node_info "Both initializer and `extern` specifier given - treating as definition"
+                             return $ (Static ExternalLinkage thread_local, True)
 
 -- | handle a function-scope object declaration \/ definition
+-- see [http://www.sivity.net/projects/language.c/wiki/LocalDefinitions]
 localVarDecl :: (MonadTrav m) => VarDeclInfo -> (Maybe Initializer) -> m ()
 localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) init_opt =
-    do storage <- localStorage storage_spec
+    do (storage,is_def) <- localStorage storage_spec
        let vardecl = VarDecl var_name (DeclAttrs is_inline storage attrs) typ
-       case init_opt of
-           Nothing -> handleVarDecl True (Decl vardecl node_info)
-           Just _  -> handleObjectDef True ident (ObjDef vardecl init_opt node_info)
+       if is_def
+           then handleObjectDef True ident (ObjDef vardecl init_opt node_info)
+           else handleVarDecl True (Decl vardecl node_info)
     where
     ident = identOfVarName var_name
     localStorage _
       | is_inline = astError node_info "invalid `inline' specifier for local variable"
-    localStorage NoStorageSpec = return $ Auto False
-    localStorage RegSpec = return $ Auto True
+    localStorage NoStorageSpec = return $ (Auto False,True)
+    localStorage RegSpec = return $ (Auto True,True)
     localStorage (StaticSpec thread_local) =
-      return $ Static InternalLinkage thread_local
-    localStorage (ExternSpec thread_local) =
-      return $ Static ExternalLinkage thread_local
+      return $ (Static InternalLinkage thread_local,True)
+    localStorage (ExternSpec thread_local)
+      | isJust init_opt = astError node_info "extern keyword and initializer for local"
+      | otherwise =
+          do old_decl <- lookupObject ident
+             return (maybe (Static ExternalLinkage thread_local) declStorage old_decl,False)
     localStorage s = astError node_info "bad storage specifier for local"
 
 analyseFunctionBody :: (MonadTrav m) => VarDecl -> CStat -> m Stmt

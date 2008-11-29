@@ -69,23 +69,16 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     var_decl_info <- analyseVarDecl True declspecs declr oldstyle_decls Nothing
     let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl_info
     let ident = identOfVarName name
-    -- compute storage
-    fun_storage <- computeFunDefStorage ident storage_spec
-    let var_decl = VarDecl name (DeclAttrs is_inline fun_storage attrs) ty
     -- improve incomplete type
     ty' <- improveFunDefType ty
+    -- compute storage
+    fun_storage <- computeFunDefStorage ident storage_spec
+    let var_decl = VarDecl name (DeclAttrs is_inline fun_storage attrs) ty'
     -- callback for declaration
     handleVarDecl False (Decl var_decl node_info)
     -- process body
     enterFunctionScope
-    -- add parameters again
-    case ty' of
-      FunctionType (FunType _ params _ _) -> mapM_ addParam params
-      _                                   -> astError node_info
-                                             "function has non-function type"
-                                             -- XXX: internal error
-    -- translate the body
-    stmt' <- analyseFunctionBody var_decl stmt
+    stmt' <- analyseFunctionBody node_info var_decl stmt
     leaveFunctionScope
     -- callback for definition
     handleFunDef ident (FunDef var_decl stmt' node_info)
@@ -93,10 +86,6 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     improveFunDefType (FunctionType (FunTypeIncomplete return_ty attrs)) =
       return . FunctionType $ FunType return_ty [] False attrs
     improveFunDefType ty = return $ ty
-    -- XXX: defineScopedIdentWhen?
-    addDecl d = withDefTable $ defineScopedIdent (declIdent d) d
-    addParam (ParamDecl d ni) = addDecl $ Declaration $ Decl d ni
-    addParam (AbstractParamDecl d ni) = addDecl $ Declaration $ Decl d ni
 
 -- | Analyse a declaration other than a function definition
 analyseDecl :: (MonadTrav m) => Bool -> CDecl -> m ()
@@ -162,6 +151,11 @@ computeFunDefStorage ident other_spec  = do
     bad_spec -> throwTravError $ badSpecifierError (nodeInfo ident)
                   $ "unexpected function storage specifier (only static or extern is allowed)" ++ show bad_spec
 
+-- (private) Get parameters of a function type
+getParams :: Type -> Maybe [ParamDecl]
+getParams (FunctionType (FunType _ params _ _)) = Just params
+getParams _ = Nothing
+
 -- | handle a function prototype
 extFunProto :: (MonadTrav m) => VarDeclInfo -> m ()
 extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
@@ -169,6 +163,8 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
         checkValidSpecs
         let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) ty
         handleVarDecl False (Decl decl node_info)
+        -- XXX: this and structs should be handled in 'function prototype scope'
+        maybe (return ()) (mapM_ handleParamDecl) (getParams ty)
     where
     funDeclLinkage old_fun =
         case storage_spec of
@@ -180,8 +176,8 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
             _ -> error $ "funDeclLinkage: " ++ show storage_spec
     checkValidSpecs
         | hasThreadLocalSpec storage_spec = astError node_info "thread local storage specified for function"
-        | RegSpec <- storage_spec        = astError node_info "invalid `register' storage specified for function"
-        | otherwise                      = return ()
+        | RegSpec <- storage_spec         = astError node_info "invalid `register' storage specified for function"
+        | otherwise                       = return ()
 
 -- | handle a object declaration \/ definition
 --
@@ -237,31 +233,47 @@ localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) i
              return (maybe (Static ExternalLinkage thread_local) declStorage old_decl,False)
     localStorage s = astError node_info "bad storage specifier for local"
 
-analyseFunctionBody :: (MonadTrav m) => VarDecl -> CStat -> m Stmt
-analyseFunctionBody _ s =
+analyseFunctionBody :: (MonadTrav m) => NodeInfo -> VarDecl -> CStat -> m Stmt
+analyseFunctionBody node_info decl s@(CCompound localLabels items _) =
   do mapM (withDefTable . defineLabel) (getLabels s)
-     tStmt s
+     enterBlockScope
+     -- record parameters
+     case (getParams $ declType decl) of
+         Nothing -> astError node_info "expecting complete function type in function definition"
+         Just params -> mapM handleParamDecl params
+     mapM_ analyseBlockItem items
+     leaveBlockScope
+     return s -- XXX: bogus
+
+analyseFunctionBody _ _ s = astError (nodeInfo s) "Function body is no compound statement"
+
+-- XXX: This is should be generalized !!!
+--      Data.Generics sounds attractive, but we really need to control the evaluation order
+-- XXX: Expression statements (which are somewhat problematic anyway), aren't handled yet
+getSubStmts :: CStat -> [CStat]
+getSubStmts (CLabel _ s _ _)      = [s]
+getSubStmts (CCase _ s _)         = [s]
+getSubStmts (CCases _ _ s _)      = [s]
+getSubStmts (CDefault s _)        = [s]
+getSubStmts (CExpr _ _)           = []
+getSubStmts (CCompound _ body _)  = concatMap compoundSubStmts body
+  where compoundSubStmts (CBlockStmt s)    = getSubStmts s
+        compoundSubStmts (CBlockDecl _)    = []
+        compoundSubStmts (CNestedFunDef _) = []
+getSubStmts (CIf _ sthen selse _) = maybe [sthen] (\s -> [sthen,s]) selse
+getSubStmts (CSwitch _ s _)       = [s]
+getSubStmts (CWhile _ s _ _)      = [s]
+getSubStmts (CFor _ _ _ s _)      = [s]
+getSubStmts (CGoto _ _)           = []
+getSubStmts (CGotoPtr _ _)        = []
+getSubStmts (CCont _)             = []
+getSubStmts (CBreak _)            = []
+getSubStmts (CReturn _ _)         = []
+getSubStmts (CAsm _ _)            = []
 
 getLabels :: CStat -> [Ident]
 getLabels (CLabel l s _ _)      = l : getLabels s
-getLabels (CCase _ s _)         = getLabels s
-getLabels (CCases _ _ s _)      = getLabels s
-getLabels (CDefault s _)        = getLabels s
-getLabels (CExpr _ _)           = []
-getLabels (CCompound _ body _)  = concatMap getBILabels body
-  where getBILabels (CBlockStmt s)    = getLabels s
-        getBILabels (CBlockDecl _)    = []
-        getBILabels (CNestedFunDef _) = []
-getLabels (CIf _ sthen selse _) = getLabels sthen ++ maybe [] getLabels selse
-getLabels (CSwitch _ s _)       = getLabels s
-getLabels (CWhile _ s _ _)      = getLabels s
-getLabels (CFor _ _ _ s _)      = getLabels s
-getLabels (CGoto _ _)           = []
-getLabels (CGotoPtr _ _)        = []
-getLabels (CCont _)             = []
-getLabels (CBreak _)            = []
-getLabels (CReturn _ _)         = []
-getLabels (CAsm _ _)            = []
+getLabels stmt                  = concatMap getLabels (getSubStmts stmt)
 
 analyseBlockItem :: (MonadTrav m) => CBlockItem -> m ()
 analyseBlockItem (CBlockStmt s) = tStmt s >> return ()
@@ -276,7 +288,7 @@ tStmt s@(CCompound _ items _) =
      mapM_ analyseBlockItem items
      leaveBlockScope
      return s
-tStmt s = return s
+tStmt s = mapM_ tStmt (getSubStmts s) >> return s
 
 -- | /TODO/: Bogus
 tExpr :: (MonadTrav m) => CExpr -> m Expr

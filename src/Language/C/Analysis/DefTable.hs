@@ -91,8 +91,8 @@ type TagEntry = Either TagFwdDecl TagDef
 -- | Table holding current definitions
 data DefTable = DefTable
     {
-        identDecls   :: NameSpaceMap Ident IdentEntry,    -- ^ declared `ordinary identifiers'
-        tagDecls   :: NameSpaceMap SUERef TagEntry,       -- ^ declared struct/union/enum  tags
+        identDecls   :: NameSpaceMap Ident IdentEntry,     -- ^ declared `ordinary identifiers'
+        tagDecls   :: NameSpaceMap SUERef TagEntry,        -- ^ declared struct/union/enum  tags
         labelDefs  :: NameSpaceMap Ident Ident,            -- ^ defined labels
         memberDecls :: NameSpaceMap Ident MemberDecl,      -- ^ member declarations (only local)
         refTable   :: IntMap Name                          -- ^ link names with definitions
@@ -202,6 +202,7 @@ defRedeclStatus sameKind def oldDecl =
         Just def' | def `sameKind` def' -> Redeclared def'
                   | otherwise           -> KindMismatch def'
         Nothing                         -> NewDecl
+
 defRedeclStatusLocal :: (Ord k) =>
                         (t -> t -> Bool) -> k -> t -> Maybe t -> NameSpaceMap k t -> DeclarationStatus t
 defRedeclStatusLocal sameKind ident def oldDecl nsm =

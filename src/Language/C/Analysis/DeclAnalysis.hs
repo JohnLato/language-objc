@@ -54,7 +54,7 @@ tParamDecl (CDecl declspecs declrs node) =
      -- compute storage of parameter (NoStorage, but might have a register specifier)
      storage <- throwOnLeft $ computeParamStorage node storage_spec
      let paramDecl = mkParamDecl name storage attrs ty declr_node
-     handleParamDecl paramDecl
+     -- XXX: we shouldn't modify the deftable here, just analyse and build representation
      return $ paramDecl
   where
   getParamDeclr =
@@ -67,6 +67,7 @@ tParamDecl (CDecl declspecs declrs node) =
     case name of
       NoName -> AbstractParamDecl vd declr_node
       _ -> ParamDecl vd declr_node
+
 -- | a parameter declaration has no linkage and either auto or register storage
 computeParamStorage :: NodeInfo -> StorageSpec -> Either BadSpecifierError Storage
 computeParamStorage _ NoStorageSpec = Right (Auto False)

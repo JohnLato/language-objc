@@ -12,6 +12,7 @@ import Data.List
 
 import Language.C              -- simple API
 import Language.C.Analysis     -- analysis API
+import Language.C.Analysis.Debug -- debugging printer for analysis
 import Language.C.System.GCC   -- preprocessor used
 
 usageMsg :: String -> String
@@ -66,11 +67,11 @@ errorOnLeftM msg action = action >>= errorOnLeft msg
 
 declTrace :: DeclEvent -> String
 declTrace event = render $ case event of
-                                TagEvent tag_def     -> (text ("Tag: " ++ show (sueRef tag_def)) <+> file tag_def)
-                                DeclEvent ident_decl -> (text ("Decl: " ++ show (declIdent ident_decl)) <+> file ident_decl)
-                                ParamEvent pd        -> (text ("Param: "++ show (declIdent pd))  <+> file pd)
-                                LocalEvent ident_decl -> (text ("Local: "++ show (declIdent ident_decl))  <+> file ident_decl)
-                                TypeDefEvent tydef   -> (text ("Typedef: " ++ show (identOfTypeDef tydef)) <+> file tydef)
+                                TagEvent tag_def     -> (text "Tag:" <+> (pretty tag_def) <+> file tag_def)
+                                DeclEvent ident_decl -> (text "Decl:" <+> (pretty ident_decl) <+> file ident_decl)
+                                ParamEvent pd        -> (text "Param:" <+> (pretty pd)  <+> file pd)
+                                LocalEvent ident_decl -> (text "Local:" <+> (pretty ident_decl)  <+> file ident_decl)
+                                TypeDefEvent tydef   -> (text "Typedef:" <+> (pretty tydef) <+> file tydef)
                                 AsmEvent block       -> (text $ "Assembler block")
     where
     file :: (CNode a) => a -> Doc

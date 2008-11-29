@@ -144,25 +144,42 @@ checkIdentTyRedef (Left tydef) (Redeclared old_def) =
   redefErr (identOfTypeDef tydef) LevelError tydef old_def DuplicateDef
 checkIdentTyRedef (Left _tydef) _ = return ()
 
+-- Check whether it is ok to declare a variable already in scope
 checkVarRedef :: (MonadTrav m) => IdentDecl -> (DeclarationStatus IdentEntry) -> m ()
 checkVarRedef def redecl =
     case redecl of
         -- always an error
         KindMismatch old_def -> redefVarErr old_def DiffKindRedecl
-        -- types have to match
-        KeepDef (Right old_def) -> throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
-        -- redeclaration: old entry has to be a declaration or tentative, type have to match
-        Redeclared (Right old_def) | isTentativeG old_def ->
-                                      throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
-                                   | otherwise -> redefVarErr old_def DuplicateDef
+        -- Declaration referencing definition:
+        --   * new entry has to be a declaration
+        --   * old entry and new entry have to have linkage and agree on linkage
+        --   * types have to match
+        KeepDef (Right old_def) | not (agreeOnLinkage def old_def) -> linkageErr def old_def
+                                | otherwise -> throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
+        -- redefinition:
+        --   * old entry has to be a declaration or tentative definition
+        --   * old entry and new entry have to have linkage and agree on linkage
+        --   * types have to match
+        Redeclared (Right old_def) | not (agreeOnLinkage def old_def) -> linkageErr def old_def
+                                   | not(canBeOverwritten old_def) -> redefVarErr old_def DuplicateDef
+                                   | otherwise -> throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
         -- NewDecl/Shadowed is ok
         _ -> return ()
     where
     redefVarErr old_def kind = redefErr (declIdent def) LevelError def old_def kind
+    linkageErr def old_def =
+        case (declLinkage def, declLinkage old_def) of
+            (NoLinkage, _) -> redefErr (declIdent def) LevelError  def old_def NoLinkageOld
+            otherwise      -> redefErr (declIdent def) LevelError  def old_def DisagreeLinkage
+
     new_ty = declType def
-    isTentativeG (Declaration _) = True
-    isTentativeG (ObjectDef od)  = isTentative od
-    isTentativeG _               = False
+    canBeOverwritten (Declaration _) = True
+    canBeOverwritten (ObjectDef od)  = isTentative od
+    canBeOverwritten _               = False
+    agreeOnLinkage def old_def
+        | not (hasLinkage $ declStorage def) || not (hasLinkage $ declStorage old_def) = False
+        | (declLinkage def) /= (declLinkage old_def) = False
+        | otherwise = True
 
 -- | handle variable declarations (external object declarations and function prototypes)
 -- variable declarations are either function prototypes, or external declarations, and not very
@@ -175,7 +192,7 @@ handleVarDecl is_local decl = do
 
 -- | handle parameter declaration. The interesting part is that parameters can be abstract
 -- (if they are part of a type). If they have a name, we enter the name (usually in function prototype or function scope),
--- checking if there are duplicate definitions. 
+-- checking if there are duplicate definitions.
 -- FIXME: I think it would be more transparent to handle parameter declarations in a special way
 handleParamDecl :: (MonadTrav m) => ParamDecl -> m ()
 handleParamDecl pd@(AbstractParamDecl _ _) = handleDecl (ParamEvent pd)
@@ -215,16 +232,16 @@ handleObjectDef :: (MonadTrav m) => Bool -> Ident -> ObjDef -> m ()
 handleObjectDef local ident obj_def = do
     let def = ObjectDef obj_def
     redecl <- withDefTable $
-              defineScopedIdentWhen (\o -> shouldOverride def o) ident def
+              defineScopedIdentWhen (\old -> shouldOverride def old) ident def
     checkVarRedef def redecl
     handleDecl ((if local then LocalEvent else DeclEvent) def)
     where
     isTentativeDef (ObjectDef object_def) = isTentative object_def
     isTentativeDef _ = False
-    shouldOverride def o | isDeclaration o = True
-                         | not (isTentativeDef def) = True
-                         | isTentativeDef o = True
-                         | otherwise = False
+    shouldOverride def old | isDeclaration old = True
+                           | not (isTentativeDef def) = True
+                           | isTentativeDef old = True
+                           | otherwise = False
 
 -- * scope manipulation
 --

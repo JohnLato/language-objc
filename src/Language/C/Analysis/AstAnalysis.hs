@@ -227,8 +227,9 @@ localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) i
       | is_inline = astError node_info "invalid `inline' specifier for local variable"
     localStorage NoStorageSpec = return $ (Auto False,True)
     localStorage RegSpec = return $ (Auto True,True)
+    -- static no linkage
     localStorage (StaticSpec thread_local) =
-      return $ (Static InternalLinkage thread_local,True)
+      return $ (Static NoLinkage thread_local,True)
     localStorage (ExternSpec thread_local)
       | isJust init_opt = astError node_info "extern keyword and initializer for local"
       | otherwise =

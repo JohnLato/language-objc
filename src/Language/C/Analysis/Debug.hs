@@ -167,6 +167,7 @@ instance Pretty Storage where
 instance Pretty Linkage where
     pretty InternalLinkage = text "internal"
     pretty ExternalLinkage = text "external"
+    pretty NoLinkage       = text "local"
 instance Pretty VarName where
     pretty NoName = text "<anonymous>"
     pretty (VarName ident asmname_opt) = pretty ident <+> (maybe empty pAsmName asmname_opt)

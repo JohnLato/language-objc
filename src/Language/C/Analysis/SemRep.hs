@@ -31,7 +31,7 @@ VarDecl(..),
 -- * Declaration attributes
 DeclAttrs(..),isExtDecl,
 Storage(..),declStorage,ThreadLocal,Register,
-Linkage(..),
+Linkage(..),hasLinkage,declLinkage,
 -- * Types
 Type(..),
 FunType(..),isFunctionType,
@@ -301,21 +301,32 @@ declStorage d = case declAttrs d of (DeclAttrs _ st _) -> st
 -- | Storage duration and linkage of a variable
 data Storage  =  NoStorage                  -- ^ no storage
                | Auto Register              -- ^ automatic storage (optional: register)
-               | Static Linkage ThreadLocal -- ^ static storage, with linkage and thread local specifier (gnu c)
+               | Static Linkage ThreadLocal -- ^ static storage, linkage spec and thread local specifier (gnu c)
                | FunLinkage Linkage         -- ^ function, either internal or external linkage
                deriving (Typeable, Data, Show, Eq, Ord)
 
 type ThreadLocal = Bool
 type Register    = Bool
 
--- | Linkage: Either internal to the translation unit or external
-data Linkage = InternalLinkage | ExternalLinkage
+-- | Linkage: Either no linkage, internal to the translation unit or external
+data Linkage = NoLinkage | InternalLinkage | ExternalLinkage
                deriving (Typeable, Data, Show, Eq, Ord)
 
 -- | return @True@ if the object has linkage
 hasLinkage :: Storage -> Bool
-hasLinkage (Static _ _) = True
-hasLinkage _ = False
+hasLinkage (Auto _) = False
+hasLinkage (Static NoLinkage _) = False
+hasLinkage _ = True
+
+-- | Get the linkage of a definition
+declLinkage :: (Declaration d) => d -> Linkage
+declLinkage decl =
+    case declStorage decl of
+        NoStorage -> undefined
+        Auto _ -> NoLinkage
+        Static linkage _ -> linkage
+        FunLinkage linkage -> linkage
+
 
 -- * types
 

@@ -37,7 +37,8 @@ newtype BadSpecifierError = BadSpecifierError ErrorInfo deriving (Typeable,Error
 data RedefError = RedefError ErrorLevel RedefInfo deriving Typeable
 
 data RedefInfo = RedefInfo String RedefKind NodeInfo NodeInfo
-data RedefKind = DuplicateDef | DiffKindRedecl | ShadowedDef
+data RedefKind = DuplicateDef | DiffKindRedecl | ShadowedDef | DisagreeLinkage |
+                 NoLinkageOld
 data TypeMismatch = TypeMismatch String (NodeInfo,Type) (NodeInfo,Type) deriving Typeable
 
 -- Invalid AST
@@ -89,6 +90,8 @@ redefErrReason :: RedefInfo -> String
 redefErrReason (RedefInfo ident DuplicateDef _ _) = "duplicate definition of " ++ ident
 redefErrReason (RedefInfo ident ShadowedDef _ _)   = "this declaration of " ++ ident ++ " shadows a previous one"
 redefErrReason (RedefInfo ident DiffKindRedecl _ _) = ident ++ " previously declared as a different kind of symbol"
+redefErrReason (RedefInfo ident DisagreeLinkage _ _) = ident ++ " previously declared with different linkage"
+redefErrReason (RedefInfo ident NoLinkageOld _ _) = ident ++ " previously declared without linkage"
 
 prevDeclMsg :: NodeInfo -> [String]
 prevDeclMsg old_node = ["The previous declaration was here: ", show (posOfNode old_node)]

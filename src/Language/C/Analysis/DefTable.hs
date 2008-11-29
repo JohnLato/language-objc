@@ -237,7 +237,7 @@ defineScopedIdent = defineScopedIdentWhen (const True)
 --   entry.
 --
 --  returns @Keep old_def@ if the old definition shouldn't be overwritten, and otherwise @Redeclared def@ or
---  @DifferentKindRedec def@  if there is already an object\/function\/typeDef in the same scope.
+--  @DifferentKindRedecl def@  if there is already an object\/function\/typeDef in the same scope.
 defineScopedIdentWhen :: (IdentDecl -> Bool) -> Ident -> IdentDecl -> DefTable ->
                            (DeclarationStatus IdentEntry, DefTable)
 defineScopedIdentWhen override_def ident def deftbl

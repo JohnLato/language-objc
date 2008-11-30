@@ -125,10 +125,9 @@ leaveLocalScope deftbl = deftbl {
                         tagDecls = leaveScope_ (tagDecls deftbl)
                        }
 
--- | Enter function scope (and the corresponding block scope)
+-- | Enter function scope (AND the corresponding block scope)
 enterFunctionScope :: DefTable -> DefTable
-enterFunctionScope deftbl = enterLocalScope  $
-                          deftbl { labelDefs = enterNewScope (labelDefs deftbl) }
+enterFunctionScope deftbl = enterLocalScope  $ deftbl { labelDefs = enterNewScope (labelDefs deftbl) }
 
 -- | Leave function scope, and return the associated DefTable.
 --   Error if not in function scope.

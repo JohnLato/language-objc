@@ -77,9 +77,7 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     -- callback for declaration
     handleVarDecl False (Decl var_decl node_info)
     -- process body
-    enterFunctionScope
     stmt' <- analyseFunctionBody node_info var_decl stmt
-    leaveFunctionScope
     -- callback for definition
     handleFunDef ident (FunDef var_decl stmt' node_info)
     where
@@ -163,8 +161,10 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
         checkValidSpecs
         let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) ty
         handleVarDecl False (Decl decl node_info)
-        -- XXX: this and structs should be handled in 'function prototype scope'
+        -- XXX: structs should be handled in 'function prototype scope' too
+        enterPrototypeScope
         maybe (return ()) (mapM_ handleParamDecl) (getParams ty)
+        leavePrototypeScope
     where
     funDeclLinkage old_fun =
         case storage_spec of
@@ -235,14 +235,14 @@ localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) i
 
 analyseFunctionBody :: (MonadTrav m) => NodeInfo -> VarDecl -> CStat -> m Stmt
 analyseFunctionBody node_info decl s@(CCompound localLabels items _) =
-  do mapM (withDefTable . defineLabel) (getLabels s)
-     enterBlockScope
+  do enterFunctionScope
+     mapM (withDefTable . defineLabel) (getLabels s)
      -- record parameters
      case (getParams $ declType decl) of
          Nothing -> astError node_info "expecting complete function type in function definition"
          Just params -> mapM handleParamDecl params
      mapM_ analyseBlockItem items
-     leaveBlockScope
+     leaveFunctionScope
      return s -- XXX: bogus
 
 analyseFunctionBody _ _ s = astError (nodeInfo s) "Function body is no compound statement"

@@ -20,7 +20,7 @@ where
 import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
-import Language.C.Analysis.DefTable (globalDefs, defineScopedIdent, defineLabel)
+import Language.C.Analysis.DefTable (globalDefs, defineScopedIdent, defineLabel, inFileScope)
 import Language.C.Analysis.DeclAnalysis
 
 import Language.C.Data
@@ -48,7 +48,12 @@ import Debug.Trace
 -- It is the users responsibility to check whether any hard errors occured (@runTrav@ does this for you).
 analyseAST :: (MonadTrav m) => CTranslUnit -> m GlobalDecls
 analyseAST (CTranslUnit decls _file_node) = do
+    -- analyse all declarations, but recover from errors
     mapRecoverM_ analyseExt decls
+    -- check we are in global scope afterwards
+    getDefTable >>= \dt -> when (not (inFileScope dt)) $
+        error "Internal Error: Not in filescope after analysis"
+    -- get the global definition table (XXX: remove ?)
     liftM globalDefs getDefTable
     where
     mapRecoverM_ f = mapM_ (handleTravError . f)

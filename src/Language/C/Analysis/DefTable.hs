@@ -22,6 +22,7 @@ module Language.C.Analysis.DefTable (
     DefTable(..),
     emptyDefTable,
     globalDefs,
+    inFileScope,
     enterFunctionScope,leaveFunctionScope,enterBlockScope,leaveBlockScope,
     enterMemberDecl,leaveMemberDecl,
     DeclarationStatus(..),declStatusDescr,
@@ -110,6 +111,9 @@ globalDefs deftbl = Map.foldWithKey insertDecl (GlobalDecls e gtags e) (globalNa
     (_fwd_decls,gtags) = Map.mapEither id $ globalNames (tagDecls deftbl)
     insertDecl ident (Left tydef) ds = ds { gTypeDefs = Map.insert ident tydef (gTypeDefs ds)}
     insertDecl ident (Right obj) ds = ds { gObjs = Map.insert ident obj (gObjs ds) }
+
+inFileScope :: DefTable -> Bool
+inFileScope dt = not (hasLocalNames (identDecls dt) || hasLocalNames (labelDefs dt))
 
 leaveScope_ :: (Ord k) => NameSpaceMap k a -> NameSpaceMap k a
 leaveScope_ = fst . leaveScope

@@ -32,21 +32,21 @@ main = do
     when (length args < 1) usageErr
     doTraceDecls <- liftM (("TRACE_EVENTS" `elem`). map fst) getEnvironment
     -- get cpp options and input file
-    let (pat,opts,c_file) = case hasExtension (last args) of
+    let (pat,opts,input_file) = case hasExtension (last args) of
                               True -> (Nothing,init args,last args)
                               False -> let (pat,args') = (last args, init args)
                                        in (Just pat,init args',last args')
 
     -- parse
     ast <- errorOnLeftM "Parse Error" $
-      parseCFile (newGCC "gcc") Nothing opts c_file
+      parseCFile (newGCC "gcc") Nothing opts input_file
 
     -- analyze
     (globals,warnings) <- errorOnLeft "Semantic Error" $ runTrav_ $ traversal doTraceDecls ast
 
     -- print
     mapM (hPutStrLn stderr . show) warnings
-    print $ pretty $ filterGlobalDecls (fileOfInterest pat c_file . fileOfNode) globals
+    print $ pretty $ filterGlobalDecls (fileOfInterest pat input_file . fileOfNode) globals
 
     where
     traversal False ast = analyseAST ast
@@ -56,8 +56,8 @@ main = do
     checkResult :: (Show a) => String -> (Either a b) -> IO b
     checkResult label = either (error . (label++) . show) return
     fileOfInterest (Just pat) _ file_name = pat `isInfixOf` file_name
-    fileOfInterest Nothing c_file file_name = fileOfInterest' (splitExtensions c_file) (splitExtension file_name)
-    fileOfInterest' (c_base,c_ext) (f_base,f_ext) | c_base /= f_base = False
+    fileOfInterest Nothing input_file file_name = fileOfInterest' (splitExtensions input_file) (splitExtension file_name)
+    fileOfInterest' (c_base,c_ext) (f_base,f_ext) | takeBaseName c_base /= takeBaseName f_base = False
                                                   | f_ext == ".h" && c_ext == ".c"  = False
                                                   | otherwise = True
 

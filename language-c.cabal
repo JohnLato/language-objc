@@ -70,6 +70,7 @@ Library
                       Language.C.Analysis.AstAnalysis
                       Language.C.Analysis.DeclAnalysis
                       Language.C.Analysis.Debug
+                      Language.C.Analysis.TypeUtils
                       -- semrep -> code [alpha]
                       Language.C.Analysis.Export
     Other-Modules:    

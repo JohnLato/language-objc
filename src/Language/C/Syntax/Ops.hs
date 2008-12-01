@@ -13,10 +13,16 @@
 module Language.C.Syntax.Ops (
 -- * Assignment operators
 CAssignOp(..),
--- * Unary operators
-CUnaryOp(..),
+assignBinop,
 -- * Binary operators
 CBinaryOp(..),
+isCmpOp,
+isPtrOp,
+isBitOp,
+isLogicOp,
+-- * Unary operators
+CUnaryOp(..),
+isEffectfulOp
 )
 where
 import Data.Generics
@@ -45,6 +51,19 @@ instance Show CAssignOp where
   show CAndAssOp = "&="
   show CXorAssOp = "^="
   show COrAssOp  = "|="
+
+assignBinop :: CAssignOp -> CBinaryOp
+assignBinop CAssignOp = error "direct assignment has no binary operator"
+assignBinop CMulAssOp = CMulOp
+assignBinop CDivAssOp = CDivOp
+assignBinop CRmdAssOp = CRmdOp
+assignBinop CAddAssOp = CAddOp
+assignBinop CSubAssOp = CSubOp
+assignBinop CShlAssOp = CShlOp
+assignBinop CShrAssOp = CShrOp
+assignBinop CAndAssOp = CAndOp
+assignBinop CXorAssOp = CXorOp
+assignBinop COrAssOp  = COrOp
 
 -- | C binary operators (K&R A7.6-15)
 --
@@ -87,6 +106,18 @@ instance Show CBinaryOp where
   show CLndOp = "&&"
   show CLorOp = "||"
 
+isCmpOp :: CBinaryOp -> Bool
+isCmpOp op = op `elem` [ CLeqOp, CGeqOp, CLeOp, CGrOp, CEqOp, CNeqOp ]
+
+isPtrOp :: CBinaryOp -> Bool
+isPtrOp op = op `elem` [ CAddOp, CSubOp ]
+
+isBitOp :: CBinaryOp -> Bool
+isBitOp op = op `elem` [ CShlOp, CShrOp, CAndOp, COrOp, CXorOp ]
+
+isLogicOp :: CBinaryOp -> Bool
+isLogicOp op = op `elem` [ CLndOp, CLorOp ]
+
 -- | C unary operator (K&R A7.3-4)
 --
 data CUnaryOp = CPreIncOp               -- ^ prefix increment operator
@@ -111,3 +142,6 @@ instance Show CUnaryOp where
   show CMinOp     = "-"
   show CCompOp    = "~"
   show CNegOp     = "!"
+
+isEffectfulOp :: CUnaryOp -> Bool
+isEffectfulOp op = op `elem` [ CPreIncOp, CPreDecOp, CPostIncOp, CPostDecOp ]

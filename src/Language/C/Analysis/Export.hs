@@ -61,7 +61,7 @@ exportType ty = exportTy [] ty
     exportTy dd (TypeDefType (TypeDefRef ty_ident _ node)) = ([CTypeSpec (CTypeDef ty_ident node)], reverse dd)
     exportTy dd (DirectType ity quals) = (map CTypeQual (exportTypeQuals quals) ++
                                         map CTypeSpec (exportTypeSpec ity), reverse dd)
-    exportTy _ (TypeOfExpr _) = error "export of TypeOfExpr isn't supported"
+    exportTy dd (TypeOfExpr e) = ([CTypeSpec (CTypeOfExpr e undefNode)], reverse dd)
 
 exportTypeQuals :: TypeQuals -> [CTypeQual]
 exportTypeQuals quals = mapMaybe select [(constant,CConstQual ni),(volatile,CVolatQual ni),(restrict,CRestrQual ni)]

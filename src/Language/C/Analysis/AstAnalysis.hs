@@ -116,8 +116,9 @@ analyseDecl is_local decl@(CDecl declspecs declrs node)
         -- analyse the declarator
         vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <- analyseVarDecl handle_sue_def declspecs declr [] Nothing
         -- declare / define the object
-        init_opt' <- mapMaybeM init_opt (tInit typ)
-        if (isFunctionType typ)
+        typ' <- removeTypeOf typ
+        init_opt' <- mapMaybeM init_opt (tInit typ')
+        if (isFunctionType typ')
             then extFunProto vardeclInfo
             else (if is_local then localVarDecl else extVarDecl)
                  vardeclInfo init_opt'

@@ -614,7 +614,7 @@ tagDefType ni td field =
     (EnumDef (EnumType _ es _ _))   -> getMatchingMember field es
   where getMatchingMember m ds =
           case filter (hasIdent m . declName) ds of
-            [d] -> return $ declType d
+            [d] -> removeTypeOf (declType d)
             []  -> typeError ni $ "field not found: " ++ identToString m
             _   -> typeError ni $
                    "field defined multiple times: " ++ identToString m

@@ -116,12 +116,14 @@ analyseDecl is_local decl@(CDecl declspecs declrs node)
         -- analyse the declarator
         vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <- analyseVarDecl handle_sue_def declspecs declr [] Nothing
         -- declare / define the object
-        typ' <- removeTypeOf typ
-        init_opt' <- mapMaybeM init_opt (tInit typ')
-        if (isFunctionType typ')
+        if (isFunctionType typ)
             then extFunProto vardeclInfo
             else (if is_local then localVarDecl else extVarDecl)
-                 vardeclInfo init_opt'
+                 -- XXX: if Initializer becomes different from CInit, this
+                 -- will have to change.
+                 vardeclInfo init_opt
+        init_opt' <- mapMaybeM init_opt (tInit typ)
+        return ()
     analyseVarDeclr _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
     analyseVarDeclr _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
 

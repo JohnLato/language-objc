@@ -243,7 +243,7 @@ localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) i
 analyseFunctionBody :: (MonadTrav m) => NodeInfo -> VarDecl -> CStat -> m Stmt
 analyseFunctionBody node_info decl s@(CCompound localLabels items _) =
   do enterFunctionScope
-     mapM (withDefTable . defineLabel) (getLabels s)
+     mapM (withDefTable . defineLabel) (localLabels ++ getLabels s)
      -- record parameters
      case (getParams $ declType decl) of
          Nothing -> astError node_info "expecting complete function type in function definition"
@@ -258,20 +258,16 @@ analyseFunctionBody _ _ s = astError (nodeInfo s) "Function body is no compound 
 --      Data.Generics sounds attractive, but we really need to control the evaluation order
 -- XXX: Expression statements (which are somewhat problematic anyway), aren't handled yet
 getSubStmts :: CStat -> [CStat]
-getSubStmts (CLabel _ s _ _)      = getSubStmts' s
-getSubStmts (CCase _ s _)         = getSubStmts' s
-getSubStmts (CCases _ _ s _)      = getSubStmts' s
-getSubStmts (CDefault s _)        = getSubStmts' s
+getSubStmts (CLabel _ s _ _)      = [s]
+getSubStmts (CCase _ s _)         = [s]
+getSubStmts (CCases _ _ s _)      = [s]
+getSubStmts (CDefault s _)        = [s]
 getSubStmts (CExpr _ _)           = []
 getSubStmts (CCompound _ body _)  = concatMap compoundSubStmts body
-  where compoundSubStmts (CBlockStmt s)    = getSubStmts' s
-        compoundSubStmts (CBlockDecl _)    = []
-        compoundSubStmts (CNestedFunDef _) = []
-getSubStmts (CIf _ sthen selse _) =
-  concatMap getSubStmts' $ maybe [sthen] (\s -> [sthen,s]) selse
-getSubStmts (CSwitch _ s _)       = getSubStmts' s
-getSubStmts (CWhile _ s _ _)      = getSubStmts' s
-getSubStmts (CFor _ _ _ s _)      = getSubStmts' s
+getSubStmts (CIf _ sthen selse _) = maybe [sthen] (\s -> [sthen,s]) selse
+getSubStmts (CSwitch _ s _)       = [s]
+getSubStmts (CWhile _ s _ _)      = [s]
+getSubStmts (CFor _ _ _ s _)      = [s]
 getSubStmts (CGoto _ _)           = []
 getSubStmts (CGotoPtr _ _)        = []
 getSubStmts (CCont _)             = []
@@ -279,11 +275,15 @@ getSubStmts (CBreak _)            = []
 getSubStmts (CReturn _ _)         = []
 getSubStmts (CAsm _ _)            = []
 
-getSubStmts' :: CStat -> [CStat]
-getSubStmts' s = s : getSubStmts s
+compoundSubStmts :: CBlockItem -> [CStat]
+compoundSubStmts (CBlockStmt s)    = [s]
+compoundSubStmts (CBlockDecl _)    = []
+compoundSubStmts (CNestedFunDef _) = []
 
 getLabels :: CStat -> [Ident]
 getLabels (CLabel l s _ _)      = l : getLabels s
+getLabels (CCompound ls body _) =
+  concatMap (concatMap getLabels . compoundSubStmts) body \\ ls
 getLabels stmt                  = concatMap getLabels (getSubStmts stmt)
 
 -- TODO:
@@ -334,8 +334,9 @@ tStmt :: MonadTrav m => [StmtCtx] -> CStat -> m Type
 tStmt c (CLabel _ s _ _)         = tStmt c s
 tStmt _ (CExpr e _)              =
   maybe (return voidType) (tExpr RValue) e
-tStmt c (CCompound _ body _)     =
+tStmt c (CCompound ls body _)    =
   do enterBlockScope
+     mapM_ (withDefTable . defineLabel) ls
      t <- foldM (const $ tBlockItem c) voidType body
      leaveBlockScope
      return t

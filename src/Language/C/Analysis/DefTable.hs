@@ -140,11 +140,11 @@ leaveFunctionScope deftbl = leaveLocalScope $ deftbl { labelDefs = leaveScope_ (
 
 -- | Enter new block scope
 enterBlockScope :: DefTable -> DefTable
-enterBlockScope = enterLocalScope
+enterBlockScope deftbl = enterLocalScope $ deftbl { labelDefs = enterNewScope (labelDefs deftbl) }
 
 -- | Leave innermost block scope
 leaveBlockScope :: DefTable -> DefTable
-leaveBlockScope = leaveLocalScope
+leaveBlockScope deftbl = leaveLocalScope $ deftbl { labelDefs = leaveScope_ (labelDefs deftbl) }
 
 -- | Enter new member declaration scope
 enterMemberDecl :: DefTable -> DefTable

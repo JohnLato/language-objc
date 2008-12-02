@@ -13,8 +13,11 @@
 -- Traverses the AST, analyses declarations and invokes handlers.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.AstAnalysis (
+    -- * Top-level analysis
     analyseAST,
     analyseExt,analyseFunDef,analyseDecl,
+    -- * Type checking
+    tExpr, ExprSide(..)
 )
 where
 import Language.C.Analysis.SemError
@@ -430,10 +433,6 @@ checkIntegral :: MonadTrav m => NodeInfo -> Type -> m ()
 checkIntegral ni t | isIntegralType (deepDerefTypeDef t) = return ()
                    | otherwise = typeError ni "expected integral type"
 
-removeTypeOf :: MonadTrav m => Type -> m Type
-removeTypeOf (TypeOfExpr e) = tExpr RValue e
-removeTypeOf t              = return t
-
 handleFunction :: Type -> Type
 handleFunction t@(FunctionType _) = simplePtr t
 handleFunction t = t
@@ -504,7 +503,7 @@ tExpr side (CMember e m deref ni)   =
 tExpr side (CComma es _)            =
   mapM (tExpr side) es >>= return . last
 tExpr side (CCast d e ni)           =
-  do dt <- removeTypeOf =<< analyseTypeDecl d
+  do dt <- analyseTypeDecl d
      et <- tExpr side e
      castCompatible ni dt et
      return $ handleArray dt
@@ -535,9 +534,10 @@ tExpr LValue (CSizeofType _ ni)     =
 tExpr side (CVar i ni)              =
   lookupObject i >>= maybe (notFound ni i) fixup
   where fixup d | side == RValue =
-                  handleArray `liftM`
-                  handleFunction `liftM`
-                  removeTypeOf (declType d)
+                  return $
+                  handleArray $
+                  handleFunction $
+                  declType d
                 | otherwise = return $ declType d
 tExpr _ (CConst c)                  = constType c
 tExpr _ (CBuiltinExpr b)            = builtinType b
@@ -617,7 +617,7 @@ tagDefType ni td field =
     (EnumDef (EnumType _ es _ _))   -> getMatchingMember field es
   where getMatchingMember m ds =
           case filter (hasIdent m . declName) ds of
-            [d] -> removeTypeOf (declType d)
+            [d] -> return $ declType d
             []  -> typeError ni $ "field not found: " ++ identToString m
             _   -> typeError ni $
                    "field defined multiple times: " ++ identToString m

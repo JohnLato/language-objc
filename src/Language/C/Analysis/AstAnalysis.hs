@@ -17,7 +17,8 @@ module Language.C.Analysis.AstAnalysis (
     analyseAST,
     analyseExt,analyseFunDef,analyseDecl,
     -- * Type checking
-    tExpr, ExprSide(..)
+    tExpr, ExprSide(..),
+    tStmt, StmtCtx(..)
 )
 where
 import Language.C.Analysis.SemError

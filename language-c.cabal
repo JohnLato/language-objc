@@ -54,6 +54,7 @@ Library
                       Language.C.Syntax.AST
                       Language.C.Syntax.Constants
                       Language.C.Syntax.Ops
+                      Language.C.Syntax.Utils
                       -- parser
                       Language.C.Parser
                       -- pretty printer

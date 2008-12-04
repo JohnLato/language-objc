@@ -36,6 +36,7 @@ import Language.C.Pretty
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants
 import Language.C.Syntax.Ops
+import Language.C.Syntax.Utils
 import Text.PrettyPrint.HughesPJ
 
 
@@ -259,38 +260,6 @@ analyseFunctionBody node_info decl s@(CCompound localLabels items _) =
      return s -- XXX: bogus
 
 analyseFunctionBody _ _ s = astError (nodeInfo s) "Function body is no compound statement"
-
--- XXX: This is should be generalized !!!
---      Data.Generics sounds attractive, but we really need to control the evaluation order
--- XXX: Expression statements (which are somewhat problematic anyway), aren't handled yet
-getSubStmts :: CStat -> [CStat]
-getSubStmts (CLabel _ s _ _)      = [s]
-getSubStmts (CCase _ s _)         = [s]
-getSubStmts (CCases _ _ s _)      = [s]
-getSubStmts (CDefault s _)        = [s]
-getSubStmts (CExpr _ _)           = []
-getSubStmts (CCompound _ body _)  = concatMap compoundSubStmts body
-getSubStmts (CIf _ sthen selse _) = maybe [sthen] (\s -> [sthen,s]) selse
-getSubStmts (CSwitch _ s _)       = [s]
-getSubStmts (CWhile _ s _ _)      = [s]
-getSubStmts (CFor _ _ _ s _)      = [s]
-getSubStmts (CGoto _ _)           = []
-getSubStmts (CGotoPtr _ _)        = []
-getSubStmts (CCont _)             = []
-getSubStmts (CBreak _)            = []
-getSubStmts (CReturn _ _)         = []
-getSubStmts (CAsm _ _)            = []
-
-compoundSubStmts :: CBlockItem -> [CStat]
-compoundSubStmts (CBlockStmt s)    = [s]
-compoundSubStmts (CBlockDecl _)    = []
-compoundSubStmts (CNestedFunDef _) = []
-
-getLabels :: CStat -> [Ident]
-getLabels (CLabel l s _ _)      = l : getLabels s
-getLabels (CCompound ls body _) =
-  concatMap (concatMap getLabels . compoundSubStmts) body \\ ls
-getLabels stmt                  = concatMap getLabels (getSubStmts stmt)
 
 -- TODO:
 --

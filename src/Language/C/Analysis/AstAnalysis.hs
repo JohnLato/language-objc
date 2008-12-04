@@ -16,6 +16,9 @@ module Language.C.Analysis.AstAnalysis (
     -- * Top-level analysis
     analyseAST,
     analyseExt,analyseFunDef,analyseDecl,
+    -- * Building blocks for additional analyses
+    analyseFunctionBody,
+    defineParams,
     -- * Type checking
     tExpr, ExprSide(..),
     tStmt, StmtCtx(..)
@@ -247,14 +250,19 @@ localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) i
              return (maybe (Static ExternalLinkage thread_local) declStorage old_decl,False)
     localStorage s = astError node_info "bad storage specifier for local"
 
+defineParams :: MonadTrav m => NodeInfo -> VarDecl -> m ()
+defineParams ni decl =
+  case (getParams $ declType decl) of
+    Nothing -> astError ni
+               "expecting complete function type in function definition"
+    Just params -> mapM_ handleParamDecl params
+
 analyseFunctionBody :: (MonadTrav m) => NodeInfo -> VarDecl -> CStat -> m Stmt
 analyseFunctionBody node_info decl s@(CCompound localLabels items _) =
   do enterFunctionScope
-     mapM (withDefTable . defineLabel) (localLabels ++ getLabels s)
+     mapM_ (withDefTable . defineLabel) (localLabels ++ getLabels s)
+     defineParams node_info decl
      -- record parameters
-     case (getParams $ declType decl) of
-         Nothing -> astError node_info "expecting complete function type in function definition"
-         Just params -> mapM handleParamDecl params
      mapM_ (tBlockItem [FunCtx decl]) items
      leaveFunctionScope
      return s -- XXX: bogus

@@ -684,17 +684,6 @@ binopType ni op t1 t2 =
 conditionalType :: MonadTrav m => NodeInfo -> Type -> Type -> m Type
 conditionalType ni t1 t2 =
   case (deepDerefTypeDef t1, deepDerefTypeDef t2) of
-    (DirectType TyVoid q1, DirectType TyVoid q2) ->
-      return $ DirectType TyVoid (mergeTypeQuals q1 q2)
-    (DirectType (TyComp (CompTypeRef sue1 _ _)) _,
-     DirectType (TyComp (CompTypeRef sue2 _ _)) _)
-      | sue1 == sue2 -> return t1
-      | otherwise -> typeError ni "different composite types in conditional"
-    (DirectType tn1 q1, DirectType tn2 q2) ->
-      case arithmeticConversion tn1 tn2 of
-        Just tn -> return $ DirectType tn (mergeTypeQuals q1 q2)
-        Nothing -> typeError ni
-                   "incompatible arithmetic operands in conditional"
     (PtrType (DirectType TyVoid _) _ _, t2') | isPointerType t2' -> return t2
     (t1', PtrType (DirectType TyVoid _) _ _) | isPointerType t1' -> return t1
     (ArrayType t1' _ q1 a1, ArrayType t2' _ q2 a2) ->

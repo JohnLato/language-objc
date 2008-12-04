@@ -793,18 +793,18 @@ compositeType ni t1@(DirectType tn1 q1) t2@(DirectType tn2 q2) =
                return $ TyComplex (floatConversion f1 f2)
              (TyComp c1, TyComp c2) ->
                do when (sueRef c1 /= sueRef c2) $
-                       typeError ni $ "incompatible composite types"
+                       typeError ni $ "incompatible composite types: "
                                       ++ pType t1 ++ ", " ++ pType t2
                   return tn1
              (TyEnum e1, TyEnum e2) ->
                do when (sueRef e1 /= sueRef e2) $
-                       typeError ni $ "incompatible enumeration types"
+                       typeError ni $ "incompatible enumeration types: "
                                       ++ pType t1 ++ ", " ++ pType t2
                   return $ TyEnum e1
              (TyBuiltin TyVaList, TyBuiltin TyVaList) ->
                return $ TyBuiltin TyVaList
              (TyBuiltin _, TyBuiltin _) ->
-               typeError ni $ "incompatible builtin types"
+               typeError ni $ "incompatible builtin types: "
                               ++ pType t1 ++ ", " ++ pType t2
              (_, _) -> typeError ni $ "incompatible direct types: "
                        ++ pType t1 ++ ", " ++ pType t2

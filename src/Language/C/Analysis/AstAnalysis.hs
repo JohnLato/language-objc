@@ -520,7 +520,13 @@ tExpr side (CVar i ni)              =
 tExpr _ (CConst c)                  = constType c
 tExpr _ (CBuiltinExpr b)            = builtinType b
 tExpr _ (CCall fe args ni)          =
-  do t <- tExpr RValue fe
+  do let defType = FunctionType
+                   (FunTypeIncomplete
+                    (DirectType (TyIntegral TyInt) noTypeQuals) [])
+     t <- case fe of
+            CVar i _ -> lookupObject i >>=
+                        maybe (return defType) (const $ tExpr RValue fe)
+            _ -> tExpr RValue fe
      atys <- mapM (tExpr RValue) args
      let t' = case deepDerefTypeDef t of
                 PtrType t'' _ _ -> t''

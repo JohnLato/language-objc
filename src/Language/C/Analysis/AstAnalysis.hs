@@ -351,7 +351,10 @@ tStmt c (CReturn (Just e) ni)    =
              Just (FunctionType (FunTypeIncomplete rt _)) -> return rt
              Just ft -> astError ni $ "bad function type: " ++ pType ft
              Nothing -> astError ni "return statement outside function"
-     assignCompatible ni CAssignOp rt t
+     case (rt, t) of
+       -- apparently it's ok to return void from a void function?
+       (DirectType TyVoid _, DirectType TyVoid _) -> return ()
+       _ -> assignCompatible ni CAssignOp rt t
      return voidType
 tStmt _ (CReturn Nothing _)      = return voidType
 -- XXX: anything to do for assembly?

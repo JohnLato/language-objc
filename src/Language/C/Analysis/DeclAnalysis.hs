@@ -77,6 +77,20 @@ computeParamStorage node spec       = Left . badSpecifierError node $ "Bad stora
 
 -- | analyse and translate a member declaration
 tMemberDecls :: (MonadTrav m) => CDecl -> m [MemberDecl]
+-- Anonymous struct or union members
+tMemberDecls (CDecl declspecs [] node) =
+  do let (storage_specs, _attrs, typequals, typespecs, is_inline) =
+           partitionDeclSpecs declspecs
+     when is_inline $ astError node "member declaration with inline specifier"
+     ty <- tType True node typequals typespecs [] []
+     case ty of
+       DirectType (TyComp _) _ ->
+         return $ [MemberDecl
+                   -- XXX: are these DeclAttrs correct?
+                   (VarDecl NoName (DeclAttrs False NoStorage []) ty)
+                   Nothing node]
+       _ -> astError node "anonymous member has a non-composite type"
+-- Named members
 tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (True:repeat False) declrs)
     where
     tMemberDecl handle_sue_def (Just member_declr,Nothing,bit_field_size_opt) =

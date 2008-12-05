@@ -177,6 +177,7 @@ checkVarRedef def redecl =
     canBeOverwritten (ObjectDef od)  = isTentative od
     canBeOverwritten _               = False
     agreeOnLinkage def old_def
+        | declStorage old_def == FunLinkage InternalLinkage = True
         | not (hasLinkage $ declStorage def) || not (hasLinkage $ declStorage old_def) = False
         | (declLinkage def) /= (declLinkage old_def) = False
         | otherwise = True

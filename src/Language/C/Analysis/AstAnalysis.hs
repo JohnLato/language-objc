@@ -478,7 +478,10 @@ tExpr side (CCond e1 me2 e3 ni)     =
 tExpr side (CMember e m deref ni)   =
   do t <- tExpr RValue e
      bt <- if deref then derefType ni t else return t
-     fixup `liftM` fieldType ni bt m
+     ft <- fieldType ni m bt
+     case ft of
+       Just ft' -> return $ fixup ft'
+       Nothing -> typeError ni $ "field not found: " ++ identToString m
   where fixup | side == RValue = handleArray . handleFunction
               | otherwise = id
 tExpr side (CComma es _)            =
@@ -555,10 +558,11 @@ tExpr _ (CAssign op le re ni)       =
 tExpr _ (CStatExpr s _)             = tStmt [] s
 
 tInitList :: MonadTrav m => Type -> CInitList -> m ()
-tInitList t initList = mapM_ checkInit initList
-  where checkInit (desigs, init') =
-          do dts <- mapM (designatorType t) desigs
-             mapM_ (\dt -> tInit dt init') dts
+tInitList t initList = mapM_ (checkInit t) initList
+  where checkInit t' ([], init') = tInit t' init'
+        checkInit t' (d : ds, init') =
+          do dt <- designatorType t' d
+             checkInit dt (ds, init')
 
 designatorType :: MonadTrav m => Type -> CDesignator -> m Type
 designatorType (ArrayType bt _ _ _) (CArrDesig e ni) =
@@ -569,15 +573,21 @@ designatorType (ArrayType bt _ _ _) (CRangeDesig e1 e2 ni) =
      tExpr RValue e2 >>= checkIntegral ni
      return bt
 designatorType t@(DirectType (TyComp _) _) (CMemberDesig m ni) =
-  fieldType ni t m
-designatorType _ d = typeError (nodeInfo d) "invalid designator in initializer"
+  do ft <- fieldType ni m t
+     case ft of
+       Just ft' -> return ft'
+       Nothing -> typeError ni $ "field not found: " ++ identToString m
+designatorType t d =
+  typeError (nodeInfo d) $ "invalid designator type in initializer: "
+                           ++ pType t
 
 tInit :: MonadTrav m => Type -> CInit -> m Initializer
 tInit t i@(CInitExpr e ni) =
   do it <- tExpr RValue e
-     assignCompatible ni CAssignOp t it
+     assignCompatible ni CAssignOp (deepDerefTypeDef t) it
      return i
-tInit t i@(CInitList initList _) = tInitList t initList >> return i
+tInit t i@(CInitList initList _) =
+  tInitList (deepDerefTypeDef t) initList >> return i
 
 derefType :: MonadTrav m => NodeInfo -> Type -> m Type
 derefType ni t =
@@ -586,30 +596,40 @@ derefType ni t =
     ArrayType t' _ _ _ -> return t'
     _ -> typeError ni $ "dereferencing non-pointer: " ++ pType t
 
-fieldType :: MonadTrav m => NodeInfo -> Type -> Ident -> m Type
-fieldType ni t m =
+fieldType :: MonadTrav m => NodeInfo -> Ident -> Type -> m (Maybe Type)
+fieldType ni m t =
   case deepDerefTypeDef t of
     DirectType (TyComp ctr) _ ->
       do dt <- getDefTable
          case lookupTag (sueRef ctr) dt of
-           Just (Left _)   -> typeError ni "composite declared but not defined"
            Just (Right td) -> tagDefType ni td m
-           Nothing         -> typeError ni "unknown composite"
-    _ -> typeError ni $ "field of non-composite object: " ++ pType t
+           _               -> return Nothing
+    _ -> error "fieldType called with non-composite type"
 
-tagDefType :: MonadTrav m => NodeInfo -> TagDef -> Ident -> m Type
+tagDefType :: MonadTrav m => NodeInfo -> TagDef -> Ident -> m (Maybe Type)
 tagDefType ni td field =
   case td of
     (CompDef (CompType _ _ ms _ _)) -> getMatchingMember field ms
     (EnumDef (EnumType _ es _ _))   -> getMatchingMember field es
   where getMatchingMember m ds =
           case filter (hasIdent m . declName) ds of
-            [d] -> return $ declType d
-            []  -> typeError ni $ "field not found: " ++ identToString m
-            _   -> typeError ni $
-                   "field defined multiple times: " ++ identToString m
+            [d] -> return $ Just $ declType d
+            []  ->
+              do let ts = map declType ds
+                     anons = filter isAnonymousCompType ts
+                 matching <- mapM (fieldType ni m) anons
+                 case catMaybes matching of
+                   [t] -> return $ Just t
+                   _   -> return Nothing -- see comment immediately below
+            _   -> return Nothing -- if a field is defined multiple times, we
+                                  -- should catch it earlier.
         hasIdent i (VarName i' _) = i == i'
         hasIdent _ NoName = False
+
+isAnonymousCompType :: Type -> Bool
+isAnonymousCompType (DirectType (TyComp (CompTypeRef sue _ _)) _) =
+  isAnonymousRef sue
+isAnonymousCompType _ = False
 
 complexBaseType :: MonadTrav m => NodeInfo -> ExprSide -> CExpr -> m Type
 complexBaseType ni side e =

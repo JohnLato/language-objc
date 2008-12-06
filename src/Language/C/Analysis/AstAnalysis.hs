@@ -479,9 +479,7 @@ tExpr side (CMember e m deref ni)   =
   do t <- tExpr RValue e
      bt <- if deref then derefType ni t else return t
      ft <- fieldType ni m bt
-     case ft of
-       Just ft' -> return $ fixup ft'
-       Nothing -> typeError ni $ "field not found: " ++ identToString m
+     return $ fixup ft
   where fixup | side == RValue = handleArray . handleFunction
               | otherwise = id
 tExpr side (CComma es _)            =
@@ -507,7 +505,7 @@ tExpr side (CLabAddrExpr _ ni)      =
 tExpr side (CCompoundLit d initList ni) =
   do when (side == LValue) $ typeError ni "compound literal as lvalue"
      lt <- analyseTypeDecl d
-     tInitList (deepDerefTypeDef lt) initList
+     tInitList ni (deepDerefTypeDef lt) initList
      return lt
 tExpr RValue (CAlignofType _ _)     = return sizeofType
 tExpr RValue (CSizeofType _ _)      = return sizeofType
@@ -557,12 +555,43 @@ tExpr _ (CAssign op le re ni)       =
      return lt
 tExpr _ (CStatExpr s _)             = tStmt [] s
 
-tInitList :: MonadTrav m => Type -> CInitList -> m ()
-tInitList t initList = mapM_ (checkInit t) initList
-  where checkInit t' ([], init') = tInit t' init'
-        checkInit t' (d : ds, init') =
-          do dt <- designatorType t' d
-             checkInit dt (ds, init')
+tInitList :: MonadTrav m => NodeInfo -> Type -> CInitList -> m ()
+-- XXX: check that initializer is within size limits
+tInitList ni t@(ArrayType bt _ _ _) initList =
+  mapM_ checkInit initList
+  where checkInit (ds, init') =
+          do tInit bt init'
+             mapM_ (designatorType t) ds
+tInitList ni (DirectType (TyComp ctr) _) initList =
+  do ms <- lookupSUE ni (sueRef ctr) >>= tagMembers ni
+     checkInits ms initList
+  where checkInits _ [] = return ()
+        checkInits [] _ = return ()
+        checkInits ms@((i, mt) : ms') (init' : is) =
+          case init' of
+            ([], cinit)     ->
+              do tInit mt cinit
+                 checkInits ms' is
+            (d : ds, cinit) ->
+              do (mt', msNew) <- advanceFieldList ms d
+                 checkDesig ni mt' ds cinit
+                 checkInits msNew is
+                 return ()
+        checkDesig ni mt [] cinit = tInit mt cinit
+        checkDesig ni mt (d : ds) cinit =
+          do dt <- designatorType mt d
+             checkDesig ni dt ds cinit
+tInitList ni t _ = typeError ni $ "initializer for type: " ++ pType t
+
+advanceFieldList :: MonadTrav m =>
+                    [(Ident, Type)] -> CDesignator
+                 -> m (Type, [(Ident, Type)])
+advanceFieldList fields (CMemberDesig m ni) =
+  case dropWhile (not . fieldCompat m) fields of
+    ((_, t) : fields) -> return (t, fields)
+    [] -> typeError ni $ "field not found: " ++ identToString m
+  where fieldCompat m field = m == fst field
+advanceFieldList _ d = typeError (nodeInfo d) "invalid designator"
 
 designatorType :: MonadTrav m => Type -> CDesignator -> m Type
 designatorType (ArrayType bt _ _ _) (CArrDesig e ni) =
@@ -573,10 +602,7 @@ designatorType (ArrayType bt _ _ _) (CRangeDesig e1 e2 ni) =
      tExpr RValue e2 >>= checkIntegral ni
      return bt
 designatorType t@(DirectType (TyComp _) _) (CMemberDesig m ni) =
-  do ft <- fieldType ni m t
-     case ft of
-       Just ft' -> return ft'
-       Nothing -> typeError ni $ "field not found: " ++ identToString m
+  fieldType ni m t
 designatorType t d =
   typeError (nodeInfo d) $ "invalid designator type in initializer: "
                            ++ pType t
@@ -586,8 +612,8 @@ tInit t i@(CInitExpr e ni) =
   do it <- tExpr RValue e
      assignCompatible ni CAssignOp (deepDerefTypeDef t) it
      return i
-tInit t i@(CInitList initList _) =
-  tInitList (deepDerefTypeDef t) initList >> return i
+tInit t i@(CInitList initList ni) =
+  tInitList ni (deepDerefTypeDef t) initList >> return i
 
 derefType :: MonadTrav m => NodeInfo -> Type -> m Type
 derefType ni t =
@@ -596,40 +622,43 @@ derefType ni t =
     ArrayType t' _ _ _ -> return t'
     _ -> typeError ni $ "dereferencing non-pointer: " ++ pType t
 
-fieldType :: MonadTrav m => NodeInfo -> Ident -> Type -> m (Maybe Type)
+-- | Get the type of field @m@ of type @t@
+fieldType :: MonadTrav m => NodeInfo -> Ident -> Type -> m Type
 fieldType ni m t =
   case deepDerefTypeDef t of
     DirectType (TyComp ctr) _ ->
-      do dt <- getDefTable
-         case lookupTag (sueRef ctr) dt of
-           Just (Right td) -> tagDefType ni td m
-           _               -> return Nothing
-    _ -> error "fieldType called with non-composite type"
+      do td <- lookupSUE ni (sueRef ctr)
+         ms <- tagMembers ni td
+         case lookup m ms of
+           Just t -> return t
+           Nothing -> typeError ni $ "field not found: " ++ identToString m
 
-tagDefType :: MonadTrav m => NodeInfo -> TagDef -> Ident -> m (Maybe Type)
-tagDefType ni td field =
+-- | Get all members of a struct, union, or enum, with their
+--   types. Collapse fields of anonymous members.
+tagMembers :: MonadTrav m => NodeInfo -> TagDef -> m [(Ident, Type)]
+tagMembers ni td =
   case td of
-    (CompDef (CompType _ _ ms _ _)) -> getMatchingMember field ms
-    (EnumDef (EnumType _ es _ _))   -> getMatchingMember field es
-  where getMatchingMember m ds =
-          case filter (hasIdent m . declName) ds of
-            [d] -> return $ Just $ declType d
-            []  ->
-              do let ts = map declType ds
-                     anons = filter isAnonymousCompType ts
-                 matching <- mapM (fieldType ni m) anons
-                 case catMaybes matching of
-                   [t] -> return $ Just t
-                   _   -> return Nothing -- see comment immediately below
-            _   -> return Nothing -- if a field is defined multiple times, we
-                                  -- should catch it earlier.
-        hasIdent i (VarName i' _) = i == i'
-        hasIdent _ NoName = False
+    CompDef (CompType _ _ ms _ _) -> getMembers ms
+    EnumDef (EnumType _ es _ _) -> getMembers es
+  where getMembers ds =
+          do let ts = map (deepDerefTypeDef . declType) ds
+                 ns = map declName ds
+             concat `liftM` mapM (expandAnonymous ni) (zip ns ts)
 
-isAnonymousCompType :: Type -> Bool
-isAnonymousCompType (DirectType (TyComp (CompTypeRef sue _ _)) _) =
-  isAnonymousRef sue
-isAnonymousCompType _ = False
+-- | Expand an anonymous composite type into a list of member names
+--   and their associated types.
+expandAnonymous :: MonadTrav m => NodeInfo -> (VarName, Type) -> m [(Ident, Type)]
+expandAnonymous ni (NoName, DirectType (TyComp ctr) _) =
+  lookupSUE ni (sueRef ctr) >>= tagMembers ni
+expandAnonymous _ (n, t) = return [(identOfVarName n, t)]
+
+lookupSUE :: MonadTrav m => NodeInfo -> SUERef -> m TagDef
+lookupSUE ni sue =
+  do dt <- getDefTable
+     case lookupTag sue dt of
+       Just (Right td) -> return td
+       _               ->
+         typeError ni $ "unknown composite type: " ++ (render . pretty) sue
 
 complexBaseType :: MonadTrav m => NodeInfo -> ExprSide -> CExpr -> m Type
 complexBaseType ni side e =

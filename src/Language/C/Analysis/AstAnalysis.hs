@@ -403,7 +403,7 @@ checkGuard e = tExpr RValue e >>= checkScalar (nodeInfo e)
 
 checkScalar :: MonadTrav m => NodeInfo -> Type -> m ()
 checkScalar ni t =
-  case deepDerefTypeDef t of
+  case canonicalType t of
     DirectType _ _    -> return ()
     PtrType _ _ _     -> return ()
     ArrayType _ _ _ _ -> return () -- because it's just a pointer
@@ -411,12 +411,8 @@ checkScalar ni t =
                          ++ pType t ++ " (" ++ pType t' ++ ")"
 
 checkIntegral :: MonadTrav m => NodeInfo -> Type -> m ()
-checkIntegral ni t | isIntegralType (deepDerefTypeDef t) = return ()
+checkIntegral ni t | isIntegralType (canonicalType t) = return ()
                    | otherwise = typeError ni "expected integral type"
-
-handleFunction :: Type -> Type
-handleFunction t@(FunctionType _) = simplePtr t
-handleFunction t = t
 
 handleArray :: Type -> Type
 handleArray (ArrayType bt _ q a) = PtrType bt q a -- XXX: q and a correct?
@@ -428,7 +424,7 @@ varAddrType ni d =
        Auto True -> typeError ni "address of register variable"
        _         -> return ()
      case t of
-       ArrayType _ _ _ _ -> return $ handleArray t
+       ArrayType bt _ q a -> return $ PtrType bt q a
        _                 -> return $ simplePtr t
   where s = declStorage d
         t = declType d
@@ -480,7 +476,7 @@ tExpr side (CMember e m deref ni)   =
      bt <- if deref then derefType ni t else return t
      ft <- fieldType ni m bt
      return $ fixup ft
-  where fixup | side == RValue = handleArray . handleFunction
+  where fixup | side == RValue = handleArray
               | otherwise = id
 tExpr side (CComma es _)            =
   mapM (tExpr side) es >>= return . last
@@ -505,7 +501,7 @@ tExpr side (CLabAddrExpr _ ni)      =
 tExpr side (CCompoundLit d initList ni) =
   do when (side == LValue) $ typeError ni "compound literal as lvalue"
      lt <- analyseTypeDecl d
-     tInitList ni (deepDerefTypeDef lt) initList
+     tInitList ni (canonicalType lt) initList
      return lt
 tExpr RValue (CAlignofType _ _)     = return sizeofType
 tExpr RValue (CSizeofType _ _)      = return sizeofType
@@ -518,7 +514,6 @@ tExpr side (CVar i ni)              =
   where fixup d | side == RValue =
                   return $
                   handleArray $
-                  handleFunction $
                   declType d
                 | otherwise = return $ declType d
 tExpr _ (CConst c)                  = constType c
@@ -532,18 +527,15 @@ tExpr _ (CCall fe args ni)          =
                         maybe (return defType) (const $ tExpr RValue fe)
             _ -> tExpr RValue fe
      atys <- mapM (tExpr RValue) args
-     let t' = case deepDerefTypeDef t of
-                PtrType t'' _ _ -> t''
-                t''             -> t''
-     case t' of
-       FunctionType (FunType rt pdecls varargs _) ->
+     case canonicalType t of
+       PtrType (FunctionType (FunType rt pdecls varargs _)) _ _ ->
          do let ptys = map declType pdecls
             mapM_ (uncurry (assignCompatible ni CAssignOp)) (zip ptys atys)
             unless varargs $ when (length atys /= length ptys) $
                    typeError ni "incorrect number of arguments"
-            return $ deepDerefTypeDef rt
-       FunctionType (FunTypeIncomplete rt _)   ->
-         return $ deepDerefTypeDef rt
+            return $ canonicalType rt
+       PtrType (FunctionType (FunTypeIncomplete rt _)) _ _ ->
+         return $ canonicalType rt
        _  -> typeError ni $ "attempt to call non-function of type " ++ pType t
 tExpr _ (CAssign op le re ni)       =
   do lt <- tExpr LValue le
@@ -610,14 +602,14 @@ designatorType t d =
 tInit :: MonadTrav m => Type -> CInit -> m Initializer
 tInit t i@(CInitExpr e ni) =
   do it <- tExpr RValue e
-     assignCompatible ni CAssignOp (deepDerefTypeDef t) it
+     assignCompatible ni CAssignOp (canonicalType t) it
      return i
 tInit t i@(CInitList initList ni) =
-  tInitList ni (deepDerefTypeDef t) initList >> return i
+  tInitList ni (canonicalType t) initList >> return i
 
 derefType :: MonadTrav m => NodeInfo -> Type -> m Type
 derefType ni t =
-  case deepDerefTypeDef t of
+  case canonicalType t of
     PtrType t' _ _ -> return t'
     ArrayType t' _ _ _ -> return t'
     _ -> typeError ni $ "dereferencing non-pointer: " ++ pType t
@@ -625,12 +617,12 @@ derefType ni t =
 -- | Get the type of field @m@ of type @t@
 fieldType :: MonadTrav m => NodeInfo -> Ident -> Type -> m Type
 fieldType ni m t =
-  case deepDerefTypeDef t of
+  case canonicalType t of
     DirectType (TyComp ctr) _ ->
       do td <- lookupSUE ni (sueRef ctr)
          ms <- tagMembers ni td
          case lookup m ms of
-           Just t -> return t
+           Just ft -> return $ canonicalType ft
            Nothing -> typeError ni $ "field not found: " ++ identToString m
 
 -- | Get all members of a struct, union, or enum, with their
@@ -641,7 +633,7 @@ tagMembers ni td =
     CompDef (CompType _ _ ms _ _) -> getMembers ms
     EnumDef (EnumType _ es _ _) -> getMembers es
   where getMembers ds =
-          do let ts = map (deepDerefTypeDef . declType) ds
+          do let ts = map (canonicalType . declType) ds
                  ns = map declName ds
              concat `liftM` mapM (expandAnonymous ni) (zip ns ts)
 
@@ -663,7 +655,7 @@ lookupSUE ni sue =
 complexBaseType :: MonadTrav m => NodeInfo -> ExprSide -> CExpr -> m Type
 complexBaseType ni side e =
   do t <- tExpr side e
-     case deepDerefTypeDef t of
+     case canonicalType t of
        DirectType (TyComplex ft) quals ->
          return $ DirectType (TyFloating ft) quals
        _ -> typeError ni $ "expected complex type, got: " ++ pType t
@@ -697,7 +689,7 @@ constType (CStrConst (CString chars wide) _) =
 -- | Determine the type of a binary operation.
 binopType :: MonadTrav m => NodeInfo -> CBinaryOp -> Type -> Type -> m Type
 binopType ni op t1 t2 =
-  case (op, deepDerefTypeDef t1, deepDerefTypeDef t2) of
+  case (op, canonicalType t1, canonicalType t2) of
     (_, t1', t2')
       | isLogicOp op ->
         checkScalar ni t1' >> checkScalar ni t2' >> return boolType
@@ -741,7 +733,7 @@ binopType ni op t1 t2 =
 -- | Determine the type of a conditional expression.
 conditionalType :: MonadTrav m => NodeInfo -> Type -> Type -> m Type
 conditionalType ni t1 t2 =
-  case (deepDerefTypeDef t1, deepDerefTypeDef t2) of
+  case (canonicalType t1, canonicalType t2) of
     (PtrType (DirectType TyVoid _) _ _, t2') | isPointerType t2' -> return t2
     (t1', PtrType (DirectType TyVoid _) _ _) | isPointerType t1' -> return t1
     (ArrayType t1' _ q1 a1, ArrayType t2' _ q2 a2) ->
@@ -790,7 +782,7 @@ builtinType (CBuiltinTypesCompatible _ _ _) = return boolType
 castCompatible :: MonadTrav m => NodeInfo -> Type -> Type -> m ()
 castCompatible _ (DirectType TyVoid _) _ = return ()
 castCompatible ni t1 t2 =
-  case (deepDerefTypeDef t1, deepDerefTypeDef t2) of
+  case (canonicalType t1, canonicalType t2) of
     (DirectType TyVoid _, _) -> return ()
     (_, _) -> checkScalar ni t1 >> checkScalar ni t2
 
@@ -798,7 +790,7 @@ castCompatible ni t1 t2 =
 -- | Determine whether two types are compatible in an assignment expression.
 assignCompatible :: MonadTrav m => NodeInfo -> CAssignOp -> Type -> Type -> m ()
 assignCompatible ni CAssignOp t1 t2 =
-  case (deepDerefTypeDef t1, deepDerefTypeDef t2) of
+  case (canonicalType t1, canonicalType t2) of
     (DirectType (TyBuiltin TyAny) _, _) -> return ()
     (_, DirectType (TyBuiltin TyAny) _) -> return ()
     -- XXX: check qualifiers
@@ -829,7 +821,7 @@ assignCompatible ni op t1 t2 = binopType ni (assignBinop op) t1 t2 >> return ()
 -- | Determine whether two types are compatible.
 compatible :: MonadTrav m => NodeInfo -> Type -> Type -> m ()
 compatible ni t1 t2 =
-  compositeType ni (deepDerefTypeDef t1) (deepDerefTypeDef t2) >> return ()
+  compositeType ni (canonicalType t1) (canonicalType t2) >> return ()
 
 -- | Determine the composite type of two compatible types.
 compositeType :: MonadTrav m => NodeInfo -> Type -> Type -> m Type

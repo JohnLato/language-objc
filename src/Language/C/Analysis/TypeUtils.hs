@@ -15,6 +15,7 @@ module Language.C.Analysis.TypeUtils (
     typeAttrs,
     baseType,
     deepDerefTypeDef,
+    canonicalType,
     -- * Other utilities
     getIntType,
     getFloatType
@@ -125,6 +126,12 @@ deepDerefTypeDef (FunctionType (FunTypeIncomplete rt attrs)) =
   FunctionType (FunTypeIncomplete (deepDerefTypeDef rt) attrs)
 deepDerefTypeDef (TypeDefType (TypeDefRef _ (Just t) _)) = deepDerefTypeDef t
 deepDerefTypeDef t = t
+
+canonicalType :: Type -> Type
+canonicalType t =
+  case deepDerefTypeDef t of
+    FunctionType ft -> simplePtr (FunctionType ft)
+    t' -> t'
 
 -- XXX: move to be with other flag functions
 testFlags :: Enum f => [f] -> Flags f -> Bool

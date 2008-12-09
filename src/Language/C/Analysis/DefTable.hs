@@ -219,7 +219,7 @@ defineTypeDef :: Ident -> TypeDef -> DefTable -> (DeclarationStatus IdentEntry, 
 defineTypeDef ident tydef deftbl =
   (defRedeclStatus compatIdentEntry (Left tydef) oldDecl, deftbl { identDecls = decls' })
   where
-  (decls', oldDecl) = defGlobal (identDecls deftbl) ident (Left tydef)
+  (decls', oldDecl) = defLocal (identDecls deftbl) ident (Left tydef)
 
 -- | declare\/define a global object\/function\/typeDef
 --

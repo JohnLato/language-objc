@@ -548,56 +548,59 @@ tExpr _ (CAssign op le re ni)       =
 tExpr _ (CStatExpr s _)             = tStmt [] s
 
 tInitList :: MonadTrav m => NodeInfo -> Type -> CInitList -> m ()
--- XXX: check that initializer is within size limits
-tInitList ni t@(ArrayType bt _ _ _) initList =
-  mapM_ checkInit initList
-  where checkInit (ds, init') =
-          do tInit bt init'
-             mapM_ (designatorType t) ds
-tInitList ni (DirectType (TyComp ctr) _) initList =
-  do ms <- lookupSUE ni (sueRef ctr) >>= tagMembers ni
-     checkInits ms initList
-  where checkInits _ [] = return ()
-        checkInits [] _ = return ()
-        checkInits ms@((i, mt) : ms') (init' : is) =
-          case init' of
-            ([], cinit)     ->
-              do tInit mt cinit
-                 checkInits ms' is
-            (d : ds, cinit) ->
-              do (mt', msNew) <- advanceFieldList ms d
-                 checkDesig ni mt' ds cinit
-                 checkInits msNew is
-                 return ()
-        checkDesig ni mt [] cinit = tInit mt cinit
-        checkDesig ni mt (d : ds) cinit =
-          do dt <- designatorType mt d
-             checkDesig ni dt ds cinit
-tInitList ni t _ = typeError ni $ "initializer for type: " ++ pType t
+tInitList ni t@(ArrayType (DirectType (TyIntegral TyChar) _) _ _ _)
+             [([], CInitExpr e@(CConst (CStrConst _ _)) _)] =
+  tExpr RValue e >> return ()
+tInitList ni t@(ArrayType _ _ _ _) initList =
+  do let default_ds =
+           repeat (CArrDesig (CConst (CIntConst (cInteger 0) ni)) ni)
+     checkInits t default_ds initList
+tInitList ni t@(DirectType (TyComp ctr) _) initList =
+  do td <- lookupSUE ni (sueRef ctr)
+     ms <- tagMembers ni td
+     let default_ds = map (\m -> CMemberDesig (fst m) ni) ms
+     checkInits t default_ds initList
+tInitList ni (PtrType (DirectType TyVoid _) _ _ ) _ =
+          return () -- XXX: more checking
+tInitList _ t [([], i)] = tInit t i >> return ()
+tInitList ni t _ = typeError ni $ "initializer list for type: " ++ pType t
 
-advanceFieldList :: MonadTrav m =>
-                    [(Ident, Type)] -> CDesignator
-                 -> m (Type, [(Ident, Type)])
-advanceFieldList fields (CMemberDesig m ni) =
-  case dropWhile (not . fieldCompat m) fields of
-    ((_, t) : fields) -> return (t, fields)
-    [] -> typeError ni $ "field not found: " ++ identToString m
-  where fieldCompat m field = m == fst field
-advanceFieldList _ d = typeError (nodeInfo d) "invalid designator"
+checkInits :: MonadTrav m => Type -> [CDesignator] -> CInitList -> m ()
+checkInits _ _ [] = return ()
+checkInits t dds ((ds, i) : is) =
+  do (dds', ds') <- case (dds, ds) of
+                      ([], []) ->
+                        typeError (nodeInfo i) "excess elements in initializer"
+                      (dd' : rest, []) -> return (rest, [dd'])
+                      (_, d : _) -> return (advanceDesigList dds d, ds)
+     t' <- tDesignator t ds'
+     tInit t' i
+     checkInits t dds' is
 
-designatorType :: MonadTrav m => Type -> CDesignator -> m Type
-designatorType (ArrayType bt _ _ _) (CArrDesig e ni) =
+advanceDesigList :: [CDesignator] -> CDesignator -> [CDesignator]
+advanceDesigList ds d = drop 1 $ dropWhile (not . matchDesignator d) ds
+
+matchDesignator :: CDesignator -> CDesignator -> Bool
+matchDesignator (CMemberDesig m1 _) (CMemberDesig m2 _) = m1 == m2
+matchDesignator _ _ = True -- XXX: for now, array ranges aren't checked
+
+tDesignator :: MonadTrav m => Type -> [CDesignator] -> m Type
+-- XXX: check that initializers are within array size
+tDesignator (ArrayType bt _ _ _) (CArrDesig e ni : ds) =
   do tExpr RValue e >>= checkIntegral ni
-     return bt
-designatorType (ArrayType bt _ _ _) (CRangeDesig e1 e2 ni) =
+     tDesignator bt ds
+tDesignator (ArrayType bt _ _ _) (CRangeDesig e1 e2 ni : ds) =
   do tExpr RValue e1 >>= checkIntegral ni
      tExpr RValue e2 >>= checkIntegral ni
-     return bt
-designatorType t@(DirectType (TyComp _) _) (CMemberDesig m ni) =
-  fieldType ni m t
-designatorType t d =
-  typeError (nodeInfo d) $ "invalid designator type in initializer: "
-                           ++ pType t
+     tDesignator bt ds
+tDesignator (ArrayType _ _ _ _) (d : ds) =
+  typeError (nodeInfo d) "member designator in array initializer"
+tDesignator t@(DirectType (TyComp _) _) (CMemberDesig m ni : ds) =
+  do mt <- fieldType ni m t
+     tDesignator (canonicalType mt) ds
+tDesignator t@(DirectType (TyComp _) _) (d : _) =
+  typeError (nodeInfo d) "array designator in compound initializer"
+tDesignator t [] = return t
 
 tInit :: MonadTrav m => Type -> CInit -> m Initializer
 tInit t i@(CInitExpr e ni) =
@@ -917,7 +920,7 @@ compositeSize ni (ArraySize s1 e1) (ArraySize s2 e2)
 
 sizeEqual :: CExpr -> CExpr -> Bool
 sizeEqual (CConst (CIntConst i1 _)) (CConst (CIntConst i2 _)) = i1 == i2
-sizeEqual _ _ = False
+sizeEqual e1 e2 = nodeInfo e1 == nodeInfo e2
 
 mergeAttrs :: Attributes -> Attributes -> Attributes
 mergeAttrs = (++) -- XXX: ultimately this should be smarter

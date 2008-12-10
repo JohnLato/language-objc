@@ -379,6 +379,7 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       noTypeQuals
                       []
         voidPtr     = PtrType (DirectType TyVoid noTypeQuals) noTypeQuals []
+        charPtr     = PtrType (integral TyChar) noTypeQuals []
         voidType    = DirectType TyVoid noTypeQuals
         valistType  = DirectType (TyBuiltin TyVaList) noTypeQuals
         sizeType    = integral TyInt -- XXX: really size_t
@@ -435,6 +436,9 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_frame_address"
                              voidPtr
                              [ integral TyUInt ]
+                      , func "__builtin_expect"
+                             (integral TyLong)
+                             [ integral TyLong, integral TyLong ]
                       , var "__func__"
                             stringType
                       ]

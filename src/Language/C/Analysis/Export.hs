@@ -86,6 +86,7 @@ exportTypeSpec tyname =
         TyComp comp -> exportCompTypeDecl comp
         TyEnum enum -> exportEnumTypeDecl enum
         TyBuiltin TyVaList -> [CTypeDef (internalIdent "va_list") ni]
+        TyBuiltin TyAny -> [CTypeDef (internalIdent "__ty_any") ni]
 
 exportIntType :: IntType -> [CTypeSpec]
 exportIntType ty =

@@ -233,11 +233,10 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
                -- warning, external definition
                Just _  -> do warn $ badSpecifierError node_info "Both initializer and `extern` specifier given - treating as definition"
                              return $ (Static ExternalLinkage thread_local, True)
-
-hasFunDef :: DefTable -> Bool
-hasFunDef dt = any (isFuncDef . snd) (Map.toList $ gObjs $ globalDefs dt)
-  where isFuncDef (FunctionDef _) = True
-        isFuncDef _ = False
+       hasFunDef dt = any (isFuncDef . snd) (Map.toList $ gObjs $ globalDefs dt)
+       isFuncDef (FunctionDef fd) = not $ isInline $ declAttrs fd
+       isFuncDef _ = False
+       isInline (DeclAttrs inl _ _) = inl
 
 -- | handle a function-scope object declaration \/ definition
 -- see [http://www.sivity.net/projects/language.c/wiki/LocalDefinitions]

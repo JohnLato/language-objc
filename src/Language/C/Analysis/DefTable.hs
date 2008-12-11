@@ -29,6 +29,7 @@ module Language.C.Analysis.DefTable (
     defineTypeDef, defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
     declareTag,defineTag,defineLabel,lookupIdent,
     lookupTag,lookupLabel,lookupIdentInner,lookupTagInner,
+    mergeDefTable
 )
 where
 import Language.C.Data
@@ -38,7 +39,7 @@ import Language.C.Analysis.SemRep
 import Control.Applicative ((<|>))
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.IntMap (IntMap)
+import Data.IntMap (IntMap, union)
 import qualified Data.IntMap as IntMap
 import Data.Generics
 
@@ -307,4 +308,15 @@ lookupIdentInner ident deftbl = lookupInnermostScope (identDecls deftbl) ident
 -- | lookup an identifier in the innermost scope
 lookupTagInner :: SUERef -> DefTable -> Maybe TagEntry
 lookupTagInner sue_ref deftbl = lookupInnermostScope (tagDecls deftbl) sue_ref
+
+-- | Merge two DefTables. If both tables contain an entry for a given
+--   key, they must agree on its value.
+mergeDefTable :: DefTable -> DefTable -> DefTable
+mergeDefTable (DefTable i1 t1 l1 m1 r1) (DefTable i2 t2 l2 m2 r2) =
+  DefTable
+  (mergeNameSpace i1 i2)
+  (mergeNameSpace t1 t2)
+  (mergeNameSpace l1 l2)
+  (mergeNameSpace m1 m2)
+  (union r1 r2)
 

@@ -520,7 +520,7 @@ tAttr (CAttr name cexpr node) = return$ Attr name cexpr node
 -- TODO: more or less bogus
 mkVarName :: (MonadTrav m) => NodeInfo -> Maybe Ident -> Maybe AsmName -> m VarName
 mkVarName  node Nothing _ = return NoName
-mkVarName  node (Just n) asm = return $ VarName n Nothing
+mkVarName  node (Just n) asm = return $ VarName n asm
 
 -- helpers
 nameOfDecl :: (MonadTrav m) => CDecl -> m Ident

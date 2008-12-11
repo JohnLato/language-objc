@@ -783,7 +783,6 @@ builtinType (CBuiltinOffsetOf _ _ _)        = return sizeofType
 builtinType (CBuiltinTypesCompatible _ _ _) = return boolType
 
 castCompatible :: MonadTrav m => NodeInfo -> Type -> Type -> m ()
-castCompatible _ (DirectType TyVoid _) _ = return ()
 castCompatible ni t1 t2 =
   case (canonicalType t1, canonicalType t2) of
     (DirectType TyVoid _, _) -> return ()

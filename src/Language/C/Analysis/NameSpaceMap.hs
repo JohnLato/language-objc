@@ -26,11 +26,13 @@ module Language.C.Analysis.NameSpaceMap (
     enterNewScope, leaveScope,
     defLocal,
     lookupName,lookupGlobal,lookupInnermostScope,
+    mergeNameSpace
     )
 where
 import Prelude hiding (lookup)
 import qualified Prelude
-import qualified Data.Map as Map (empty, insert, lookup, toList)
+import qualified Data.Map as Map (empty, insert, lookup, toList, union)
+import qualified Data.List as List (unionBy)
 import Data.Map   (Map)
 import Language.C.Data.Ident     (Ident)
 
@@ -142,3 +144,16 @@ lookupInnermostScope nsm@(NsMap _gs localDefs) ident  =
 --  @nameSpaceToList ns = (localDefInnermost ns ++ .. ++ localDefsOutermost ns) ++ globalDefs ns@
 nsMapToList :: (Ord k) => NameSpaceMap k a -> [(k, a)]
 nsMapToList (NsMap gs lss)  = concat lss ++ Map.toList gs
+
+-- | Merge two namespaces. If they disagree on the types of any
+--   variables, all bets are off.
+mergeNameSpace :: (Ord k) =>
+                  NameSpaceMap k a
+               -> NameSpaceMap k a
+               -> NameSpaceMap k a
+mergeNameSpace (NsMap g1 l1) (NsMap g2 l2) =
+  NsMap (Map.union g1 g2) (localUnion l1 l2)
+  where localUnion (l1:ls1) (l2:ls2) =
+          List.unionBy (\p1 p2 -> fst p1 == fst p2) l1 l2 : localUnion ls1 ls2
+        localUnion [] ls2 = ls2
+        localUnion ls1 [] = ls1

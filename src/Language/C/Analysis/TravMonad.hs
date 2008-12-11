@@ -433,6 +433,12 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_strchr"
                              charPtr
                              [ constCharPtr, integral TyInt]
+                      , func "__builtin_strncpy"
+                             charPtr
+                             [ constCharPtr -- XXX: restrict
+                             , constCharPtr -- XXX: restrict
+                             , sizeType
+                             ]
                       , func "__builtin_strncat"
                              charPtr
                              [ constCharPtr -- XXX: restrict

@@ -379,6 +379,14 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       noTypeQuals
                       []
         voidPtr     = PtrType (DirectType TyVoid noTypeQuals) noTypeQuals []
+        constVoidPtr = PtrType
+                       (DirectType TyVoid noTypeQuals)
+                       (TypeQuals True False False)
+                       []
+        constCharPtr = PtrType
+                       (integral TyChar)
+                       (TypeQuals True False False)
+                       []
         charPtr     = PtrType (integral TyChar) noTypeQuals []
         voidType    = DirectType TyVoid noTypeQuals
         valistType  = DirectType (TyBuiltin TyVaList) noTypeQuals
@@ -419,17 +427,33 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_memcpy"
                              voidPtr
                              [ voidPtr
-                             , PtrType (DirectType TyVoid noTypeQuals)
-                                       (TypeQuals True False False)
-                                       []
+                             , constVoidPtr
                              , sizeType
                              ]
+                      , func "__builtin_strchr"
+                             charPtr
+                             [ constCharPtr, integral TyInt]
+                      , func "__builtin_strncat"
+                             charPtr
+                             [ constCharPtr -- XXX: restrict
+                             , constCharPtr -- XXX: restrict
+                             , sizeType
+                             ]
+                      , func "__builtin_strcmp"
+                             (integral TyInt)
+                             [ constCharPtr, constCharPtr ]
                       , func "__builtin_bzero"
                              voidType
                              [ voidPtr, sizeType ]
                       , func "__builtin_constant_p"
                              (integral TyInt)
                              [DirectType (TyBuiltin TyAny) noTypeQuals]
+                      -- XXX: I don't know if the following has the
+                      -- correct type. It doesn't seem to be
+                      -- documented.
+                      , func "__builtin_extract_return_addr"
+                             voidPtr
+                             [ voidPtr ]
                       , func "__builtin_return_address"
                              voidPtr
                              [ integral TyUInt ]
@@ -439,6 +463,9 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_expect"
                              (integral TyLong)
                              [ integral TyLong, integral TyLong ]
+                      , func "__builtin_prefetch"
+                             voidType
+                             [ constVoidPtr ]
                       , var "__func__"
                             stringType
                       ]

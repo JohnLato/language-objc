@@ -28,7 +28,7 @@ import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
 import Language.C.Analysis.Debug
-import Language.C.Analysis.DefTable (globalDefs, defineScopedIdent,
+import Language.C.Analysis.DefTable (DefTable, globalDefs, defineScopedIdent,
                                      defineLabel, inFileScope, lookupTag,
                                      lookupLabel)
 import Language.C.Analysis.DeclAnalysis
@@ -47,6 +47,7 @@ import Control.Monad
 import Prelude hiding (reverse)
 import Data.Foldable (foldrM)
 import Data.List hiding (reverse)
+import qualified Data.Map as Map
 import Data.Maybe
 
 -- * analysis
@@ -211,7 +212,15 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
     where
        ident = identOfVarName var_name
        globalStorage _ | is_inline = astError node_info "invalid `inline' specifier external variable"
-       globalStorage RegSpec       = astError node_info "invalid `register' storage specified for external object"
+       globalStorage RegSpec       =
+         do when (isJust init_opt) $ astError node_info "initializer given for global register variable"
+            case var_name of
+              NoName -> astError node_info "global register variable has no name"
+              VarName _ Nothing -> astError node_info "no register specified for global register variable"
+              _ -> return ()
+            dt <- getDefTable
+            when (hasFunDef dt) $ astError node_info "global register variable appears after a function definition"
+            return (Static InternalLinkage False, False)
        -- tentative if there is no initializer, external
        globalStorage NoStorageSpec = return $ (Static ExternalLinkage False, True)
        -- tentative if there is no initializer, internal
@@ -224,6 +233,11 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
                -- warning, external definition
                Just _  -> do warn $ badSpecifierError node_info "Both initializer and `extern` specifier given - treating as definition"
                              return $ (Static ExternalLinkage thread_local, True)
+
+hasFunDef :: DefTable -> Bool
+hasFunDef dt = any (isFuncDef . snd) (Map.toList $ gObjs $ globalDefs dt)
+  where isFuncDef (FunctionDef _) = True
+        isFuncDef _ = False
 
 -- | handle a function-scope object declaration \/ definition
 -- see [http://www.sivity.net/projects/language.c/wiki/LocalDefinitions]

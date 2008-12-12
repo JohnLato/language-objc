@@ -437,7 +437,7 @@ varAddrType ni d =
        Auto True -> typeError ni "address of register variable"
        _         -> return ()
      case t of
-       ArrayType bt _ q a -> return $ PtrType bt q a
+       ArrayType _ _ q a -> return $ PtrType t q a
        _                 -> return $ simplePtr t
   where s = declStorage d
         t = declType d

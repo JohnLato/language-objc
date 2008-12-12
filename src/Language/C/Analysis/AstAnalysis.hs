@@ -425,8 +425,10 @@ checkScalar ni t =
 
 checkIntegral :: MonadTrav m => NodeInfo -> Type -> m ()
 checkIntegral ni t | isIntegralType (canonicalType t) = return ()
-                   | otherwise = typeError ni "expected integral type"
-
+                   | otherwise = typeError ni $
+                                 "expected integral type, got: " ++
+                                 pType t ++ " (" ++
+                                 pType (canonicalType t) ++ ")"
 handleArray :: Type -> Type
 handleArray (ArrayType bt _ q a) = PtrType bt q a -- XXX: q and a correct?
 handleArray t = t
@@ -477,7 +479,7 @@ tExpr _ (CIndex b i ni)             =
      derefType ni addrTy
 tExpr side (CCond e1 me2 e3 ni)     =
   do t1 <- tExpr RValue e1
-     checkScalar ni t1
+     checkScalar (nodeInfo e1) t1
      t3 <- tExpr side e3
      case me2 of
        Just e2 ->
@@ -535,9 +537,12 @@ tExpr _ (CCall fe args ni)          =
   do let defType = FunctionType
                    (FunTypeIncomplete
                     (DirectType (TyIntegral TyInt) noTypeQuals) [])
+         fallback i = do warn $ invalidAST ni $
+                                "unknown function: " ++ identToString i
+                         return defType
      t <- case fe of
             CVar i _ -> lookupObject i >>=
-                        maybe (return defType) (const $ tExpr RValue fe)
+                        maybe (fallback i) (const $ tExpr RValue fe)
             _ -> tExpr RValue fe
      atys <- mapM (tExpr RValue) args
      case canonicalType t of
@@ -548,7 +553,8 @@ tExpr _ (CCall fe args ni)          =
                    typeError ni "incorrect number of arguments"
             return $ canonicalType rt
        PtrType (FunctionType (FunTypeIncomplete rt _)) _ _ ->
-         return $ canonicalType rt
+         do -- warn $ invalidAST ni "incomplete function type"
+            return $ canonicalType rt
        _  -> typeError ni $ "attempt to call non-function of type " ++ pType t
 tExpr _ (CAssign op le re ni)       =
   do lt <- tExpr LValue le

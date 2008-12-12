@@ -545,6 +545,7 @@ tExpr _ (CCall fe args ni)          =
                         maybe (fallback i) (const $ tExpr RValue fe)
             _ -> tExpr RValue fe
      atys <- mapM (tExpr RValue) args
+     -- XXX: we don't actually want to return the canonical return type here
      case canonicalType t of
        PtrType (FunctionType (FunType rt pdecls varargs _)) _ _ ->
          do let ptys = map declType pdecls
@@ -562,7 +563,10 @@ tExpr _ (CAssign op le re ni)       =
      when (constant $ typeQuals lt) $
           typeError ni $ "assignment to lvalue with `constant' qualifier: "
                          ++ (render . pretty) le
-     assignCompatible ni op lt rt
+     case (canonicalType lt, re) of
+       (lt', CConst (CIntConst i _))
+         | isPointerType lt' && getCInteger i == 0 -> return ()
+       (_, _) -> assignCompatible ni op lt rt
      return lt
 tExpr _ (CStatExpr s _)             = tStmt [] s
 
@@ -624,13 +628,14 @@ tDesignator t [] = return t
 tInit :: MonadTrav m => Type -> CInit -> m Initializer
 tInit t i@(CInitExpr e ni) =
   do it <- tExpr RValue e
-     assignCompatible ni CAssignOp (canonicalType t) it
+     assignCompatible ni CAssignOp t it
      return i
 tInit t i@(CInitList initList ni) =
   tInitList ni (canonicalType t) initList >> return i
 
 derefType :: MonadTrav m => NodeInfo -> Type -> m Type
 derefType ni t =
+  -- XXX: is it good to use canonicalType here?
   case canonicalType t of
     PtrType t' _ _ -> return t'
     ArrayType t' _ _ _ -> return t'
@@ -644,7 +649,7 @@ fieldType ni m t =
       do td <- lookupSUE ni (sueRef ctr)
          ms <- tagMembers ni td
          case lookup m ms of
-           Just ft -> return $ canonicalType ft
+           Just ft -> return ft
            Nothing -> typeError ni $ "field not found: " ++ identToString m
 
 -- | Get all members of a struct, union, or enum, with their
@@ -655,13 +660,15 @@ tagMembers ni td =
     CompDef (CompType _ _ ms _ _) -> getMembers ms
     EnumDef (EnumType _ es _ _) -> getMembers es
   where getMembers ds =
-          do let ts = map (canonicalType . declType) ds
+          do let ts = map declType ds
                  ns = map declName ds
              concat `liftM` mapM (expandAnonymous ni) (zip ns ts)
 
 -- | Expand an anonymous composite type into a list of member names
 --   and their associated types.
-expandAnonymous :: MonadTrav m => NodeInfo -> (VarName, Type) -> m [(Ident, Type)]
+expandAnonymous :: MonadTrav m =>
+                   NodeInfo -> (VarName, Type)
+                -> m [(Ident, Type)]
 expandAnonymous ni (NoName, DirectType (TyComp ctr) _) =
   lookupSUE ni (sueRef ctr) >>= tagMembers ni
 expandAnonymous _ (n, t) = return [(identOfVarName n, t)]
@@ -762,6 +769,10 @@ conditionalType ni t1 t2 =
       do t <- compositeType ni t1' t2'
          return $ ArrayType t (UnknownArraySize False)
                   (mergeTypeQuals q1 q2) (mergeAttrs a1 a2)
+    (t1'@(DirectType tn1 q1), t2'@(DirectType tn2 q2)) ->
+      case arithmeticConversion tn1 tn2 of
+        Just tn -> return $ DirectType tn (mergeTypeQuals q1 q2)
+        Nothing -> compositeType ni t1' t2'
     (t1', t2') -> compositeType ni t1' t2'
 
 -- | For an arithmetic operator, if the arguments are of the given
@@ -819,8 +830,8 @@ assignCompatible ni CAssignOp t1 t2 =
     -- XXX: check qualifiers
     (t1', PtrType (DirectType TyVoid _) _ _) | isPointerType t1' -> return ()
     (PtrType _ _ _, t2') | isIntegralType t2' -> return ()
-    (_, _) | isPointerType t1 && isPointerType t2 ->
-             do compatible ni (baseType t1) (baseType t2)
+    (t1', t2') | isPointerType t1' && isPointerType t2' ->
+                 do compatible ni (baseType t1') (baseType t2')
                 --unless (typeQuals t2 <= typeQuals t1) $
                 --       typeError ni $
                 --       "incompatible qualifiers in pointer assignment: "
@@ -841,8 +852,7 @@ assignCompatible ni op t1 t2 = binopType ni (assignBinop op) t1 t2 >> return ()
 
 -- | Determine whether two types are compatible.
 compatible :: MonadTrav m => NodeInfo -> Type -> Type -> m ()
-compatible ni t1 t2 =
-  compositeType ni (canonicalType t1) (canonicalType t2) >> return ()
+compatible ni t1 t2 = compositeType ni t1 t2 >> return ()
 
 -- | Determine the composite type of two compatible types.
 compositeType :: MonadTrav m => NodeInfo -> Type -> Type -> m Type

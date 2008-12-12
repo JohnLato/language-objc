@@ -407,10 +407,7 @@ instance Pretty CExpr where
     prettyPrec _p (CCompoundLit decl initl _) =
         parens (pretty decl) <+> (braces . hsep . punctuate comma) (map p initl) where
         p ([], initializer)           = pretty initializer
-        p ([struct_mem], initializer) = pretty struct_mem <+> text "=" <+> pretty initializer
-        p (badDecls , initializer)  =
-            error $ "Inconsistent AST: more than one left-hand-side in CCompoundLit init-list entry" ++
-                    (show $ (hsep $ punctuate comma $ map pretty badDecls) <+> text "=" <+> pretty initializer)
+        p (mems, initializer) = hcat (punctuate (text ".") (map pretty mems)) <+> text "=" <+> pretty initializer
 
     prettyPrec _p (CStatExpr stat _) =
         text "(" <> pretty stat <> text ")"

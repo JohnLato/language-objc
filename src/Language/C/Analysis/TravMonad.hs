@@ -400,13 +400,22 @@ instance MonadTrav (Trav s) where
     -- handling declarations and definitions
     handleDecl d = ($ d) =<< gets doHandleExtDecl
 
+-- | The variety of the C language to accept. Note: this is not yet enforced.
+data CLanguage = C89 | C99 | GNU89 | GNU99
+
+data TravOptions =
+    TravOptions {
+        language :: CLanguage
+    }
+
 data TravState s =
     TravState {
         symbolTable :: DefTable,
         rerrors :: RList CError,
         nameGenerator :: [Name],
         doHandleExtDecl :: (DeclEvent -> Trav s ()),
-        userState :: s
+        userState :: s,
+        options :: TravOptions
       }
 
 travErrors :: TravState s -> [CError]
@@ -419,7 +428,8 @@ initTravState userst =
         rerrors = RList.empty,
         nameGenerator = newNameSupply,
         doHandleExtDecl = const (return ()),
-        userState = userst
+        userState = userst,
+        options = TravOptions { language = C99 }
       }
 
 -- * Trav specific operations

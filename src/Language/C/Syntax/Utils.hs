@@ -2,6 +2,7 @@ module Language.C.Syntax.Utils (
   -- * Generic operations
   getSubStmts,
   mapSubStmts,
+  mapBlockItemStmts,
   -- * Concrete operations
   getLabels
 ) where
@@ -31,26 +32,37 @@ getSubStmts (CBreak _)            = []
 getSubStmts (CReturn _ _)         = []
 getSubStmts (CAsm _ _)            = []
 
-mapSubStmts :: (CStat -> CStat) -> CStat -> CStat
-mapSubStmts f (CLabel i s attrs ni)  = f (CLabel i (mapSubStmts f s) attrs ni)
-mapSubStmts f (CCase e s ni)         = f (CCase e (mapSubStmts f s) ni)
-mapSubStmts f (CCases e1 e2 s ni)    = f (CCases e1 e2 (mapSubStmts f s) ni)
-mapSubStmts f (CDefault s ni)        = f (CDefault (mapSubStmts f s) ni)
-mapSubStmts f (CCompound ls body ni) =
-  f (CCompound ls (map (mapBlockItemStmts f) body) ni)
-mapSubStmts f (CIf e sthen selse ni) =
+mapSubStmts :: (CStat -> Bool) -> (CStat -> CStat) -> CStat -> CStat
+mapSubStmts stop _ s | stop s = s
+mapSubStmts stop f (CLabel i s attrs ni) =
+  f (CLabel i (mapSubStmts stop f s) attrs ni)
+mapSubStmts stop f (CCase e s ni) =
+  f (CCase e (mapSubStmts stop f s) ni)
+mapSubStmts stop f (CCases e1 e2 s ni) =
+  f (CCases e1 e2 (mapSubStmts stop f s) ni)
+mapSubStmts stop f (CDefault s ni) =
+  f (CDefault (mapSubStmts stop f s) ni)
+mapSubStmts stop f (CCompound ls body ni) =
+  f (CCompound ls (map (mapBlockItemStmts stop f) body) ni)
+mapSubStmts stop f (CIf e sthen selse ni) =
   f (CIf e
-     (mapSubStmts f sthen)
-     (maybe Nothing (Just . mapSubStmts f) selse)
+     (mapSubStmts stop f sthen)
+     (maybe Nothing (Just . mapSubStmts stop f) selse)
      ni)
-mapSubStmts f (CSwitch e s ni)       = f (CSwitch e (mapSubStmts f s) ni)
-mapSubStmts f (CWhile e s isdo ni)   = f (CWhile e (mapSubStmts f s) isdo ni)
-mapSubStmts f (CFor i t a s ni)      = f (CFor i t a (mapSubStmts f s) ni)
-mapSubStmts f s                      = f s
+mapSubStmts stop f (CSwitch e s ni) =
+  f (CSwitch e (mapSubStmts stop f s) ni)
+mapSubStmts stop f (CWhile e s isdo ni) =
+  f (CWhile e (mapSubStmts stop f s) isdo ni)
+mapSubStmts stop f (CFor i t a s ni) =
+  f (CFor i t a (mapSubStmts stop f s) ni)
+mapSubStmts _ f s  = f s
 
-mapBlockItemStmts :: (CStat -> CStat) -> CBlockItem -> CBlockItem
-mapBlockItemStmts f (CBlockStmt s) = CBlockStmt (mapSubStmts f s)
-mapBlockItemStmts _ bi             = bi
+mapBlockItemStmts :: (CStat -> Bool)
+                  -> (CStat -> CStat)
+                  -> CBlockItem
+                  -> CBlockItem
+mapBlockItemStmts stop f (CBlockStmt s) = CBlockStmt (mapSubStmts stop f s)
+mapBlockItemStmts _ _ bi                = bi
 
 compoundSubStmts :: CBlockItem -> [CStat]
 compoundSubStmts (CBlockStmt s)    = [s]

@@ -1,10 +1,18 @@
 module Language.C.Analysis.TypeUtils (
     -- * Constructors
+    integral,
+    floating,
     simplePtr,
     sizeofType,
     ptrDiffType,
     boolType,
     voidType,
+    voidPtr,
+    constVoidPtr,
+    charPtr,
+    constCharPtr,
+    stringType,
+    valistType,
     -- * Classifiers
     isIntegralType,
     isFloatingType,
@@ -32,25 +40,64 @@ instance Ord TypeQuals where
   (<=) (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) =
     c1 <= c2 && v1 <= v2 && r1 <= r2
 
+-- | Constructor for a simple integral type.
+integral ty = DirectType (TyIntegral ty) noTypeQuals
+
+-- | Constructor for a simple floating-point type.
+floating ty = DirectType (TyFloating ty) noTypeQuals
+
 -- | A simple pointer with no qualifiers
 simplePtr :: Type -> Type
 simplePtr t = PtrType t noTypeQuals []
 
+-- | A pointer with the @const@ qualifier.
+constPtr :: Type -> Type
+constPtr t = PtrType t (TypeQuals True False False) []
+
 -- | The type returned by sizeof (size_t). For now, this is just @int@.
 sizeofType :: Type
-sizeofType = DirectType (TyIntegral TyInt) noTypeQuals
+sizeofType = integral TyInt
 
 -- | The type of pointer differences (ptrdiff_t). For now, this is just @int@.
 ptrDiffType :: Type
-ptrDiffType = DirectType (TyIntegral TyInt) noTypeQuals
+ptrDiffType = integral TyInt
 
 -- | The type of comparisons\/guards. This is always just @int@.
 boolType :: Type
-boolType = DirectType (TyIntegral TyInt) noTypeQuals
+boolType = integral TyInt
 
 -- | Simple @void@ type.
 voidType :: Type
 voidType = DirectType TyVoid noTypeQuals
+
+-- | An unqualified @void@ pointer.
+voidPtr :: Type
+voidPtr = simplePtr voidType
+
+-- | A @const@-qualified @void@ pointer.
+constVoidPtr :: Type
+constVoidPtr = constPtr voidType
+
+-- | An unqualified @char@ pointer.
+charPtr :: Type
+charPtr = simplePtr (integral TyChar)
+
+-- | A @const@-qualified @char@ pointer.
+constCharPtr :: Type
+constCharPtr = constPtr (integral TyChar)
+
+-- | The type of a constant string.
+stringType :: Type
+stringType  = ArrayType
+              (DirectType (TyIntegral TyChar)
+               (TypeQuals True False False))
+              (UnknownArraySize False)
+              noTypeQuals
+              []
+
+-- | The builtin type of variable-length argument lists.
+valistType :: Type
+valistType  = DirectType (TyBuiltin TyVaList) noTypeQuals
 
 -- | Check whether a type is an integral type. This includes @enum@
 --   types. This function does not attempt to resolve @typedef@ types.

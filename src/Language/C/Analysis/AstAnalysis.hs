@@ -703,16 +703,16 @@ constType (CCharConst (CChars _ _) _)  =
 constType (CFloatConst (CFloat fs) _) =
   return $ DirectType (TyFloating (getFloatType fs)) noTypeQuals
 -- XXX: should strings have any type qualifiers or attributes?
-constType (CStrConst (CString chars wide) _) =
+constType (CStrConst (CString chars wide) ni) =
   do n <- genName
      let charType | wide      = TyInt -- XXX: this isn't universal
                   | otherwise = TyChar
-         ni = mkNodeInfo nopos n
+         ni' = mkNodeInfo (posOf ni) n
          arraySize = ArraySize
                      True -- XXX: is it static?
                      (CConst
                       (CIntConst
-                       (cInteger (toInteger (length chars))) ni))
+                       (cInteger (toInteger (length chars))) ni'))
      return $ ArrayType (DirectType (TyIntegral charType) noTypeQuals)
                         arraySize noTypeQuals []
 

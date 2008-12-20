@@ -325,6 +325,9 @@ fieldType ni m t =
          case lookup m ms of
            Just ft -> return ft
            Nothing -> typeError ni $ "field not found: " ++ identToString m
+    t' -> astError ni $
+          "field of non-composite type: " ++ identToString m
+          ++ ", " ++ pType t
 
 -- | Get all members of a struct, union, or enum, with their
 --   types. Collapse fields of anonymous members.

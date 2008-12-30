@@ -505,6 +505,25 @@ tExpr side (CVar i ni)              =
                 | otherwise = return $ declType d
 tExpr _ (CConst c)                  = constType c
 tExpr _ (CBuiltinExpr b)            = builtinType b
+tExpr side (CCall (CVar i _) args ni)
+  | identToString i == "__builtin_choose_expr" =
+    case args of
+      [g, e1, e2] -> do checkGuard g
+                        t1 <- tExpr RValue e1
+                        t2 <- tExpr RValue e2
+                        conditionalType ni t1 t2
+-- XXX: the following is the proper way to typecheck this, but it depends
+-- on constant expression evaluation.
+{-
+      [g, e1, e2] -> c <- constEval g
+                     case boolValue c of
+                       Just True -> tExpr side e1
+                       Just False -> tExpr side e2
+                       Nothing ->
+                         astError ni
+                         "non-constant argument to __builtin_choose_expr"
+-}
+      _ -> astError ni "wrong number of arguments to __builtin_choose_expr"
 tExpr _ (CCall fe args ni)          =
   do let defType = FunctionType
                    (FunTypeIncomplete

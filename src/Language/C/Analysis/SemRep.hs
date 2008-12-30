@@ -46,7 +46,7 @@ EnumTypeRef(..),EnumType(..),typeOfEnumDef,
 Enumerator(..),
 TypeQuals(..),noTypeQuals,mergeTypeQuals,
 -- * Variable names
-VarName(..),identOfVarName,AsmName,
+VarName(..),identOfVarName,isNoName,AsmName,
 -- * Attributes (STUB, not yet analyzed)
 Attr(..),Attributes,
 -- * Statements and Expressions (STUB, aliases to Syntax)
@@ -541,6 +541,10 @@ data VarName =  VarName Ident (Maybe AsmName)
 identOfVarName :: VarName -> Ident
 identOfVarName NoName            = error "identOfVarName: NoName"
 identOfVarName (VarName ident _) = ident
+
+isNoName :: VarName -> Bool
+isNoName NoName = True
+isNoName _ = False
 
 -- | Top level assembler block (alias for @CStrLit@)
 type AsmBlock = CStrLit

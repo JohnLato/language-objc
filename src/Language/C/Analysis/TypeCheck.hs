@@ -348,6 +348,7 @@ expandAnonymous :: MonadTrav m =>
                 -> m [(Ident, Type)]
 expandAnonymous ni (NoName, DirectType (TyComp ctr) _) =
   lookupSUE ni (sueRef ctr) >>= tagMembers ni
+expandAnonymous _ (NoName, _) = return []
 expandAnonymous _ (n, t) = return [(identOfVarName n, t)]
 
 lookupSUE :: MonadTrav m => NodeInfo -> SUERef -> m TagDef

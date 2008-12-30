@@ -89,6 +89,7 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     -- analyse the declarator
     var_decl_info <- analyseVarDecl True declspecs declr oldstyle_decls Nothing
     let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl_info
+    when (isNoName name) $ astError node_info "NoName in analyseFunDef"
     let ident = identOfVarName name
     -- improve incomplete type
     ty' <- improveFunDefType ty
@@ -144,6 +145,7 @@ analyseTypeDef handle_sue_def declspecs declr node_info = do
     -- analyse the declarator
     (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl handle_sue_def declspecs declr [] Nothing
     checkValidTypeDef is_inline storage_spec attrs
+    when (isNoName name) $ astError node_info "NoName in analyseTypeDef"
     let ident = identOfVarName name
     handleTypeDef (TypeDef ident ty attrs node_info)
     where
@@ -177,7 +179,8 @@ getParams _ = Nothing
 -- | handle a function prototype
 extFunProto :: (MonadTrav m) => VarDeclInfo -> m ()
 extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
-    do  old_fun <- lookupObject (identOfVarName var_name)
+    do  when (isNoName var_name) $ astError node_info "NoName in extFunProto"
+        old_fun <- lookupObject (identOfVarName var_name)
         checkValidSpecs
         let decl = VarDecl var_name (DeclAttrs is_inline (funDeclLinkage old_fun) attrs) ty
         handleVarDecl False (Decl decl node_info)
@@ -206,7 +209,8 @@ extFunProto (VarDeclInfo var_name is_inline storage_spec attrs ty node_info) =
 -- see [http://www.sivity.net/projects/language.c/wiki/ExternalDefinitions]
 extVarDecl :: (MonadTrav m) => VarDeclInfo -> (Maybe Initializer) -> m ()
 extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) init_opt =
-    do (storage,is_def) <- globalStorage storage_spec
+    do when (isNoName var_name) $ astError node_info "NoName in extVarDecl"
+       (storage,is_def) <- globalStorage storage_spec
        let vardecl = VarDecl var_name (DeclAttrs is_inline storage attrs) typ
        if is_def
            then handleObjectDef False ident $ ObjDef vardecl init_opt node_info
@@ -244,7 +248,8 @@ extVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) ini
 -- see [http://www.sivity.net/projects/language.c/wiki/LocalDefinitions]
 localVarDecl :: (MonadTrav m) => VarDeclInfo -> (Maybe Initializer) -> m ()
 localVarDecl (VarDeclInfo var_name is_inline storage_spec attrs typ node_info) init_opt =
-    do (storage,is_def) <- localStorage storage_spec
+    do when (isNoName var_name) $ astError node_info "NoName in localVarDecl"
+       (storage,is_def) <- localStorage storage_spec
        let vardecl = VarDecl var_name (DeclAttrs is_inline storage attrs) typ
        if is_def
            then handleObjectDef True ident (ObjDef vardecl init_opt node_info)

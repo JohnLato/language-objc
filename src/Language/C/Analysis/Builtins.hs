@@ -108,4 +108,6 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                              [ constVoidPtr ]
                       , var "__func__"
                             stringType
+                      , var "__PRETTY_FUNCTION__"
+                            stringType
                       ]

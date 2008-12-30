@@ -228,8 +228,7 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
         TSNonBasic (CTypeDef name t_node)    -> liftM TypeDefType $ typeDefRef t_node name
-        -- TODO: analyse type of expression
-        TSNonBasic (CTypeOfExpr expr _tnode) -> tExpr RValue expr
+        TSNonBasic (CTypeOfExpr expr _tnode) -> tExpr [] RValue expr
         TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
         TSNonBasic _ -> astError node "Unexpected typespec"
 

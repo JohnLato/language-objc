@@ -427,6 +427,7 @@ tExpr side (CUnary CAdrOp e ni)     =
   do when (side == LValue) $
           typeError ni "address-of operator as lvalue"
      case e of
+       CCompoundLit _ _ _ -> simplePtr `liftM` tExpr RValue e
        CVar i _ -> lookupObject i >>=
                    maybe (notFound ni i) (varAddrType ni)
        _        -> simplePtr `liftM` tExpr LValue e

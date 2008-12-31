@@ -1,6 +1,5 @@
 SCANFILE=../../../examples/ScanFile
-CORRECT_CS=good_assign.c good_sinit.c good_sinit2.c good_anonunion.c \
-           good_return.c
+CORRECT_CS=good_sinit.c good_sinit2.c good_anonunion.c good_return.c
 ERROR_CS=bad_args.c bad_sinit1.c
 
 export TRACE_EVENTS=1

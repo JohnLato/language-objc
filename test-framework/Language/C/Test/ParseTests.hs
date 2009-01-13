@@ -28,7 +28,7 @@ import Data.List
 import System.Cmd
 import System.Directory 
 import System.Exit
-import System.FilePath (takeBaseName)
+import System.FilePath (takeBaseName, takeExtension)
 import System.IO
 import System.Process
 
@@ -64,13 +64,13 @@ withFileExt filename ext = (stripExt filename) ++ "." ++ ext where
 runCPP :: FilePath -> [String] -> TestMonad (FilePath,FilePath)      
 runCPP origFile cppArgs = do
   -- copy original file (for reporting)
-  cFile <- withTempFile_ ".c" $ \_ -> return ()
+  cFile <- withTempFile_ (takeExtension origFile) $ \_ -> return ()
   copySuccess <- liftIOCatched (copyFile origFile cFile)
   case copySuccess of
     Left err -> errorOnInit cppArgs $ "Copy failed: " ++ show err
     Right () -> dbgMsg      $ "Copy: " ++ origFile ++ " ==> " ++ cFile ++ "\n"
   
-  -- preprocess C file, if it isn't preprocessed already process
+  -- preprocess C file, if it isn't preprocessed already
   preFile <- case isPreprocessedFile cFile of
     False -> do
       dbgMsg $ "Preprocessing " ++ origFile ++ "\n"

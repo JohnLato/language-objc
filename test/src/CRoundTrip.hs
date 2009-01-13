@@ -18,6 +18,8 @@ module Main (main)  where
 import Control.Monad.State
 import System.FilePath (takeBaseName)
 import Text.PrettyPrint
+import Language.C
+import Language.C.Analysis
 
 import Language.C.Data.Position
 import Language.C.Test.Environment
@@ -30,7 +32,7 @@ main = defaultMain usage roundtripTest
 
 usage :: Doc
 usage = text "./CRoundTrip <gcc-args> file.(c|hc|i)"
-        $$ (nest 4 $ text "Test Driver: preprocess, parse, pretty print, parse again, and compare ASTs")
+        $$ (nest 4 $ text "Roundtrip Test Driver: preprocess, parse, typecheck,  pretty print, compile pretty printed, parse again, compare ASTs")
         $+$ envHelpDoc []
 
 roundtripTest :: [String] -> TestMonad ()
@@ -51,36 +53,58 @@ roundtripTest' origFile gccArgs = do
     let parseTest1 = initializeTestResult (parseTestTemplate { testName = "01-parse" }) [origFile]
     parseResult <- runParseTest preFile (initPos cFile)
     addTestM $
-      setTestStatus parseTest1 $ 
+      setTestStatus parseTest1 $
         either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult
     ast <- either (const exitTest) (return . fst) parseResult
+    -- typecheck
+    let tcTest = initializeTestResult (parseTestTemplate { testName = "02-typecheck"}) [origFile]
+    tcResult <- runTypecheckTest ast
+    addTestM $
+        setTestStatus tcTest $
+            either testFailNoReport testOkNoReport tcResult
 
     -- pretty print
-    let prettyTest = initializeTestResult (ppTestTemplate { testName = "02-pretty-print" }) [origFile]
+    let prettyTest = initializeTestResult (ppTestTemplate { testName = "03-pretty-print" }) [origFile]
     ((prettyFile,report),metric) <- runPrettyPrint ast
     addTestM $
       setTestStatus prettyTest $
-        testOkWithReport metric report 
+        testOkWithReport metric report
 
     -- parse again (TODO: factor out code duplication with first parse test)
-    let parseTest2 = initializeTestResult (parseTestTemplate { testName = "03-parse-pretty-printed" }) [prettyFile]
+    let parseTest2 = initializeTestResult (parseTestTemplate { testName = "04-parse-pretty-printed" }) [prettyFile]
     parseResult2 <- runParseTest prettyFile (initPos prettyFile)
     addTestM $
-      setTestStatus parseTest2 $ 
+      setTestStatus parseTest2 $
         either (uncurry testFailWithReport) (testOkNoReport . snd) parseResult2
     ast2 <- either (const exitTest) (return . fst) parseResult2
 
     -- compile
-    let compileTest = initializeTestResult (compileTestTemplate { testName = "04-compile"}) [prettyFile]
+    let compileTest = initializeTestResult (compileTestTemplate { testName = "05-compile"}) [prettyFile]
     compileResult <- runCompileTest ("-fsyntax-only":gccArgs) prettyFile
     addTestM $
-      setTestStatus compileTest $ 
+      setTestStatus compileTest $
         either (uncurry testFailWithReport) (testOkNoReport . snd) compileResult
 
     -- check equiv
-    let equivTest = initializeTestResult (equivTestTemplate { testName = "04-orig-equiv-pp" }) []
+    let equivTest = initializeTestResult (equivTestTemplate { testName = "06-orig-equiv-pp" }) []
     equivResult <- runEquivTest ast ast2
     addTestM $
       setTestStatus equivTest $
         either (uncurry testFailure) testOkNoReport equivResult
     return ()
+
+-- XXX: TODO: Move to framework ?
+runTypecheckTest :: CTranslUnit           -- ^ preprocesed file
+                 -> TestMonad (Either String PerfMeasure) -- ^ either errMsg (decls,elapsedTime)
+runTypecheckTest ast  = do
+  -- typecheck
+  dbgMsg $ "Starting Typecheck\n"
+  (tcResult, elapsed) <-
+    time $ do return $! case runTrav_ (analyseAST ast) of
+                            Left errs -> Left (concatMap show errs)
+                            Right _   -> Right ()
+  -- check error and add test
+  dbgMsg $ "TypeCheck result: " ++ show tcResult ++ "\n"
+  case tcResult of
+    Left err -> return $ Left err
+    Right _  -> return $ Right (PerfMeasure (0,elapsed))

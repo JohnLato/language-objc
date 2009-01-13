@@ -162,8 +162,8 @@ $identletter($identletter|$digit)*  { \pos len str -> idkwtok (takeChars len str
 --
 
 -- integer constants (follows K&R A2.5.1, C99 6.4.4.1)
--- FIXME: 0 is lexed as octal integer constant
-0$octdigit*@intgnusuffix?       { token_plus CTokILit (readCInteger OctalRepr) }
+-- NOTE: 0 is lexed as octal integer constant, and readCOctal takes care of this
+0$octdigit*@intgnusuffix?       { token_plus CTokILit readCOctal }
 $digitNZ$digit*@intgnusuffix?   { token_plus CTokILit (readCInteger DecRepr) }
 0[xX]$hexdigit+@intgnusuffix?   { token_plus CTokILit (readCInteger HexRepr . drop 2) }
 
@@ -245,6 +245,12 @@ L?\"($inchar|@charesc)*@ucn($inchar|@charesc|@ucn)*\" { token_fail "Universal ch
 
 
 {
+-- Fix the 'octal' lexing of '0'
+readCOctal :: String -> Either String CInteger
+readCOctal s@('0':r) =
+    case r of
+        (c:_) | isDigit c -> readCInteger OctalRepr r
+        _                 -> readCInteger DecRepr s
 
 -- We use the odd looking list of string patterns here rather than normal
 -- string literals since GHC converts the latter into a sequence of string

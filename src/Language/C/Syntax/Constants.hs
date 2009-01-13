@@ -118,9 +118,7 @@ readCInteger repr str =
     parseFailed  -> Left $ "Bad Integer literal: "++show parseFailed
   where
     readNum = case repr of DecRepr -> readDec; HexRepr -> readHex; OctalRepr -> readOct
-    mkCInt n suffix = either Left (Right . CInteger n (repr' str))  $ readSuffix suffix
-    repr' ('0':[]) = DecRepr -- hacking away lexer bug
-    repr' _ = repr
+    mkCInt n suffix = either Left (Right . CInteger n repr)  $ readSuffix suffix
     readSuffix = parseFlags noFlags
     parseFlags flags [] = Right flags
     parseFlags flags ('l':'l':fs) = parseFlags (setFlag FlagLongLong flags) fs

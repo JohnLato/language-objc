@@ -10,3 +10,4 @@ all:
 
 	(cd bug21_sem_typedef && make clean all)
 	(cd bug22_file_permission_cpp && make clean all)
+	(cd bug30_preserve_int_repr && make)

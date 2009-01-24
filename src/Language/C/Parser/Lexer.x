@@ -376,8 +376,8 @@ tok :: Int -> (PosLength -> CToken) -> Position -> P CToken
 tok len tc pos = return (tc (pos,len))
 
 adjustPos :: Int -> String -> Position -> Position
-adjustPos pragmaLen str (Position offs fname row col) =
-    offs' `seq` fname' `seq` row' `seq` (Position offs' fname' row' 1)
+adjustPos pragmaLen str (Position fname row offs) =
+    offs' `seq` fname' `seq` row' `seq` (Position fname' row' offs')
     where
     offs'           = offs + pragmaLen
     str'            = dropWhite . drop 1 $ str
@@ -440,10 +440,8 @@ alexGetChar (p,is) | inputStreamEmpty is = Nothing
                                   Just (c, (p', s))
 
 alexMove :: Position -> Char -> Position
-alexMove (Position o f l c) ' '  = Position (o+1) f l (c+1)
-alexMove (Position o f l c) '\n' = Position (o+1) f (l+1) 1
-alexMove (Position o f l c) '\r' = Position (o+1) f l c
-alexMove (Position o f l c) _    = Position (o+1) f l (c+1)
+alexMove (Position f l o) '\n' = Position f (l+1) (o+1)
+alexMove (Position f l o) _    = Position f l (o+1)
 
 lexicalError :: P a
 lexicalError = do

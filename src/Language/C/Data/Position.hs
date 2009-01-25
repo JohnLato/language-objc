@@ -20,22 +20,23 @@ module Language.C.Data.Position (
   nopos, isNoPos,
   builtinPos, isBuiltinPos,
   internalPos, isInternalPos,
-  incPos, retPos, retPosOffset,
+  incPos, retPos,
   Pos(..),
 ) where
 import Data.Generics
 
 -- | uniform representation of source file positions 
 data Position = Position 
+        {-# UNPACK #-}   !Int           -- offset/id
         String                          -- file name
         {-# UNPACK #-}   !Int           -- row
-        {-# UNPACK #-}   !Int           -- column or absolute offset
+        {-# UNPACK #-}   !Int           -- column (remove ?)
   deriving (Eq, Ord, Typeable, Data)
 
 type PosLength = (Position,Int)
 
 instance Show Position where
-  show pos@(Position fname row _)
+  show pos@(Position _ fname row _)
     | isNoPos pos = "<no file>"
     | isBuiltinPos pos = "<builtin>"
     | isInternalPos pos = "<internal>"
@@ -43,72 +44,69 @@ instance Show Position where
     
 -- | get the source file of the specified position. Fails unless @isSourcePos pos@.
 posFile :: Position -> String
-posFile (Position fname _ _) = fname
+posFile (Position _ fname _ col) = fname
 
 -- | get the line number of the specified position. Fails unless @isSourcePos pos@
 posRow  :: Position -> Int
-posRow (Position _ row col) = row
+posRow (Position _ _ row col) = row
+
+{-# DEPRECATED posColumn "column number information is inaccurate in presence of macros - do not rely on it." #-}
 
 -- | get the column of the specified position.
--- Meaningless on preprocessed sources (because of #LINE pramas).
+-- Has been removed, as column information is inaccurate before preprocessing,
+-- and meaningless afterwards (because of #LINE pragmas).
 posColumn :: Position -> Int
-posColumn (Position _ _ col) = (col+1)
+posColumn (Position _ _ _ col) = col
 
 -- | get the absolute offset of the position (in the preprocessed source)
 posOffset :: Position -> Int
-posOffset (Position _ _ off) = off
+posOffset (Position off _ _ col) = off
 
 -- | class of type which aggregate a source code location
 class Pos a where
     posOf :: a -> Position
 
--- | initialize a Position to the start the file (line = 1 and column = 1 or offset = 0)
+-- | initialize a Position to the start of the translation unit starting in the given file
 initPos :: FilePath -> Position
-initPos file = Position file 1 0
+initPos file = Position 0 file 1 1
 
--- |
 -- | returns @True@ if the given position refers to an actual source file
 isSourcePos :: Position -> Bool
-isSourcePos (Position _ row col) = row >= 0
+isSourcePos (Position _ _ row col) = row >= 0
 
 -- | no position (for unknown position information)
 nopos :: Position
-nopos  = Position "<no file>" (-1) (-1)
+nopos  = Position (-1) "<no file>" (-1) 0 
 
 isNoPos :: Position -> Bool
-isNoPos (Position _ (-1) _) = True
+isNoPos (Position _ _ (-1) _) = True
 isNoPos _                     = False
 
 -- | position attached to built-in objects
 --
 builtinPos :: Position
-builtinPos  = Position "<built into the parser>" (-2) (-2) 
+builtinPos  = Position (-2) "<built into the parser>" (-2) 0
 
 -- | returns @True@ if the given position refers to a builtin definition
 isBuiltinPos :: Position -> Bool
-isBuiltinPos (Position _ (-2) _) = True
+isBuiltinPos (Position _ _ (-2) _) = True
 isBuiltinPos _                   = False
 
 -- | position used for internal errors
 internalPos :: Position
-internalPos = Position "<internal error>" (-3) (-3)
+internalPos = Position (-3) "<internal error>" (-3) 0
 
 -- | returns @True@ if the given position is internal
 isInternalPos :: Position -> Bool
-isInternalPos (Position _ (-3) _) = True
+isInternalPos (Position _ _ (-3) _) = True
 isInternalPos _                   = False
 
 {-# INLINE incPos #-}
 -- | advance column
 incPos :: Position -> Int -> Position
-incPos (Position fname row offsOrCol) n = Position fname row (offsOrCol+n)
+incPos (Position offs fname row col) n = Position (offs+n) fname row (col+n)
 
 {-# INLINE retPos #-}
-
--- | advance to next line  (for column oriented view)
+-- | advance to next line
 retPos :: Position -> Position
-retPos (Position fname row _) = Position fname (row + 1) 1
-
--- | advance to next line  (for preprocessed sources)
-retPosOffset :: Position -> Position
-retPosOffset (Position fname row offs) = Position fname (row + 1) (offs + 1) 
+retPos (Position offs fname row _) = Position (offs+1) fname (row + 1) 1

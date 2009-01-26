@@ -30,10 +30,11 @@ module Language.C.Data.Position (
 import Data.Generics
 
 -- | uniform representation of source file positions
-data Position = Position { posOffset :: {-# UNPACK #-} !Int
-                         , posFile :: String
-                         , posRow :: {-# UNPACK #-} !Int
-                         , posColumn :: {-# UNPACK #-} !Int
+data Position = Position { posOffset :: {-# UNPACK #-} !Int  -- ^ absolute offset in the preprocessed file
+                         , posFile :: String                 -- ^ source file
+                         , posRow :: {-# UNPACK #-} !Int     -- ^ row (line)  in the original file. Affected by #LINE pragmas.
+                         , posColumn :: {-# UNPACK #-} !Int  -- ^ column in the preprocessed file. Inaccurate w.r.t. to the original
+                                                             --   file in the presence of preprocessor macros.
                          }
               | NoPosition
               | BuiltinPosition

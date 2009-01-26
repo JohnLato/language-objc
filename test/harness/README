@@ -1,6 +1,11 @@
 == Description ==
-while `suite' is intended to execute long test runs on existing libraries, `harness' consists of crafted tests documenting bugs and problems.
+
+while `suite' is intended to execute long test runs on existing libraries,
+`harness' consists of crafted tests documenting bugs and problems.
 
 == Execute ==
-(cd ..; make)
-make
+
+Make sure to first run make in the parent directory 'language-c/test' !
+
+> (cd ..; make)
+> make

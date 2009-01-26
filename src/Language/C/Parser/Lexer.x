@@ -443,7 +443,7 @@ alexGetChar (p,is) | inputStreamEmpty is = Nothing
 alexMove :: Position -> Char -> Position
 alexMove pos ' '  = incPos pos 1
 alexMove pos '\n' = retPos pos
-alexMove pos '\r' = adjustPos (posFile pos) (succ $ posRow pos) pos
+alexMove pos '\r' = incOffset pos 1
 alexMove pos _    = incPos pos 1
 
 lexicalError :: P a

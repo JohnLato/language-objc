@@ -23,7 +23,7 @@ module Language.C.Data.Position (
   nopos, isNoPos,
   builtinPos, isBuiltinPos,
   internalPos, isInternalPos,
-  incPos, retPos,
+  incPos, retPos, adjustPos,
   Pos(..),
 ) where
 import Data.Generics
@@ -49,15 +49,8 @@ instance Show Position where
 
 {-# DEPRECATED posColumn "column number information is inaccurate in presence of macros - do not rely on it." #-}
 
--- | get the column of the specified position.
--- Has been removed, as column information is inaccurate before preprocessing,
--- and meaningless afterwards (because of #LINE pragmas).
-posColumn :: Position -> Int
-posColumn (Position _ _ _ col) = col
-
--- | get the absolute offset of the position (in the preprocessed source)
-posOffset :: Position -> Int
-posOffset (Position off _ _ col) = off
+position :: Int -> String -> Int -> Int -> Position
+position = Position
 
 -- | class of type which aggregate a source code location
 class Pos a where
@@ -111,3 +104,11 @@ incPos p _                             = p
 retPos :: Position -> Position
 retPos (Position offs fname row _) = Position (offs+1) fname (row + 1) 1
 retPos p                           = p
+
+{-# INLINE adjustPos #-}
+-- | adjust position: change file and line number, reseting column to 1. This is usually
+--   used for #LINE pragmas. The absolute offset is not changed - this can be done
+--   by @adjustPos newFile line . incPos (length pragma)@.
+adjustPos :: FilePath -> Int -> Position -> Position
+adjustPos fname row (Position offs _ _ _) = Position offs fname row 1
+adjustPos _ _ p                           = p

@@ -20,7 +20,6 @@ module Language.C.Data (
      Name(..),newNameSupply,
      -- * Source code positions
      Position(..),Pos(..),
-     posFile,posRow,posColumn,
      initPos, nopos,builtinPos,internalPos,
      isSourcePos,isBuiltinPos,isInternalPos,
      -- * Syntax tree nodes

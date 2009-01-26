@@ -26,8 +26,8 @@ module Language.C.Data.Position (
 ) where
 import Data.Generics
 
--- | uniform representation of source file positions
-data Position = Position
+-- | uniform representation of source file positions 
+data Position = Position 
         {-# UNPACK #-}   !Int           -- offset/id
         String                          -- file name
         {-# UNPACK #-}   !Int           -- row
@@ -45,7 +45,7 @@ instance Show Position where
     | isBuiltinPos pos = "<builtin>"
     | isInternalPos pos = "<internal>"
     | otherwise = "(" ++ show fname ++ ": line " ++ show row ++ ")"
-
+    
 -- | get the source file of the specified position. Fails unless @isSourcePos pos@.
 posFile :: Position -> String
 posFile (Position _ fname _ col) = fname
@@ -55,10 +55,10 @@ posRow  :: Position -> Int
 posRow (Position _ _ row col) = row
 
 {-# DEPRECATED posColumn "column number information is inaccurate in presence of macros - do not rely on it." #-}
--- | Get the column of the specified position.
---
--- Note that this is the column in the preprocessed source, so this information might be inaccurate w.r.t. to
--- the original source.
+
+-- | get the column of the specified position.
+-- Has been removed, as column information is inaccurate before preprocessing,
+-- and meaningless afterwards (because of #LINE pragmas).
 posColumn :: Position -> Int
 posColumn (Position _ _ _ col) = col
 

@@ -24,6 +24,7 @@ module Language.C.Data.Position (
   builtinPos, isBuiltinPos,
   internalPos, isInternalPos,
   incPos, retPos, adjustPos,
+  incOffset,
   Pos(..),
 ) where
 import Data.Generics
@@ -112,3 +113,8 @@ retPos p                           = p
 adjustPos :: FilePath -> Int -> Position -> Position
 adjustPos fname row (Position offs _ _ _) = Position offs fname row 1
 adjustPos _ _ p                           = p
+
+-- | advance just the offset
+incOffset :: Position -> Int -> Position
+incOffset (Position o f r c) n = Position (o + n) f r c
+incOffset p n                  = p

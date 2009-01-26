@@ -135,7 +135,7 @@ $white+         ;
 --   doesn't say how many ints there can be, we allow an unbound number
 --
 \#$space*@int$space*(\"($infname|@charesc)*\"$space*)?(@int$space*)*$eol
-  { \pos len str -> setPos (adjustPos len (takeChars len str) pos) >> lexToken' False }
+  { \pos len str -> setPos (adjustLineDirective len (takeChars len str) pos) >> lexToken' False }
 
 -- #pragma directive (K&R A12.8)
 --
@@ -375,8 +375,8 @@ ignoreAttribute = skipTokens (0::Int)
 tok :: Int -> (PosLength -> CToken) -> Position -> P CToken
 tok len tc pos = return (tc (pos,len))
 
-adjustPos :: Int -> String -> Position -> Position
-adjustPos pragmaLen str pos =
+adjustLineDirective :: Int -> String -> Position -> Position
+adjustLineDirective pragmaLen str pos =
     offs' `seq` fname' `seq` row' `seq` (position offs' fname' row' 1)
     where
     offs'           = (posOffset pos) + pragmaLen
@@ -443,7 +443,7 @@ alexGetChar (p,is) | inputStreamEmpty is = Nothing
 alexMove :: Position -> Char -> Position
 alexMove pos ' '  = incPos pos 1
 alexMove pos '\n' = retPos pos
-alexMove pos '\r' = incRow pos
+alexMove pos '\r' = adjustPos (posFile pos) (succ $ posRow pos) pos
 alexMove pos _    = incPos pos 1
 
 lexicalError :: P a

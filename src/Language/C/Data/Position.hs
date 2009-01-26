@@ -41,6 +41,7 @@ data Position = Position { posOffset :: {-# UNPACK #-} !Int  -- ^ absolute offse
               | InternalPosition
                 deriving (Eq, Ord, Typeable, Data)
 
+-- | Position and length of a token
 type PosLength = (Position,Int)
 
 instance Show Position where
@@ -51,6 +52,7 @@ instance Show Position where
 
 {-# DEPRECATED posColumn "column number information is inaccurate in presence of macros - do not rely on it." #-}
 
+-- | @position absoluteOffset fileName lineNumber columnNumber@ initializes a @Position@ using the given arguments
 position :: Int -> String -> Int -> Int -> Position
 position = Position
 
@@ -115,6 +117,7 @@ adjustPos :: FilePath -> Int -> Position -> Position
 adjustPos fname row (Position offs _ _ _) = Position offs fname row 1
 adjustPos _ _ p                           = p
 
+{-# INLINE incOffset #-}
 -- | advance just the offset
 incOffset :: Position -> Int -> Position
 incOffset (Position o f r c) n = Position (o + n) f r c

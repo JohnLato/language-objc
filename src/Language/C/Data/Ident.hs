@@ -46,7 +46,7 @@ isAnonymousRef _ = False
 
 -- | C identifiers
 data Ident = Ident String       -- lexeme
-                   {-# UNBOXED #-}   !Int     -- hash to speed up equality check
+                   {-# UNPACK #-}   !Int     -- hash to speed up equality check
                    NodeInfo                   -- attributes of this ident. incl. position
              deriving (Data,Typeable)
 

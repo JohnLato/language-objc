@@ -3,6 +3,7 @@
 -- |
 -- Module      :  Language.C.Data.Position
 -- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
+--                    [2008..2009] Benedikt Huber
 -- License     :  BSD-style
 -- Maintainer  :  benedikt.huber@gmail.com
 -- Stability   :  experimental
@@ -20,13 +21,13 @@ module Language.C.Data.Position (
   nopos, isNoPos,
   builtinPos, isBuiltinPos,
   internalPos, isInternalPos,
-  incPos, retPos,
+  incPos, retPos, adjustPos,
   Pos(..),
 ) where
 import Data.Generics
 
--- | uniform representation of source file positions 
-data Position = Position 
+-- | uniform representation of source file positions
+data Position = Position
         {-# UNPACK #-}   !Int           -- offset/id
         String                          -- file name
         {-# UNPACK #-}   !Int           -- row
@@ -41,7 +42,7 @@ instance Show Position where
     | isBuiltinPos pos = "<builtin>"
     | isInternalPos pos = "<internal>"
     | otherwise = "(" ++ show fname ++ ": line " ++ show row ++ ")"
-    
+
 -- | get the source file of the specified position. Fails unless @isSourcePos pos@.
 posFile :: Position -> String
 posFile (Position _ fname _ col) = fname
@@ -51,10 +52,10 @@ posRow  :: Position -> Int
 posRow (Position _ _ row col) = row
 
 {-# DEPRECATED posColumn "column number information is inaccurate in presence of macros - do not rely on it." #-}
-
--- | get the column of the specified position.
--- Has been removed, as column information is inaccurate before preprocessing,
--- and meaningless afterwards (because of #LINE pragmas).
+-- | Get the column of the specified position.
+--
+-- Note that this is the column in the preprocessed source, so this information might be inaccurate w.r.t. to
+-- the original source.
 posColumn :: Position -> Int
 posColumn (Position _ _ _ col) = col
 
@@ -76,8 +77,9 @@ isSourcePos (Position _ _ row col) = row >= 0
 
 -- | no position (for unknown position information)
 nopos :: Position
-nopos  = Position (-1) "<no file>" (-1) 0 
+nopos  = Position (-1) "<no file>" (-1) 0
 
+-- | returns @True@ if the there is no position information available
 isNoPos :: Position -> Bool
 isNoPos (Position _ _ (-1) _) = True
 isNoPos _                     = False
@@ -110,3 +112,10 @@ incPos (Position offs fname row col) n = Position (offs+n) fname row (col+n)
 -- | advance to next line
 retPos :: Position -> Position
 retPos (Position offs fname row _) = Position (offs+1) fname (row + 1) 1
+
+{-# INLINE adjustPos #-}
+-- | adjust position: change file and line number, reseting column to 1. This is usually
+--   used for #LINE pragmas. The absolute offset is not changed - this can be done
+--   by @adjustPos newFile line . incPos (length pragma)@.
+adjustPos :: FilePath -> Int -> Position -> Position
+adjustPos fname row (Position offs _ _ _) = Position offs fname row 1

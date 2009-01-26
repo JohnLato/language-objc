@@ -54,7 +54,7 @@ import Data.Char (isDigit)
 import Control.Monad (liftM, when)
 
 import Language.C.Data.InputStream
-import Language.C.Data.Position  (Position(..),posOf,PosLength)
+import Language.C.Data.Position
 import Language.C.Data.Ident    (mkIdent)
 
 import Language.C.Syntax.Constants
@@ -376,15 +376,16 @@ tok :: Int -> (PosLength -> CToken) -> Position -> P CToken
 tok len tc pos = return (tc (pos,len))
 
 adjustPos :: Int -> String -> Position -> Position
-adjustPos pragmaLen str (Position offs fname row col) =
-    offs' `seq` fname' `seq` row' `seq` (Position offs' fname' row' 1)
+adjustPos pragmaLen str pos =
+    offs' `seq` fname' `seq` row' `seq` (position offs' fname' row' 1)
     where
-    offs'           = offs + pragmaLen
+    offs'           = (posOffset pos) + pragmaLen
     str'            = dropWhite . drop 1 $ str
     (rowStr, str'') = span isDigit str'
     row'      = read rowStr
     str'''      = dropWhite str''
     fnameStr      = takeWhile (/= '"') . drop 1 $ str'''
+    fname = posFile pos
     fname'      | null str''' || head str''' /= '"' = fname
      -- try and get more sharing of file name strings
      | fnameStr == fname     = fname
@@ -440,10 +441,10 @@ alexGetChar (p,is) | inputStreamEmpty is = Nothing
                                   Just (c, (p', s))
 
 alexMove :: Position -> Char -> Position
-alexMove (Position o f l c) ' '  = Position (o+1) f l (c+1)
-alexMove (Position o f l c) '\n' = Position (o+1) f (l+1) 1
-alexMove (Position o f l c) '\r' = Position (o+1) f l c
-alexMove (Position o f l c) _    = Position (o+1) f l (c+1)
+alexMove pos ' '  = incPos pos 1
+alexMove pos '\n' = retPos pos
+alexMove pos '\r' = incRow pos
+alexMove pos _    = incPos pos 1
 
 lexicalError :: P a
 lexicalError = do

@@ -32,6 +32,9 @@ data Position = Position
         String                          -- file name
         {-# UNPACK #-}   !Int           -- row
         {-# UNPACK #-}   !Int           -- column (remove ?)
+        | NoPosition
+        | BuiltinPosition
+        | InternalPosition
   deriving (Eq, Ord, Typeable, Data)
 
 type PosLength = (Position,Int)
@@ -73,49 +76,44 @@ initPos file = Position 0 file 1 1
 
 -- | returns @True@ if the given position refers to an actual source file
 isSourcePos :: Position -> Bool
-isSourcePos (Position _ _ row col) = row >= 0
+isSourcePos (Position _ _ _ _) = True
+isSourcePos _                = False
 
 -- | no position (for unknown position information)
 nopos :: Position
-nopos  = Position (-1) "<no file>" (-1) 0
+nopos  = Position (-1) "<no file>" (-1) 0 
 
 -- | returns @True@ if the there is no position information available
 isNoPos :: Position -> Bool
-isNoPos (Position _ _ (-1) _) = True
-isNoPos _                     = False
+isNoPos NoPosition = True
+isNoPos _          = False
 
 -- | position attached to built-in objects
 --
 builtinPos :: Position
-builtinPos  = Position (-2) "<built into the parser>" (-2) 0
+builtinPos  = BuiltinPosition
 
 -- | returns @True@ if the given position refers to a builtin definition
 isBuiltinPos :: Position -> Bool
-isBuiltinPos (Position _ _ (-2) _) = True
-isBuiltinPos _                   = False
+isBuiltinPos BuiltinPosition = True
+isBuiltinPos _               = False
 
 -- | position used for internal errors
 internalPos :: Position
-internalPos = Position (-3) "<internal error>" (-3) 0
+internalPos = InternalPosition
 
 -- | returns @True@ if the given position is internal
 isInternalPos :: Position -> Bool
-isInternalPos (Position _ _ (-3) _) = True
-isInternalPos _                   = False
+isInternalPos InternalPosition = True
+isInternalPos _                = False
 
 {-# INLINE incPos #-}
 -- | advance column
 incPos :: Position -> Int -> Position
-incPos (Position offs fname row col) n = Position (offs+n) fname row (col+n)
+incPos (Position offs fname row col) n = Position (offs + n) fname row (col + n)
+incPos p _                              = p
 
 {-# INLINE retPos #-}
 -- | advance to next line
 retPos :: Position -> Position
 retPos (Position offs fname row _) = Position (offs+1) fname (row + 1) 1
-
-{-# INLINE adjustPos #-}
--- | adjust position: change file and line number, reseting column to 1. This is usually
---   used for #LINE pragmas. The absolute offset is not changed - this can be done
---   by @adjustPos newFile line . incPos (length pragma)@.
-adjustPos :: FilePath -> Int -> Position -> Position
-adjustPos fname row (Position offs _ _ _) = Position offs fname row 1

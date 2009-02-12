@@ -407,24 +407,29 @@ data CInit = CInitExpr CExpr
 -- | Initializer List
 --
 -- The members of an initializer list are of the form @(designator-list,initializer)@.
--- @designator-list@ is allowed to be empty - in this case the initializer refers to the
+-- The @designator-list@ specifies one member of the compound type which is initialized.
+-- It is allowed to be empty - in this case the initializer refers to the
 -- ''next'' member of the compound type (see C99 6.7.8).
 --
 -- Examples (simplified expressions and identifiers):
 --
--- > -- { [0], [3] = 4, [2] = 5, 8 }
+-- > -- int x[3][4] = { [0][3] = 4, [2] = 5, 8 };
+-- > --   corresponds to the assignments
+-- > -- x[0][3] = 4; x[2][0] = 5; x[2][1] = 8;
 -- > let init1 = ([CArrDesig 0, CArrDesig 3], CInitExpr 4)
--- >     init2 = ([CArrDesig 2], CInitExpr 5)
--- >     init3 = ([], CInitExpr 8)
+-- >     init2 = ([CArrDesig 2]             , CInitExpr 5)
+-- >     init3 = ([]                        , CInitExpr 8)
 -- > in  CInitList [init1, init2, init3]
 --
--- > -- { .s = { {2,3} , .a = { 1 } } }
--- > let init_1  = [ ([], CInitExpr 1) ]
--- >     init_23 = zip (repeat []) [CInitExpr 2, CInitExpr 3]
--- >     init_s_1 = ([], CInitList init_23)
--- >     init_s_a = ([CMemberDesig "a"], CInitList init_1)
--- >     init_s  = ((CMemberDesig "s"), CInitList [init_s_1,init_s_a])
--- > in  CInitList [init_s]
+-- > -- struct { struct { int a[2]; int b[2]; int c[2]; } s; } x = { .s = { {2,3} , .c[0] = 1 } };
+-- > --   corresponds to the assignments
+-- > -- x.s.a[0] = 2; x.s.a[1] = 3; x.s.c[0] = 1;
+-- > let init_s_0 = CInitList [ ([], CInitExpr 2), ([], CInitExpr 3)]
+-- >     init_s   = CInitList [
+-- >                            ([], init_s_0),
+-- >                            ([CMemberDesig "c", CArrDesig 0], CInitExpr 1)
+-- >                          ]
+-- > in  CInitList [(CMemberDesig "s", init_s)]
 type CInitList = [([CDesignator], CInit)]
 
 -- | Designators

@@ -28,6 +28,8 @@ module Language.C.Analysis.TravMonad (
     enterBlockScope,leaveBlockScope,
     -- * Symbol table lookup (delegate)
     lookupTypeDef, lookupObject,
+    -- * Definition name lookup
+    canonicalName, canonicalIdent,
     -- * Symbol table modification
     createSUERef,
     -- * Additional error handling facilities
@@ -46,6 +48,7 @@ module Language.C.Analysis.TravMonad (
 )
 where
 import Language.C.Data
+import Language.C.Data.Ident
 import Language.C.Data.RList as RList
 import Language.C.Syntax
 
@@ -56,8 +59,10 @@ import Language.C.Analysis.DefTable hiding (enterBlockScope,leaveBlockScope,
                                             enterFunctionScope,leaveFunctionScope)
 import qualified Language.C.Analysis.DefTable as ST
 
+import Data.IntMap (insert, lookup)
 import Data.Maybe
 import Control.Monad(liftM)
+import Prelude hiding (lookup)
 
 -- | Traversal monad
 class (Monad m) => MonadTrav m where
@@ -290,7 +295,7 @@ lookupTypeDef ident =
     case lookupIdent ident symt of
         Nothing                             ->
           astError (nodeInfo ident) $ "unbound typeDef: " ++ identToString ident
-        Just (Left (TypeDef _ident ty _ _)) -> return ty
+        Just (Left (TypeDef def_ident ty _ _)) -> addRef ident def_ident >> return ty
         Just (Right d)                      -> astError (nodeInfo ident) (wrongKindErrMsg d)
     where
     wrongKindErrMsg d = "wrong kind of object: excepcted typeDef but found: "++(objKindDescr d)
@@ -302,8 +307,30 @@ lookupObject ident = do
     old_decl <- liftM (lookupIdent ident) getDefTable
     mapMaybeM old_decl $ \obj ->
         case obj of
-        Right objdef -> return objdef
+        Right objdef -> addRef ident objdef >> return objdef
         Left _tydef  -> astError (nodeInfo ident) (mismatchErr "lookupObject" "an object" "a typeDef")
+
+-- | lookup definition Name (if it exists) given use Name
+canonicalName :: (MonadTrav m) => Name -> m (Maybe Name)
+canonicalName n = getDefTable >>= return . lookup (nameId n) . refTable
+
+-- | modify Ident to use definition Name (if it exists)
+canonicalIdent :: (MonadTrav m) => Ident -> m (Maybe Ident)
+canonicalIdent (Ident s h (NodeInfo p pl n)) =
+  canonicalName n >>= (return . liftM (\n' -> Ident s h (NodeInfo p pl n')))
+
+-- | add link between use and definition (private)
+addRef :: (MonadTrav m, CNode u, CNode d) => u -> d -> m ()
+addRef use def =
+  case (nodeInfo use, nodeInfo def) of
+    (NodeInfo _ _ useName, NodeInfo _ _ defName) ->
+      withDefTable
+      (\dt ->
+         ((),
+          dt { refTable = insert (nameId useName) defName (refTable dt) }
+         )
+      )
+    (_, _) -> return () -- Don't have Names for both, so can't record.
 
 
 mismatchErr :: String -> String -> String -> String

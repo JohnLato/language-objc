@@ -21,7 +21,7 @@ module Language.C.Analysis.DeclAnalysis (
   canonicalStorageSpec, StorageSpec(..),hasThreadLocalSpec,
   -- * Helpers
   VarDeclInfo(..),
-  tAttr,mkVarName,getOnlyDeclr,nameOfDecl,analyseVarDecl
+  tAttr,mkVarName,getOnlyDeclr,nameOfDecl,analyseVarDecl,analyseVarDecl'
 )
 where
 import Language.C.Data.Error
@@ -50,7 +50,7 @@ tParamDecl :: (MonadTrav m) => CDecl -> m ParamDecl
 tParamDecl (CDecl declspecs declrs node) =
   do declr <- getParamDeclr
      -- analyse the variable declaration
-     (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl True declspecs declr [] Nothing
+     (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl' True declspecs declr [] Nothing
      when (is_inline) $ throwTravError (badSpecifierError node "parameter declaration with inline specifier")
      -- compute storage of parameter (NoStorage, but might have a register specifier)
      storage <- throwOnLeft $ computeParamStorage node storage_spec
@@ -82,7 +82,8 @@ tMemberDecls (CDecl declspecs [] node) =
   do let (storage_specs, _attrs, typequals, typespecs, is_inline) =
            partitionDeclSpecs declspecs
      when is_inline $ astError node "member declaration with inline specifier"
-     ty <- tType True node typequals typespecs [] []
+     canonTySpecs <- canonicalTypeSpec typespecs
+     ty <- tType True node typequals canonTySpecs [] []
      case ty of
        DirectType (TyComp _) _ ->
          return $ [MemberDecl
@@ -94,7 +95,8 @@ tMemberDecls (CDecl declspecs [] node) =
 tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (True:repeat False) declrs)
     where
     tMemberDecl handle_sue_def (Just member_declr,Nothing,bit_field_size_opt) =
-        do var_decl <- analyseVarDecl handle_sue_def declspecs member_declr [] Nothing
+        -- TODO: use analyseVarDecl here, not analyseVarDecl'
+        do var_decl <- analyseVarDecl' handle_sue_def declspecs member_declr [] Nothing
            let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl
            --
            checkValidMemberSpec is_inline storage_spec
@@ -102,7 +104,8 @@ tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (Tr
     tMemberDecl handle_sue_def (Nothing,Nothing,Just bit_field_size) =
         do let (storage_specs, _attrs, typequals, typespecs, is_inline) = partitionDeclSpecs declspecs
            storage_spec  <- canonicalStorageSpec storage_specs
-           typ           <- tType handle_sue_def node typequals typespecs [] []
+           canonTySpecs  <- canonicalTypeSpec typespecs
+           typ           <- tType handle_sue_def node typequals canonTySpecs [] []
            --
            return $ AnonBitField typ bit_field_size node
     tMemberDecl _ _ = astError node "Bad member declaration"
@@ -122,16 +125,28 @@ hasThreadLocalSpec _  = False
 
 data VarDeclInfo = VarDeclInfo VarName Bool {- is-inline? -} StorageSpec Attributes Type NodeInfo
 
+analyseVarDecl' :: (MonadTrav m) =>
+                  Bool -> [CDeclSpec] ->
+                  CDeclr -> [CDecl] -> (Maybe CInit) -> m VarDeclInfo
+analyseVarDecl' handle_sue_def declspecs declr oldstyle init_opt =
+  do let (storage_specs, attrs, type_quals, type_specs, inline) =
+           partitionDeclSpecs declspecs
+     canonTySpecs <- canonicalTypeSpec type_specs
+     analyseVarDecl handle_sue_def storage_specs attrs type_quals canonTySpecs inline
+                    declr oldstyle init_opt
+
 -- | analyse declarators
-analyseVarDecl :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> [CDecl] -> (Maybe CInit) -> m VarDeclInfo
-analyseVarDecl handle_sue_def declspecs
+analyseVarDecl :: (MonadTrav m) =>
+                  Bool -> [CStorageSpec] -> [CAttr] -> [CTypeQual] ->
+                  TypeSpecAnalysis -> Bool ->
+                  CDeclr -> [CDecl] -> (Maybe CInit) -> m VarDeclInfo
+analyseVarDecl handle_sue_def storage_specs decl_attrs typequals canonTySpecs inline
                (CDeclr name_opt derived_declrs asmname_opt declr_attrs node)
                oldstyle_params init_opt
-    = do let (storage_specs, decl_attrs, typequals, typespecs, inline) = partitionDeclSpecs declspecs
-         -- analyse the storage specifiers
+    = do -- analyse the storage specifiers
          storage_spec  <- canonicalStorageSpec storage_specs
          -- translate the type into semantic representation
-         typ          <- tType handle_sue_def node typequals typespecs derived_declrs oldstyle_params
+         typ          <- tType handle_sue_def node typequals canonTySpecs derived_declrs oldstyle_params
          -- translate attributes
          attrs'       <- mapM tAttr (decl_attrs ++ declr_attrs)
          -- make name
@@ -170,19 +185,22 @@ analyseTypeDecl (CDecl declspecs declrs node)
     where
     analyseTyDeclr (CDeclr Nothing derived_declrs Nothing attrs _declrnode)
         | (not (null storagespec) || inline) = astError node "storage specifier for type declaration"
-        | otherwise                          = tType True node (map CAttrQual (attrs++attrs_decl) ++ typequals)
-                                                     typespecs derived_declrs []
+        | otherwise                          =
+          do canonTySpecs <- canonicalTypeSpec typespecs
+             tType True node (map CAttrQual (attrs++attrs_decl) ++ typequals)
+                   canonTySpecs derived_declrs []
         where
         (storagespec, attrs_decl, typequals, typespecs, inline) = partitionDeclSpecs declspecs
     analyseTyDeclr _ = astError node "Non-abstract declarator in type declaration"
 
 
 -- | translate a type
-tType :: (MonadTrav m) => Bool -> NodeInfo -> [CTypeQual] -> [CTypeSpec] -> [CDerivedDeclr] -> [CDecl] -> m Type
-tType handle_sue_def top_node typequals typespecs derived_declrs oldstyle_params
+tType :: (MonadTrav m) => Bool -> NodeInfo -> [CTypeQual] -> TypeSpecAnalysis -> [CDerivedDeclr] -> [CDecl] -> m Type
+tType handle_sue_def top_node typequals canonTySpecs derived_declrs oldstyle_params
     = mergeOldStyle top_node oldstyle_params derived_declrs >>= buildType
     where
-    buildType [] = tDirectType handle_sue_def top_node typequals typespecs
+    buildType [] =
+        tDirectType handle_sue_def top_node typequals canonTySpecs
     buildType (CPtrDeclr ptrquals node : dds) =
         buildType dds >>= buildPointerType ptrquals node
     buildType (CArrDeclr arrquals size node : dds)
@@ -209,10 +227,10 @@ tType handle_sue_def top_node typequals typespecs derived_declrs oldstyle_params
 
 -- | translate a type without (syntactic) indirections
 -- Due to the GNU @typeof@ extension and typeDefs, this can be an arbitrary type
-tDirectType :: (MonadTrav m) => Bool -> NodeInfo -> [CTypeQual] -> [CTypeSpec] -> m Type
-tDirectType handle_sue_def node ty_quals ty_specs = do
+tDirectType :: (MonadTrav m) =>
+               Bool -> NodeInfo -> [CTypeQual] -> TypeSpecAnalysis -> m Type
+tDirectType handle_sue_def node ty_quals canonTySpec = do
     (quals,attrs) <- tTypeQuals ty_quals
-    canonTySpec <- canonicalTypeSpec ty_specs
     let baseType ty_name = DirectType ty_name quals
     case canonTySpec of
         TSNone -> return$ baseType (TyIntegral TyInt)
@@ -225,9 +243,9 @@ tDirectType handle_sue_def node ty_quals ty_specs = do
                     Left (floatType,iscomplex) | iscomplex -> TyComplex floatType
                                                | otherwise -> TyFloating floatType
                     Right intType  -> TyIntegral intType
+        TSTypeDef tdr -> return$ TypeDefType tdr
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
-        TSNonBasic (CTypeDef name t_node)    -> liftM TypeDefType $ typeDefRef t_node name
         TSNonBasic (CTypeOfExpr expr _tnode) -> tExpr [] RValue expr
         TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
         TSNonBasic _ -> astError node "Unexpected typespec"
@@ -390,7 +408,9 @@ data SizeMod     = NoSizeMod | ShortMod | LongMod | LongLongMod deriving (Eq,Ord
 data NumTypeSpec = NumTypeSpec { base :: NumBaseType, signSpec :: SignSpec, sizeMod :: SizeMod, isComplex :: Bool  }
 emptyNumTypeSpec :: NumTypeSpec
 emptyNumTypeSpec = NumTypeSpec { base = NoBaseType, signSpec = NoSignSpec, sizeMod = NoSizeMod, isComplex = False }
-data TypeSpecAnalysis = TSNone | TSVoid | TSBool | TSNum NumTypeSpec | TSNonBasic CTypeSpec
+-- TODO: include cases for typeof(type) and typeof(expr)
+data TypeSpecAnalysis =
+  TSNone | TSVoid | TSBool | TSNum NumTypeSpec | TSTypeDef TypeDefRef | TSNonBasic CTypeSpec
 
 canonicalTypeSpec :: (MonadTrav m) => [CTypeSpec] -> m TypeSpecAnalysis
 canonicalTypeSpec = foldrM go TSNone where
@@ -421,6 +441,7 @@ canonicalTypeSpec = foldrM go TSNone where
                             = return$  TSNum$ nts { signSpec = Unsigned }
     go (CComplexType _) tsa | (Just nts@(NumTypeSpec { isComplex = False })) <- getNTS tsa
                             = return$  TSNum$ nts { isComplex = True }
+    go (CTypeDef i ni) TSNone = liftM TSTypeDef $ typeDefRef ni i
     go otherType  TSNone    = return$  TSNonBasic otherType
     go ty _ts = astError (nodeInfo ty) "Invalid type specifier"
 

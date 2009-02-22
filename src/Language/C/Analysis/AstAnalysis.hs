@@ -87,7 +87,7 @@ analyseExt (CDeclExt decl)
 analyseFunDef :: (MonadTrav m) => CFunDef -> m ()
 analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     -- analyse the declarator
-    var_decl_info <- analyseVarDecl True declspecs declr oldstyle_decls Nothing
+    var_decl_info <- analyseVarDecl' True declspecs declr oldstyle_decls Nothing
     let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl_info
     when (isNoName name) $ astError node_info "NoName in analyseFunDef"
     let ident = identOfVarName name
@@ -114,7 +114,12 @@ analyseDecl is_local decl@(CDecl declspecs declrs node)
         case typedef_spec of Just _  -> astError node "bad typedef declaration: missing declarator"
                              Nothing -> analyseTypeDecl decl >> return ()
     | (Just declspecs') <- typedef_spec = mapM_ (uncurry (analyseTyDef declspecs')) declr_list
-    | otherwise   = mapM_ (uncurry analyseVarDeclr) declr_list
+    | otherwise   = do let (storage_specs, attrs, typequals, typespecs, inline) =
+                             partitionDeclSpecs declspecs
+                       canonTySpecs <- canonicalTypeSpec typespecs
+                       let specs =
+                             (storage_specs, attrs, typequals, canonTySpecs, inline)
+                       mapM_ (uncurry (analyseVarDeclr specs)) declr_list
     where
     declr_list = zip (True : repeat False) declrs
     typedef_spec = hasTypeDef declspecs
@@ -124,9 +129,12 @@ analyseDecl is_local decl@(CDecl declspecs declrs node)
             (Just tydeclr, Nothing , Nothing) -> analyseTypeDef handle_sue_def declspecs' tydeclr node
             _ -> astError node "bad typdef declaration: bitfieldsize or initializer present"
 
-    analyseVarDeclr handle_sue_def (Just declr, init_opt, Nothing) = do
+    analyseVarDeclr specs handle_sue_def (Just declr, init_opt, Nothing) = do
         -- analyse the declarator
-        vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <- analyseVarDecl handle_sue_def declspecs declr [] Nothing
+        let (storage_specs, attrs, typequals, canonTySpecs, inline) = specs
+        vardeclInfo@(VarDeclInfo _ _ _ _ typ _) <-
+          analyseVarDecl handle_sue_def storage_specs attrs typequals canonTySpecs inline
+                         declr [] Nothing
         -- declare / define the object
         if (isFunctionType typ)
             then extFunProto vardeclInfo
@@ -136,14 +144,14 @@ analyseDecl is_local decl@(CDecl declspecs declrs node)
                  vardeclInfo init_opt
         init_opt' <- mapMaybeM init_opt (tInit typ)
         return ()
-    analyseVarDeclr _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
-    analyseVarDeclr _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
+    analyseVarDeclr _ _ (Nothing,_,_)         = astError node "abstract declarator in object declaration"
+    analyseVarDeclr _ _ (_,_,Just bitfieldSz) = astError node "bitfield size in object declaration"
 
 -- | Analyse a typedef
 analyseTypeDef :: (MonadTrav m) => Bool -> [CDeclSpec] -> CDeclr -> NodeInfo -> m ()
 analyseTypeDef handle_sue_def declspecs declr node_info = do
     -- analyse the declarator
-    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl handle_sue_def declspecs declr [] Nothing
+    (VarDeclInfo name is_inline storage_spec attrs ty declr_node) <- analyseVarDecl' handle_sue_def declspecs declr [] Nothing
     checkValidTypeDef is_inline storage_spec attrs
     when (isNoName name) $ astError node_info "NoName in analyseTypeDef"
     let ident = identOfVarName name

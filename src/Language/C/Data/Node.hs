@@ -71,8 +71,10 @@ nameOfNode (OnlyPos _ _) = Nothing
 nameOfNode (NodeInfo _ _ name) = Just name
 posOfNode :: NodeInfo -> Position
 posOfNode ni = case ni of (OnlyPos pos _) -> pos; (NodeInfo pos _ _) -> pos
-fileOfNode :: (CNode a) => a -> FilePath
-fileOfNode = posFile . posOfNode . nodeInfo
+fileOfNode :: (CNode a) => a -> Maybe FilePath
+fileOfNode = fmap posFile . justIf isSourcePos . posOfNode . nodeInfo where
+    justIf predicate x | predicate x = Just x
+                       | otherwise   = Nothing
 
 -- | equality by name
 eqByName           :: CNode a => a -> a -> Bool

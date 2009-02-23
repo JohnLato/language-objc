@@ -46,7 +46,7 @@ main = do
 
     -- print
     mapM (hPutStrLn stderr . show) warnings
-    print $ pretty $ filterGlobalDecls (fileOfInterest pat input_file . fileOfNode) globals
+    print $ pretty $ filterGlobalDecls (maybe False (fileOfInterest pat input_file) . fileOfNode) globals
 
     where
     traversal False ast = analyseAST ast

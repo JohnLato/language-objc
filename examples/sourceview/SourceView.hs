@@ -45,9 +45,10 @@ main = do
 
 groupAstBySourceFile :: CTranslUnit -> [(FilePath,CTranslUnit)]
 groupAstBySourceFile (CTranslUnit decls _) = 
-    map (\decls -> (fileOfNode (head decls), CTranslUnit decls (topNodePos decls))) .
-    groupBy (\a b -> (fileOfNode a) == fileOfNode b) $ decls
+    map (\decls -> (fileOfNode' (head decls), CTranslUnit decls (topNodePos decls))) .
+    groupBy (\a b -> (fileOfNode' a) == fileOfNode' b) $ decls
     where
+    fileOfNode' = maybe "<no-file>" id  . fileOfNode
     topNodePos decls = 
         let lastDecl = nodeInfo (last decls) in
         mkNodeInfoPosLen (posOf (head decls)) (getLastTokenPos lastDecl)

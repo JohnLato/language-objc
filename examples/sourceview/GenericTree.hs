@@ -81,7 +81,7 @@ instance TreeView Ident where
 instance TreeView CTranslUnit where
     treeView name t@(CTranslUnit decls ni) =
         node name t $ map treeView' decls
-    defaultLabel (CTranslUnit _ ni) = fileOfNode ni
+    defaultLabel (CTranslUnit _ ni) = maybe "<nofile>" id (fileOfNode ni)
 instance TreeView CExtDecl where
     treeView _ (CDeclExt decl) = treeView "ext-decl" decl
     treeView _ (CFDefExt fundef) = treeView "ext-fundef" fundef

@@ -63,7 +63,7 @@ generateSizeTests pat globals =
 filterDefs :: (CNode v, Ord k) => String -> Map k v -> Map k v
 filterDefs pat = Map.filter isInCFile
     where
-    isInCFile = (pat `isPrefixOf`) . takeBaseName . fileOfNode
+    isInCFile = maybe False ((pat `isPrefixOf`) . takeBaseName) . fileOfNode
 
 -- a small fixpoint algorithm to find the correct order and all references
 computeRefClosure :: Map SUERef CompType -> Map SUERef CompType -> [CompType]

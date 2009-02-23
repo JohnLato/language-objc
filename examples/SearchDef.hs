@@ -39,7 +39,7 @@ main = do
     checkResult label = either (error . (label++) . show) return
     
     printDecl def_id (CTranslUnit decls _) = 
-      let decls' = filter ((posFile (posOfNode def_id) ==).fileOfNode) decls in
+      let decls' = filter (maybe False (posFile (posOfNode def_id) ==).fileOfNode) decls in
       mapM_ (printIfMatch def_id) (zip decls' (map Just (tail decls') ++ [Nothing]))
     printIfMatch def (decl,Just next_decl) | posOfNode def >= posOf decl && 
                                              posOfNode def < posOf next_decl = (print . pretty) decl

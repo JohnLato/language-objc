@@ -30,6 +30,7 @@ import Language.C.Data.Ident
 import Language.C.Syntax
 import {-# SOURCE #-} Language.C.Analysis.AstAnalysis (tExpr, ExprSide(..))
 import Language.C.Analysis.DefTable (TagFwdDecl(..))
+import Language.C.Analysis.Export
 import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
@@ -408,7 +409,6 @@ data SizeMod     = NoSizeMod | ShortMod | LongMod | LongLongMod deriving (Eq,Ord
 data NumTypeSpec = NumTypeSpec { base :: NumBaseType, signSpec :: SignSpec, sizeMod :: SizeMod, isComplex :: Bool  }
 emptyNumTypeSpec :: NumTypeSpec
 emptyNumTypeSpec = NumTypeSpec { base = NoBaseType, signSpec = NoSignSpec, sizeMod = NoSizeMod, isComplex = False }
--- TODO: include cases for typeof(type) and typeof(expr)
 data TypeSpecAnalysis =
   TSNone | TSVoid | TSBool | TSNum NumTypeSpec | TSTypeDef TypeDefRef | TSNonBasic CTypeSpec
 
@@ -420,6 +420,10 @@ canonicalTypeSpec = foldrM go TSNone where
     updLongMod NoSizeMod = Just LongMod
     updLongMod LongMod   = Just LongLongMod
     updLongMod _         = Nothing
+    getTypeSpecs :: MonadTrav m => Type -> m [CTypeSpec]
+    getTypeSpecs         =  return . getTS . partitionDeclSpecs . fst . exportType
+    getTS (_, _, _, ts, _) = ts
+    go :: (MonadTrav m) => CTypeSpec -> TypeSpecAnalysis -> m TypeSpecAnalysis
     go (CVoidType _)    TSNone = return$  TSVoid
     go (CBoolType _)    TSNone = return$  TSBool
     go (CCharType _)    tsa | (Just nts@(NumTypeSpec { base = NoBaseType })) <- getNTS tsa
@@ -442,6 +446,9 @@ canonicalTypeSpec = foldrM go TSNone where
     go (CComplexType _) tsa | (Just nts@(NumTypeSpec { isComplex = False })) <- getNTS tsa
                             = return$  TSNum$ nts { isComplex = True }
     go (CTypeDef i ni) TSNone = liftM TSTypeDef $ typeDefRef ni i
+    go (CTypeOfExpr e ni) TSNone = tExpr [] RValue e >>= getTypeSpecs >>= canonicalTypeSpec
+    go (CTypeOfType (CDecl ds _ _) ni) TSNone =
+      (return . getTS . partitionDeclSpecs) ds >>= canonicalTypeSpec
     go otherType  TSNone    = return$  TSNonBasic otherType
     go ty _ts = astError (nodeInfo ty) "Invalid type specifier"
 

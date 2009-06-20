@@ -298,7 +298,8 @@ lookupTypeDef ident =
         Just (Left (TypeDef def_ident ty _ _)) -> addRef ident def_ident >> return ty
         Just (Right d)                      -> astError (nodeInfo ident) (wrongKindErrMsg d)
     where
-    wrongKindErrMsg d = "wrong kind of object: excepcted typeDef but found: "++(objKindDescr d)
+    wrongKindErrMsg d = "wrong kind of object: expected typedef but found "++ (objKindDescr d)
+                        ++ " (for identifier `" ++ identToString ident ++ "')"
 
 
 -- | lookup an object, function or enumerator

@@ -587,7 +587,7 @@ type Expr = CExpr
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 1672142450
+-- CHECKSUM: 2093586448
 
 instance CNode TagDef
     where nodeInfo (CompDef d) = nodeInfo d
@@ -606,6 +606,8 @@ instance Pos IdentDecl
 instance CNode DeclEvent
     where nodeInfo (TagEvent d) = nodeInfo d
           nodeInfo (DeclEvent d) = nodeInfo d
+          nodeInfo (ParamEvent d) = nodeInfo d
+          nodeInfo (LocalEvent d) = nodeInfo d
           nodeInfo (TypeDefEvent d) = nodeInfo d
           nodeInfo (AsmEvent d) = nodeInfo d
 instance Pos DeclEvent

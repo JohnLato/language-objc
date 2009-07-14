@@ -35,7 +35,7 @@ Linkage(..),hasLinkage,declLinkage,
 -- * Types
 Type(..),
 FunType(..),isFunctionType,
-derefTypeDef,referencedType,hasTypeOfExpr,
+derefTypeDef,referencedType,
 ArraySize(..),
 TypeDefRef(..),
 TypeName(..),BuiltinType(..),
@@ -342,8 +342,6 @@ data Type =
      -- ^ function type
      | TypeDefType TypeDefRef
      -- ^ a defined type
-     | TypeOfExpr Expr
-     -- ^ (GNU) typeof (/broken/ and should be removed, but we do not yet have expression type analysis)
      deriving (Typeable, Data)
 
 -- | Function types are of the form @FunType return-type params isVariadic attrs@.
@@ -367,18 +365,13 @@ referencedType (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = Just actual_ty
 referencedType (DirectType _ _) = Nothing
 referencedType _ = error "referencedType: failed to resolve type"
 
-hasTypeOfExpr :: Type -> Bool
-hasTypeOfExpr (TypeOfExpr _) = True
-hasTypeOfExpr ty = maybe False hasTypeOfExpr (referencedType ty)
-
 -- | return @True@ if the given type is a function type
 --
---   Result is undefined in the presence of TypeOfExpr or undefined typeDefs
+--   Result is undefined in the presence of undefined typeDefs
 isFunctionType :: Type -> Bool
 isFunctionType ty =
     case ty of  TypeDefType (TypeDefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
                 TypeDefType _ -> error "isFunctionType: unresolved typeDef"
-                TypeOfExpr _  -> error "isFunctionType: typeof(expr)"
                 FunctionType _ -> True
                 _ -> False
 

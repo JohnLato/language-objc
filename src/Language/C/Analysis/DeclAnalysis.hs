@@ -247,8 +247,7 @@ tDirectType handle_sue_def node ty_quals canonTySpec = do
         TSTypeDef tdr -> return$ TypeDefType tdr
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
-        TSNonBasic (CTypeOfExpr expr _tnode) -> tExpr [] RValue expr
-        TSNonBasic (CTypeOfType decl t_node) ->  analyseTypeDecl decl >>= mergeTypeAttributes t_node quals attrs
+        TSType t                             ->  mergeTypeAttributes node quals attrs t
         TSNonBasic _ -> astError node "Unexpected typespec"
 
 -- | Merge type attributes
@@ -410,7 +409,8 @@ data NumTypeSpec = NumTypeSpec { base :: NumBaseType, signSpec :: SignSpec, size
 emptyNumTypeSpec :: NumTypeSpec
 emptyNumTypeSpec = NumTypeSpec { base = NoBaseType, signSpec = NoSignSpec, sizeMod = NoSizeMod, isComplex = False }
 data TypeSpecAnalysis =
-  TSNone | TSVoid | TSBool | TSNum NumTypeSpec | TSTypeDef TypeDefRef | TSNonBasic CTypeSpec
+  TSNone | TSVoid | TSBool | TSNum NumTypeSpec |
+  TSTypeDef TypeDefRef | TSType Type | TSNonBasic CTypeSpec
 
 canonicalTypeSpec :: (MonadTrav m) => [CTypeSpec] -> m TypeSpecAnalysis
 canonicalTypeSpec = foldrM go TSNone where
@@ -446,9 +446,8 @@ canonicalTypeSpec = foldrM go TSNone where
     go (CComplexType _) tsa | (Just nts@(NumTypeSpec { isComplex = False })) <- getNTS tsa
                             = return$  TSNum$ nts { isComplex = True }
     go (CTypeDef i ni) TSNone = liftM TSTypeDef $ typeDefRef ni i
-    go (CTypeOfExpr e ni) TSNone = tExpr [] RValue e >>= getTypeSpecs >>= canonicalTypeSpec
-    go (CTypeOfType (CDecl ds _ _) ni) TSNone =
-      (return . getTS . partitionDeclSpecs) ds >>= canonicalTypeSpec
+    go (CTypeOfType d ni) TSNone = liftM TSType $ analyseTypeDecl d
+    go (CTypeOfExpr e _) TSNone = liftM TSType $ tExpr [] RValue e
     go otherType  TSNone    = return$  TSNonBasic otherType
     go ty _ts = astError (nodeInfo ty) "Invalid type specifier"
 

@@ -132,7 +132,6 @@ typeQuals (ArrayType _ _ q _) = q
 typeQuals (FunctionType _) = noTypeQuals
 typeQuals (TypeDefType (TypeDefRef _ Nothing _)) = noTypeQuals
 typeQuals (TypeDefType (TypeDefRef _ (Just t) _)) = typeQuals t
-typeQuals (TypeOfExpr _) = noTypeQuals
 
 -- | Return the attributes of a type.
 typeAttrs :: Type -> Attributes
@@ -142,7 +141,6 @@ typeAttrs (ArrayType _ _ _ a) = a
 typeAttrs (FunctionType _) = []
 typeAttrs (TypeDefType (TypeDefRef _ Nothing _)) = []
 typeAttrs (TypeDefType (TypeDefRef _ (Just t) _)) = typeAttrs t
-typeAttrs (TypeOfExpr _) = []
 
 -- | Return the base type of a pointer or array type. It is an error
 --   to call this function with a type that is not in one of those two

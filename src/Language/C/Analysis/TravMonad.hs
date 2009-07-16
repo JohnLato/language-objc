@@ -39,6 +39,7 @@ module Language.C.Analysis.TravMonad (
     Trav,
     runTrav,runTrav_,
     TravState,initTravState,withExtDeclHandler,modifyUserState,userState,
+    getUserState,
     TravOptions(..),modifyOptions,
     travErrors,
     -- * Language options
@@ -466,6 +467,9 @@ initTravState userst =
 -- * Trav specific operations
 modifyUserState :: (s -> s) -> Trav s ()
 modifyUserState f = modify $ \ts -> ts { userState = f (userState ts) }
+
+getUserState :: Trav s s
+getUserState = userState `liftM` get
 
 modifyOptions :: (TravOptions -> TravOptions) -> Trav s ()
 modifyOptions f = modify $ \ts -> ts { options = f (options ts) }

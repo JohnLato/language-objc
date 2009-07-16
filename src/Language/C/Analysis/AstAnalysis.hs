@@ -21,7 +21,8 @@ module Language.C.Analysis.AstAnalysis (
     defineParams,
     -- * Type checking
     tExpr, ExprSide(..),
-    tStmt, StmtCtx(..)
+    tStmt, StmtCtx(..),
+    tDesignator
 )
 where
 import Language.C.Analysis.SemError

@@ -340,7 +340,7 @@ tStmt c (CIf e sthen selse _)    =
                  >> maybe (return ()) (\s -> tStmt c s >> return ()) selse
                  >> return voidType
 tStmt c (CSwitch e s ni)         =
-  tExpr c RValue e >>= checkIntegral ni >>
+  tExpr c RValue e >>= checkIntegral' ni >>
   tStmt (SwitchCtx : c) s
 tStmt c (CWhile e s _ _)         =
   checkGuard c e >> tStmt (LoopCtx : c) s
@@ -366,7 +366,7 @@ tStmt c (CReturn (Just e) ni)    =
      case (rt, t) of
        -- apparently it's ok to return void from a void function?
        (DirectType TyVoid _, DirectType TyVoid _) -> return ()
-       _ -> assignCompatible ni CAssignOp rt t
+       _ -> assignCompatible' ni CAssignOp rt t
      return voidType
 tStmt _ (CReturn Nothing _)      = return voidType
 -- XXX: anything to do for assembly?
@@ -374,13 +374,13 @@ tStmt _ (CAsm _ _)               = return voidType
 tStmt c (CCase e s ni)           =
   do unless (inSwitch c) $
             astError ni "case statement outside of switch statement"
-     tExpr c RValue e >>= checkIntegral ni
+     tExpr c RValue e >>= checkIntegral' ni
      tStmt c s
 tStmt c (CCases e1 e2 s ni)      =
   do unless (inSwitch c) $
             astError ni "case statement outside of switch statement"
-     tExpr c RValue e1 >>= checkIntegral ni
-     tExpr c RValue e2 >>= checkIntegral ni
+     tExpr c RValue e1 >>= checkIntegral' ni
+     tExpr c RValue e2 >>= checkIntegral' ni
      tStmt c s
 tStmt c (CDefault s ni)          =
   do unless (inSwitch c) $
@@ -411,18 +411,7 @@ tBlockItem _ (CBlockDecl d) = analyseDecl True d >> return voidType
 tBlockItem _ (CNestedFunDef fd) = analyseFunDef fd >> return voidType
 
 checkGuard :: MonadTrav m => [StmtCtx] -> CExpr -> m ()
-checkGuard c e = tExpr c RValue e >>= checkScalar (nodeInfo e)
-
-varAddrType :: MonadTrav m => NodeInfo -> IdentDecl -> m Type
-varAddrType ni d =
-  do case s of
-       Auto True -> typeError ni "address of register variable"
-       _         -> return ()
-     case t of
-       ArrayType _ _ q a -> return $ PtrType t q a
-       _                 -> return $ simplePtr t
-  where s = declStorage d
-        t = declType d
+checkGuard c e = tExpr c RValue e >>= checkScalar' (nodeInfo e)
 
 -- | Typecheck an expression, with information about whether it
 --   appears as an lvalue or an rvalue.
@@ -431,45 +420,45 @@ tExpr c side (CBinary op le re ni)    =
   do when (side == LValue) $ typeError ni "binary operator as lvalue"
      lt <- tExpr c RValue le
      rt <- tExpr c RValue re
-     binopType ni op lt rt
+     binopType' ni op lt rt
 tExpr c side (CUnary CAdrOp e ni)     =
   do when (side == LValue) $
           typeError ni "address-of operator as lvalue"
      case e of
        CCompoundLit _ _ _ -> simplePtr `liftM` tExpr c RValue e
        CVar i _ -> lookupObject i >>=
-                   maybe (notFound ni i) (varAddrType ni)
+                   typeErrorOnLeft ni . maybe (notFound i) varAddrType
        _        -> simplePtr `liftM` tExpr c LValue e
 tExpr c _ (CUnary CIndOp e ni)     =
-  tExpr c RValue e >>= derefType ni
+  tExpr c RValue e >>= (typeErrorOnLeft ni . derefType)
 tExpr c _ (CUnary CCompOp e ni)    =
   do t <- tExpr c RValue e
-     checkIntegral ni t
+     checkIntegral' ni t
      return t
 tExpr c side (CUnary CNegOp e ni)      =
   do when (side == LValue) $
           typeError ni "logical negation used as lvalue"
-     tExpr c RValue e >>= checkScalar ni
+     tExpr c RValue e >>= checkScalar' ni
      return boolType
 tExpr c side (CUnary op e _)          =
   tExpr c (if isEffectfulOp op then LValue else side) e
 tExpr c _ (CIndex b i ni)             =
   do bt <- tExpr c RValue b
      it <- tExpr c RValue i
-     addrTy <- binopType ni CAddOp bt it
-     derefType ni addrTy
+     addrTy <- binopType' ni CAddOp bt it
+     typeErrorOnLeft ni $ derefType addrTy
 tExpr c side (CCond e1 me2 e3 ni)     =
   do t1 <- tExpr c RValue e1
-     checkScalar (nodeInfo e1) t1
+     checkScalar' (nodeInfo e1) t1
      t3 <- tExpr c side e3
      case me2 of
        Just e2 ->
          do t2 <- tExpr c side e2
-            conditionalType ni t2 t3
-       Nothing -> conditionalType ni t1 t3
+            conditionalType' ni t2 t3
+       Nothing -> conditionalType' ni t1 t3
 tExpr c side (CMember e m deref ni)   =
   do t <- tExpr c RValue e
-     bt <- if deref then derefType ni t else return t
+     bt <- if deref then typeErrorOnLeft ni (derefType t) else return t
      ft <- fieldType ni m bt
      return $ fixup ft
   where fixup | side == RValue = handleArray
@@ -479,7 +468,7 @@ tExpr c side (CComma es _)            =
 tExpr c side (CCast d e ni)           =
   do dt <- analyseTypeDecl d
      et <- tExpr c side e
-     castCompatible ni dt et
+     typeErrorOnLeft ni $ castCompatible dt et
      return $ handleArray dt
 tExpr c side (CSizeofExpr e ni)       =
   do when (side == LValue) $ typeError ni "sizeof as lvalue"
@@ -506,7 +495,7 @@ tExpr _ LValue (CAlignofType _ ni)    =
 tExpr _ LValue (CSizeofType _ ni)     =
   typeError ni "sizeoftype as lvalue"
 tExpr _ side (CVar i ni)              =
-  lookupObject i >>= maybe (notFound ni i) fixup
+  lookupObject i >>= maybe (typeErrorOnLeft ni $ notFound i) fixup
   where fixup d | side == RValue =
                   return $
                   handleArray $
@@ -520,7 +509,7 @@ tExpr c side (CCall (CVar i _) args ni)
       [g, e1, e2] -> do checkGuard c g
                         t1 <- tExpr c RValue e1
                         t2 <- tExpr c RValue e2
-                        conditionalType ni t1 t2
+                        conditionalType' ni t1 t2
 -- XXX: the following is the proper way to typecheck this, but it depends
 -- on constant expression evaluation.
 {-
@@ -549,7 +538,7 @@ tExpr c _ (CCall fe args ni)          =
      case canonicalType t of
        PtrType (FunctionType (FunType rt pdecls varargs _)) _ _ ->
          do let ptys = map declType pdecls
-            mapM_ (uncurry (assignCompatible ni CAssignOp)) (zip ptys atys)
+            mapM_ (uncurry (assignCompatible' ni CAssignOp)) (zip ptys atys)
             unless varargs $ when (length atys /= length ptys) $
                    typeError ni "incorrect number of arguments"
             return $ canonicalType rt
@@ -566,7 +555,7 @@ tExpr c _ (CAssign op le re ni)       =
      case (canonicalType lt, re) of
        (lt', CConst (CIntConst i _))
          | isPointerType lt' && getCInteger i == 0 -> return ()
-       (_, _) -> assignCompatible ni op lt rt
+       (_, _) -> assignCompatible' ni op lt rt
      return lt
 tExpr c _ (CStatExpr s _)             =
   do enterBlockScope
@@ -615,11 +604,11 @@ matchDesignator _ _ = True -- XXX: for now, array ranges aren't checked
 tDesignator :: MonadTrav m => Type -> [CDesignator] -> m Type
 -- XXX: check that initializers are within array size
 tDesignator (ArrayType bt _ _ _) (CArrDesig e ni : ds) =
-  do tExpr [] RValue e >>= checkIntegral ni
+  do tExpr [] RValue e >>= checkIntegral' ni
      tDesignator bt ds
 tDesignator (ArrayType bt _ _ _) (CRangeDesig e1 e2 ni : ds) =
-  do tExpr [] RValue e1 >>= checkIntegral ni
-     tExpr [] RValue e2 >>= checkIntegral ni
+  do tExpr [] RValue e1 >>= checkIntegral' ni
+     tExpr [] RValue e2 >>= checkIntegral' ni
      tDesignator bt ds
 tDesignator (ArrayType _ _ _ _) (d : ds) =
   typeError (nodeInfo d) "member designator in array initializer"
@@ -633,7 +622,7 @@ tDesignator t [] = return t
 tInit :: MonadTrav m => Type -> CInit -> m Initializer
 tInit t i@(CInitExpr e ni) =
   do it <- tExpr [] RValue e
-     assignCompatible ni CAssignOp t it
+     assignCompatible' ni CAssignOp t it
      return i
 tInit t i@(CInitList initList ni) =
   tInitList ni (canonicalType t) initList >> return i

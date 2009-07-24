@@ -16,6 +16,12 @@
 -- Furthermore, the user may provide callbacks to handle declarations and definitions.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.TravMonad (
+    -- * Name generation monad
+    MonadName(..),
+    -- * Symbol table monad
+    MonadSymtab(..),
+    -- * Specialized C error-handling monad
+    MonadCError(..),
     -- * AST traversal monad
     MonadTrav(..),
     -- * Handling declarations
@@ -65,8 +71,18 @@ import Data.Maybe
 import Control.Monad(liftM)
 import Prelude hiding (lookup)
 
--- | Traversal monad
-class (Monad m) => MonadTrav m where
+class (Monad m) => MonadName m where
+    -- | unique name generation
+    genName :: m Name
+
+class (Monad m) => MonadSymtab m where
+    -- symbol table handling
+    -- | return the definition table
+    getDefTable :: m DefTable
+    -- | perform an action modifying the definition table
+    withDefTable :: (DefTable -> (a, DefTable)) -> m a
+
+class (Monad m) => MonadCError m where
     -- error handling facilities
 
     -- | throw an 'Error'
@@ -78,16 +94,8 @@ class (Monad m) => MonadTrav m where
     -- | return the list of recorded errors
     getErrors      :: m [CError]
 
-    -- symbol table handling
-
-    -- | return the definition table
-    getDefTable :: m DefTable
-    -- | perform an action modifying the definition table
-    withDefTable :: (DefTable -> (a, DefTable)) -> m a
-
-    -- | unique name generation
-    genName :: m Name
-
+-- | Traversal monad
+class (MonadName m, MonadSymtab m, MonadCError m) => MonadTrav m where
     -- | handling declarations and definitions
     handleDecl :: DeclEvent -> m ()
 
@@ -412,14 +420,11 @@ instance Monad (Trav s) where
                               Right (x,s1) -> unTrav (k x) s1
                               Left e       -> Left e)
 
-instance MonadTrav (Trav s) where
-    -- error handling facilities
-    throwTravError e = Trav (\_ -> Left (toError e))
-    catchTravError a handler = Trav (\s -> case unTrav a s of
-                                             Left e  -> unTrav (handler e) s
-                                             Right r -> Right r)
-    recordError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` toError e }
-    getErrors = gets (RList.reverse . rerrors)
+instance MonadName (Trav s) where
+    -- unique name generation
+    genName = generateName
+
+instance MonadSymtab (Trav s) where
     -- symbol table handling
     getDefTable = gets symbolTable
     withDefTable f = do
@@ -427,8 +432,17 @@ instance MonadTrav (Trav s) where
         let (r,symt') = f (symbolTable ts)
         put $ ts { symbolTable = symt' }
         return r
-    -- unique name generation
-    genName = generateName
+
+instance MonadCError (Trav s) where
+    -- error handling facilities
+    throwTravError e = Trav (\_ -> Left (toError e))
+    catchTravError a handler = Trav (\s -> case unTrav a s of
+                                             Left e  -> unTrav (handler e) s
+                                             Right r -> Right r)
+    recordError e = modify $ \st -> st { rerrors = (rerrors st) `snoc` toError e }
+    getErrors = gets (RList.reverse . rerrors)
+
+instance MonadTrav (Trav s) where
     -- handling declarations and definitions
     handleDecl d = ($ d) =<< gets doHandleExtDecl
 

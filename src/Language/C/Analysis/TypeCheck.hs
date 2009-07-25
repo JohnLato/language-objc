@@ -28,32 +28,32 @@ instance Monad (Either String) where
 pType :: Type -> String
 pType = render . pretty
 
-typeErrorOnLeft :: (MonadTrav m) => NodeInfo -> Either String a -> m a
+typeErrorOnLeft :: (MonadCError m) => NodeInfo -> Either String a -> m a
 typeErrorOnLeft ni (Left err) = typeError ni err
 typeErrorOnLeft _  (Right v)  = return v
 
 -- XXX: this should use a custom error type, but typeMismatch isn't always right
-typeError :: MonadTrav m => NodeInfo -> String -> m a
+typeError :: MonadCError m => NodeInfo -> String -> m a
 typeError = astError
 
 notFound :: Ident -> Either String a
 notFound i = fail $ "not found: " ++ identToString i
 
-checkScalar' :: MonadTrav m => NodeInfo -> Type -> m ()
+checkScalar' :: MonadCError m => NodeInfo -> Type -> m ()
 checkScalar' ni = typeErrorOnLeft ni . checkScalar
 
-checkIntegral' :: MonadTrav m => NodeInfo -> Type -> m ()
+checkIntegral' :: MonadCError m => NodeInfo -> Type -> m ()
 checkIntegral' ni = typeErrorOnLeft ni . checkIntegral
 
-assignCompatible' :: MonadTrav m =>
+assignCompatible' :: MonadCError m =>
                      NodeInfo -> CAssignOp -> Type -> Type -> m ()
 assignCompatible' ni op t1 t2 = typeErrorOnLeft ni (assignCompatible op t1 t2)
 
-binopType' :: MonadTrav m =>
-                     NodeInfo -> CBinaryOp -> Type -> Type -> m Type
+binopType' :: MonadCError m =>
+              NodeInfo -> CBinaryOp -> Type -> Type -> m Type
 binopType' ni op t1 t2 = typeErrorOnLeft ni (binopType op t1 t2)
 
-conditionalType' :: MonadTrav m => NodeInfo -> Type -> Type -> m Type
+conditionalType' :: MonadCError m => NodeInfo -> Type -> Type -> m Type
 conditionalType' ni t1 t2 = typeErrorOnLeft ni $ conditionalType t1 t2
 
 checkScalar :: Type -> Either String ()
@@ -79,7 +79,7 @@ handleArray t = t
 
 
 -- | Determine the type of a constant.
-constType :: MonadTrav m => CConst -> m Type
+constType :: (MonadCError m, MonadName m) => CConst -> m Type
 constType (CIntConst (CInteger _ _ flags) _) =
   return $ DirectType (TyIntegral (getIntType flags)) noTypeQuals
 constType (CCharConst (CChar _ True) _) =
@@ -351,7 +351,7 @@ varAddrType d =
   where t = declType d
 
 -- | Get the type of field @m@ of type @t@
-fieldType :: MonadTrav m => NodeInfo -> Ident -> Type -> m Type
+fieldType :: (MonadCError m, MonadSymtab m) => NodeInfo -> Ident -> Type -> m Type
 fieldType ni m t =
   case canonicalType t of
     DirectType (TyComp ctr) _ ->
@@ -366,7 +366,8 @@ fieldType ni m t =
 
 -- | Get all members of a struct, union, or enum, with their
 --   types. Collapse fields of anonymous members.
-tagMembers :: MonadTrav m => NodeInfo -> TagDef -> m [(Ident, Type)]
+tagMembers :: (MonadCError m, MonadSymtab m) =>
+              NodeInfo -> TagDef -> m [(Ident, Type)]
 tagMembers ni td =
   case td of
     CompDef (CompType _ _ ms _ _) -> getMembers ms
@@ -378,7 +379,7 @@ tagMembers ni td =
 
 -- | Expand an anonymous composite type into a list of member names
 --   and their associated types.
-expandAnonymous :: MonadTrav m =>
+expandAnonymous :: (MonadCError m, MonadSymtab m) =>
                    NodeInfo -> (VarName, Type)
                 -> m [(Ident, Type)]
 expandAnonymous ni (NoName, DirectType (TyComp ctr) _) =
@@ -386,7 +387,8 @@ expandAnonymous ni (NoName, DirectType (TyComp ctr) _) =
 expandAnonymous _ (NoName, _) = return []
 expandAnonymous _ (n, t) = return [(identOfVarName n, t)]
 
-lookupSUE :: MonadTrav m => NodeInfo -> SUERef -> m TagDef
+lookupSUE :: (MonadCError m, MonadSymtab m) =>
+             NodeInfo -> SUERef -> m TagDef
 lookupSUE ni sue =
   do dt <- getDefTable
      case lookupTag sue dt of

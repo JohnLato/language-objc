@@ -256,7 +256,7 @@ tDirectType handle_sue_def node ty_quals canonTySpec = do
 --
 -- > /* tyqual attr typeof(type) */
 -- > const typeof(char volatile) x;
-mergeTypeAttributes :: (MonadTrav m) => NodeInfo -> TypeQuals -> [Attr] -> Type -> m Type
+mergeTypeAttributes :: (MonadCError m) => NodeInfo -> TypeQuals -> [Attr] -> Type -> m Type
 mergeTypeAttributes node_info quals attrs typ =
     case typ of
         DirectType ty_name quals' -> merge quals' [] $ mkDirect ty_name
@@ -275,7 +275,7 @@ mergeTypeAttributes node_info quals attrs typ =
                                    | otherwise   = error "_attribute__ s for DirectType"
     merge quals' attrs' tyf = return $ tyf (mergeTypeQuals quals quals') (attrs' ++ attrs)
 
-typeDefRef :: (MonadTrav m) => NodeInfo -> Ident -> m TypeDefRef
+typeDefRef :: (MonadCError m, MonadSymtab m) => NodeInfo -> Ident -> m TypeDefRef
 typeDefRef t_node name = lookupTypeDef name >>= \ty -> return (TypeDefRef name (Just ty) t_node)
 
 -- extract a struct\/union
@@ -329,7 +329,8 @@ tEnumTypeDecl handle_def (CEnum ident_opt enumerators_opt attrs node_info)
              return decl
 
 -- | translate and analyse an enumeration type
-tEnumType :: (MonadTrav m) => SUERef -> [(Ident, Maybe CExpr)] -> Attributes -> NodeInfo -> m EnumType
+tEnumType :: (MonadCError m, MonadSymtab m) =>
+             SUERef -> [(Ident, Maybe CExpr)] -> Attributes -> NodeInfo -> m EnumType
 tEnumType sue_ref enumerators attrs node = do
     mapM_ handleEnumeratorDef enumerators'
     return ty
@@ -347,7 +348,7 @@ tEnumType sue_ref enumerators attrs node = do
     offsExpr e offs = CBinary CAddOp e (intExpr offs) undefNode
 
 -- | Mapping from num type specs to C types (C99 6.7.2-2), ignoring the complex qualifier.
-tNumType :: (MonadTrav m) => NumTypeSpec -> m (Either (FloatType,Bool) IntType)
+tNumType :: (MonadCError m) => NumTypeSpec -> m (Either (FloatType,Bool) IntType)
 tNumType (NumTypeSpec basetype sgn sz iscomplex) =
     case (basetype,sgn,sz) of
         (BaseChar,_,NoSizeMod)      | Signed <- sgn   -> intType TySChar
@@ -452,7 +453,7 @@ canonicalTypeSpec = foldrM go TSNone where
     go ty _ts = astError (nodeInfo ty) "Invalid type specifier"
 
 -- compute storage given storage specifiers
-canonicalStorageSpec :: (MonadTrav m) =>[CStorageSpec] -> m StorageSpec
+canonicalStorageSpec :: (MonadCError m) =>[CStorageSpec] -> m StorageSpec
 canonicalStorageSpec storagespecs = liftM elideAuto $ foldrM updStorage NoStorageSpec storagespecs where
         updStorage (CAuto _) NoStorageSpec     = return$ AutoSpec
         updStorage (CRegister _) NoStorageSpec = return$ RegSpec
@@ -482,7 +483,7 @@ canonicalStorageSpec storagespecs = liftM elideAuto $ foldrM updStorage NoStorag
 -- > int f(int d, int c, char a, char* b)
 --
 -- TODO: This could be moved to syntax, as it operates on the AST only
-mergeOldStyle :: (MonadTrav m) => NodeInfo -> [CDecl] -> [CDerivedDeclr] -> m [CDerivedDeclr]
+mergeOldStyle :: (MonadCError m) => NodeInfo -> [CDecl] -> [CDerivedDeclr] -> m [CDerivedDeclr]
 mergeOldStyle _node [] declrs = return declrs
 mergeOldStyle node oldstyle_params (CFunDeclr params attrs fdnode : dds) =
     case params of
@@ -517,7 +518,7 @@ mergeOldStyle node _ _ = astError node "oldstyle parameter list, but not functio
 -- > [ [d| struct x { int z; } a, struct x *b |] ]
 --
 -- /TODO/: This could be moved to syntax, as it operates on the AST only
-splitCDecl :: (MonadTrav m) => CDecl -> m [CDecl]
+splitCDecl :: (MonadCError m) => CDecl -> m [CDecl]
 splitCDecl decl@(CDecl declspecs declrs node) =
     case declrs of
         []      -> internalErr "splitCDecl applied to empty declaration"
@@ -538,24 +539,25 @@ splitCDecl decl@(CDecl declspecs declrs node) =
 
 -- | translate @__attribute__@ annotations
 -- TODO: This is a unwrap and wrap stub
-tAttr :: (MonadTrav m) => CAttr -> m Attr
+tAttr :: (MonadCError m, MonadSymtab m) => CAttr -> m Attr
 tAttr (CAttr name cexpr node) = return$ Attr name cexpr node
 
 
 -- | construct a name for a variable
 -- TODO: more or less bogus
-mkVarName :: (MonadTrav m) => NodeInfo -> Maybe Ident -> Maybe AsmName -> m VarName
+mkVarName :: (MonadCError m, MonadSymtab m) =>
+             NodeInfo -> Maybe Ident -> Maybe AsmName -> m VarName
 mkVarName  node Nothing _ = return NoName
 mkVarName  node (Just n) asm = return $ VarName n asm
 
 -- helpers
-nameOfDecl :: (MonadTrav m) => CDecl -> m Ident
+nameOfDecl :: (MonadCError m) => CDecl -> m Ident
 nameOfDecl d = getOnlyDeclr d >>= \declr ->
     case declr of
         (CDeclr (Just name) _ _ _ _) -> return name
         (CDeclr Nothing _ _ _ node) -> internalErr "nameOfDecl: abstract declarator"
 emptyDeclr :: NodeInfo -> CDeclr
 emptyDeclr node = CDeclr Nothing [] Nothing [] node
-getOnlyDeclr :: (MonadTrav m) => CDecl -> m CDeclr
+getOnlyDeclr :: (MonadCError m) => CDecl -> m CDeclr
 getOnlyDeclr (CDecl _ [(Just declr,_,_)] _) = return declr
 getOnlyDeclr (CDecl _ _ node) = internalErr "getOnlyDeclr: declaration doesn't have a unique declarator"

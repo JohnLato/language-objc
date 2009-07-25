@@ -102,7 +102,7 @@ class (MonadName m, MonadSymtab m, MonadCError m) => MonadTrav m where
 -- * handling declarations
 
 -- check wheter a redefinition is ok
-checkRedef :: (MonadTrav m, CNode t, CNode t1) => String -> t -> (DeclarationStatus t1) -> m ()
+checkRedef :: (MonadCError m, CNode t, CNode t1) => String -> t -> (DeclarationStatus t1) -> m ()
 checkRedef subject new_decl redecl_status =
     case redecl_status of
         NewDecl -> return ()
@@ -117,7 +117,7 @@ checkRedef subject new_decl redecl_status =
 
 -- | forward declaration of a tag. Only neccessary for name analysis, but otherwise no semantic
 -- consequences.
-handleTagDecl :: (MonadTrav m) => TagFwdDecl -> m ()
+handleTagDecl :: (MonadCError m, MonadSymtab m) => TagFwdDecl -> m ()
 handleTagDecl decl = do
     redecl <- withDefTable $ declareTag (sueRef decl) decl
     checkRedef (show $ sueRef decl) decl redecl
@@ -132,7 +132,7 @@ handleTagDef def = do
     checkRedef (show $ sueRef def) def redecl
     handleDecl (TagEvent def)
 
-handleEnumeratorDef :: (MonadTrav m) => Enumerator ->  m ()
+handleEnumeratorDef :: (MonadCError m, MonadSymtab m) => Enumerator ->  m ()
 handleEnumeratorDef enumerator = do
     let ident = declIdent enumerator
     redecl <- withDefTable $ defineScopedIdent ident (EnumeratorDef enumerator)
@@ -149,12 +149,13 @@ handleTypeDef typeDef@(TypeDef ident _ _ _) = do
 handleAsmBlock :: (MonadTrav m) => AsmBlock -> m ()
 handleAsmBlock asm = handleDecl (AsmEvent asm)
 
-redefErr :: (MonadTrav m, CNode old, CNode new) => Ident -> ErrorLevel -> new -> old -> RedefKind -> m ()
+redefErr :: (MonadCError m, CNode old, CNode new) =>
+            Ident -> ErrorLevel -> new -> old -> RedefKind -> m ()
 redefErr name lvl new old kind =
   throwTravError $ redefinition lvl (show name) kind (nodeInfo new) (nodeInfo old)
 
 -- TODO: unused
-checkIdentTyRedef :: (MonadTrav m) => IdentEntry -> (DeclarationStatus IdentEntry) -> m ()
+checkIdentTyRedef :: (MonadCError m) => IdentEntry -> (DeclarationStatus IdentEntry) -> m ()
 checkIdentTyRedef (Right decl) status = checkVarRedef decl status
 checkIdentTyRedef (Left tydef) (KindMismatch old_def) =
   redefErr (identOfTypeDef tydef) LevelError tydef old_def DiffKindRedecl
@@ -163,7 +164,7 @@ checkIdentTyRedef (Left tydef) (Redeclared old_def) =
 checkIdentTyRedef (Left _tydef) _ = return ()
 
 -- Check whether it is ok to declare a variable already in scope
-checkVarRedef :: (MonadTrav m) => IdentDecl -> (DeclarationStatus IdentEntry) -> m ()
+checkVarRedef :: (MonadCError m) => IdentDecl -> (DeclarationStatus IdentEntry) -> m ()
 checkVarRedef def redecl =
     case redecl of
         -- always an error
@@ -222,7 +223,7 @@ handleParamDecl pd@(ParamDecl vardecl node) = do
     handleDecl (ParamEvent pd)
 
 -- shared impl
-enterDecl :: (MonadTrav m) => Decl -> (IdentDecl -> Bool) -> m IdentDecl
+enterDecl :: (MonadCError m, MonadSymtab m) => Decl -> (IdentDecl -> Bool) -> m IdentDecl
 enterDecl decl cond = do
     let def = Declaration decl
     redecl <- withDefTable $
@@ -271,25 +272,25 @@ handleObjectDef local ident obj_def = do
 --  * function scope: labels are visible within the entire function, and declared implicitely
 --
 --  * block scope
-updDefTable :: (MonadTrav m) => (DefTable -> DefTable) -> m ()
+updDefTable :: (MonadSymtab m) => (DefTable -> DefTable) -> m ()
 updDefTable f = withDefTable (\st -> ((),f st))
 
-enterPrototypeScope :: (MonadTrav m) => m ()
+enterPrototypeScope :: (MonadSymtab m) => m ()
 enterPrototypeScope = updDefTable (ST.enterBlockScope)
 
-leavePrototypeScope :: (MonadTrav m) => m ()
+leavePrototypeScope :: (MonadSymtab m) => m ()
 leavePrototypeScope = updDefTable (ST.leaveBlockScope)
 
-enterFunctionScope :: (MonadTrav m) => m ()
+enterFunctionScope :: (MonadSymtab m) => m ()
 enterFunctionScope = updDefTable (ST.enterFunctionScope)
 
-leaveFunctionScope :: (MonadTrav m) => m ()
+leaveFunctionScope :: (MonadSymtab m) => m ()
 leaveFunctionScope = updDefTable (ST.leaveFunctionScope)
 
-enterBlockScope :: (MonadTrav m) => m ()
+enterBlockScope :: (MonadSymtab m) => m ()
 enterBlockScope = updDefTable (ST.enterBlockScope)
 
-leaveBlockScope :: (MonadTrav m) => m ()
+leaveBlockScope :: (MonadSymtab m) => m ()
 leaveBlockScope = updDefTable (ST.leaveBlockScope)
 
 -- * Lookup
@@ -298,7 +299,7 @@ leaveBlockScope = updDefTable (ST.leaveBlockScope)
 -- the 'wrong kind of object' is an internal error here,
 -- because the parser should distinguish typeDefs and other
 -- objects
-lookupTypeDef :: (MonadTrav m) => Ident -> m Type
+lookupTypeDef :: (MonadCError m, MonadSymtab m) => Ident -> m Type
 lookupTypeDef ident =
     getDefTable >>= \symt ->
     case lookupIdent ident symt of
@@ -312,7 +313,7 @@ lookupTypeDef ident =
 
 
 -- | lookup an object, function or enumerator
-lookupObject :: (MonadTrav m) => Ident -> m (Maybe IdentDecl)
+lookupObject :: (MonadCError m, MonadSymtab m) => Ident -> m (Maybe IdentDecl)
 lookupObject ident = do
     old_decl <- liftM (lookupIdent ident) getDefTable
     mapMaybeM old_decl $ \obj ->
@@ -321,16 +322,16 @@ lookupObject ident = do
         Left _tydef  -> astError (nodeInfo ident) (mismatchErr "lookupObject" "an object" "a typeDef")
 
 -- | lookup definition Name (if it exists) given use Name
-canonicalName :: (MonadTrav m) => Name -> m (Maybe Name)
+canonicalName :: (MonadSymtab m) => Name -> m (Maybe Name)
 canonicalName n = getDefTable >>= return . lookup (nameId n) . refTable
 
 -- | modify Ident to use definition Name (if it exists)
-canonicalIdent :: (MonadTrav m) => Ident -> m (Maybe Ident)
+canonicalIdent :: (MonadSymtab m) => Ident -> m (Maybe Ident)
 canonicalIdent (Ident s h (NodeInfo p pl n)) =
   canonicalName n >>= (return . liftM (\n' -> Ident s h (NodeInfo p pl n')))
 
 -- | add link between use and definition (private)
-addRef :: (MonadTrav m, CNode u, CNode d) => u -> d -> m ()
+addRef :: (MonadCError m, MonadSymtab m, CNode u, CNode d) => u -> d -> m ()
 addRef use def =
   case (nodeInfo use, nodeInfo def) of
     (NodeInfo _ _ useName, NodeInfo _ _ defName) ->
@@ -353,14 +354,14 @@ mismatchErr ctx expect found = ctx ++ ": Expected " ++ expect ++ ", but found: "
 -- This currently depends on the fact the structs are tagged with unique names.
 -- We could use the name generation of TravMonad as well, which might be the better
 -- choice when dealing with autogenerated code.
-createSUERef :: (MonadTrav m) => NodeInfo -> Maybe Ident -> m SUERef
+createSUERef :: (MonadCError m, MonadSymtab m) => NodeInfo -> Maybe Ident -> m SUERef
 createSUERef _node_info (Just ident) = return$ NamedRef ident
 createSUERef node_info Nothing | (Just name) <- nameOfNode node_info = return $ AnonymousRef name
                                | otherwise = astError node_info "struct/union/enum definition without unique name"
 
 -- * error handling facilities
 
-handleTravError :: (MonadTrav m) => m a -> m (Maybe a)
+handleTravError :: (MonadCError m) => m a -> m (Maybe a)
 handleTravError a = liftM Just a `catchTravError` (\e -> recordError e >> return Nothing)
 
 -- | check wheter non-recoverable errors occured
@@ -368,15 +369,15 @@ hadHardErrors :: [CError] -> Bool
 hadHardErrors = (not . null . filter isHardError)
 
 -- | raise an error caused by a malformed AST
-astError :: (MonadTrav m) => NodeInfo -> String -> m a
+astError :: (MonadCError m) => NodeInfo -> String -> m a
 astError node msg = throwTravError $ invalidAST node msg
 
 -- | raise an error based on an Either argument
-throwOnLeft :: (MonadTrav m, Error e) => Either e a -> m a
+throwOnLeft :: (MonadCError m, Error e) => Either e a -> m a
 throwOnLeft (Left err) = throwTravError err
 throwOnLeft (Right v)  = return v
 
-warn :: (Error e, MonadTrav m) => e -> m ()
+warn :: (Error e, MonadCError m) => e -> m ()
 warn err = recordError (changeErrorLevel err LevelWarn)
 
 -- * The Trav datatype

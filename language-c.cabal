@@ -66,6 +66,7 @@ Library
                       Language.C.System.GCC
                       -- analysis [experimental]
                       Language.C.Analysis
+                      Language.C.Analysis.ConstEval
                       Language.C.Analysis.Builtins
                       Language.C.Analysis.SemError
                       Language.C.Analysis.SemRep

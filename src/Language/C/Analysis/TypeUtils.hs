@@ -3,7 +3,7 @@ module Language.C.Analysis.TypeUtils (
     integral,
     floating,
     simplePtr,
-    sizeofType,
+    size_tType,
     ptrDiffType,
     boolType,
     voidType,
@@ -55,8 +55,8 @@ constPtr :: Type -> Type
 constPtr t = PtrType t (TypeQuals True False False) []
 
 -- | The type returned by sizeof (size_t). For now, this is just @int@.
-sizeofType :: Type
-sizeofType = integral TyInt
+size_tType :: Type
+size_tType = integral TyInt
 
 -- | The type of pointer differences (ptrdiff_t). For now, this is just @int@.
 ptrDiffType :: Type

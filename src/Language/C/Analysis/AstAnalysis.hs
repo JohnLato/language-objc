@@ -28,6 +28,7 @@ where
 import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
+import Language.C.Analysis.ConstEval
 import Language.C.Analysis.Debug
 import Language.C.Analysis.DefTable (DefTable, globalDefs, defineScopedIdent,
                                      defineLabel, inFileScope, lookupTag,
@@ -413,6 +414,23 @@ tBlockItem _ (CNestedFunDef fd) = analyseFunDef fd >> return voidType
 checkGuard :: MonadTrav m => [StmtCtx] -> CExpr -> m ()
 checkGuard c e = tExpr c RValue e >>= checkScalar' (nodeInfo e)
 
+-- XXX: this is bogus, correct only for IA32. We should eventually
+-- have a collection of these and allo people to choose one.
+defaultMD :: MachineDesc
+defaultMD =
+  MachineDesc
+  { boolSize       = 4
+  , charSize       = 1
+  , shortSize      = 2
+  , intSize        = 4
+  , longSize       = 4
+  , longLongSize   = 8
+  , floatSize      = 4
+  , doubleSize     = 8
+  , longDoubleSize = 10
+  , ptrSize        = 4
+  }
+
 -- | Typecheck an expression, with information about whether it
 --   appears as an lvalue or an rvalue.
 tExpr :: MonadTrav m => [StmtCtx] -> ExprSide -> CExpr -> m Type
@@ -473,11 +491,11 @@ tExpr c side (CCast d e ni)           =
 tExpr c side (CSizeofExpr e ni)       =
   do when (side == LValue) $ typeError ni "sizeof as lvalue"
      tExpr c RValue e
-     return sizeofType
+     return size_tType
 tExpr c side (CAlignofExpr e ni)      =
   do when (side == LValue) $ typeError ni "alignof as lvalue"
      tExpr c RValue e
-     return sizeofType
+     return size_tType
 tExpr c side (CComplexReal e ni)      = complexBaseType ni c side e
 tExpr c side (CComplexImag e ni)      = complexBaseType ni c side e
 tExpr _ side (CLabAddrExpr _ ni)      =
@@ -488,8 +506,8 @@ tExpr _ side (CCompoundLit d initList ni) =
      lt <- analyseTypeDecl d
      tInitList ni (canonicalType lt) initList
      return lt
-tExpr _ RValue (CAlignofType _ _)     = return sizeofType
-tExpr _ RValue (CSizeofType _ _)      = return sizeofType
+tExpr _ RValue (CAlignofType _ _)     = return size_tType
+tExpr _ RValue (CSizeofType _ _)      = return size_tType
 tExpr _ LValue (CAlignofType _ ni)    =
   typeError ni "alignoftype as lvalue"
 tExpr _ LValue (CSizeofType _ ni)     =
@@ -506,21 +524,14 @@ tExpr _ _ (CBuiltinExpr b)            = builtinType b
 tExpr c side (CCall (CVar i _) args ni)
   | identToString i == "__builtin_choose_expr" =
     case args of
-      [g, e1, e2] -> do checkGuard c g
-                        t1 <- tExpr c RValue e1
-                        t2 <- tExpr c RValue e2
-                        conditionalType' ni t1 t2
--- XXX: the following is the proper way to typecheck this, but it depends
--- on constant expression evaluation.
-{-
-      [g, e1, e2] -> c <- constEval g
-                     case boolValue c of
-                       Just True -> tExpr side e1
-                       Just False -> tExpr side e2
-                       Nothing ->
-                         astError ni
-                         "non-constant argument to __builtin_choose_expr"
--}
+      [g, e1, e2] ->
+        -- XXX: the MachineDesc parameter below should be configurable
+        do b <- constEval defaultMD g
+           case boolValue b of
+             Just True -> tExpr c side e1
+             Just False -> tExpr c side e2
+             Nothing ->
+               astError ni "non-constant argument to __builtin_choose_expr"
       _ -> astError ni "wrong number of arguments to __builtin_choose_expr"
 tExpr c _ (CCall fe args ni)          =
   do let defType = FunctionType
@@ -639,7 +650,7 @@ complexBaseType ni c side e =
 -- | Return the type of a builtin.
 builtinType :: MonadTrav m => CBuiltin -> m Type
 builtinType (CBuiltinVaArg _ d _)           = analyseTypeDecl d
-builtinType (CBuiltinOffsetOf _ _ _)        = return sizeofType
+builtinType (CBuiltinOffsetOf _ _ _)        = return size_tType
 builtinType (CBuiltinTypesCompatible _ _ _) = return boolType
 
 -- return @Just declspecs@ without @CTypedef@ if the declaration specifier contain @typedef@

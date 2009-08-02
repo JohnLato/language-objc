@@ -57,12 +57,12 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                              [ valistType, valistType ]
                       , func "__builtin_alloca"
                              voidPtr
-                             [ sizeofType ]
+                             [ size_tType ]
                       , func "__builtin_memcpy"
                              voidPtr
                              [ voidPtr
                              , constVoidPtr
-                             , sizeofType
+                             , size_tType
                              ]
                       , func "__builtin_strchr"
                              charPtr
@@ -71,20 +71,20 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                              charPtr
                              [ constCharPtr -- XXX: restrict
                              , constCharPtr -- XXX: restrict
-                             , sizeofType
+                             , size_tType
                              ]
                       , func "__builtin_strncat"
                              charPtr
                              [ constCharPtr -- XXX: restrict
                              , constCharPtr -- XXX: restrict
-                             , sizeofType
+                             , size_tType
                              ]
                       , func "__builtin_strcmp"
                              (integral TyInt)
                              [ constCharPtr, constCharPtr ]
                       , func "__builtin_bzero"
                              voidType
-                             [ voidPtr, sizeofType ]
+                             [ voidPtr, size_tType ]
                       , func "__builtin_constant_p"
                              (integral TyInt)
                              [DirectType (TyBuiltin TyAny) noTypeQuals]

@@ -27,6 +27,7 @@ where
 import Language.C.Data.Error
 import Language.C.Data.Node
 import Language.C.Data.Ident
+import Language.C.Pretty
 import Language.C.Syntax
 import {-# SOURCE #-} Language.C.Analysis.AstAnalysis (tExpr, ExprSide(..))
 import Language.C.Analysis.DefTable (TagFwdDecl(..))
@@ -41,6 +42,7 @@ import Control.Monad (liftM,when,ap)
 import Data.List (intersperse, mapAccumL)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Text.PrettyPrint.HughesPJ
 
 
 -- * handling declarations
@@ -465,7 +467,7 @@ canonicalStorageSpec storagespecs = liftM elideAuto $ foldrM updStorage NoStorag
         updStorage (CStatic _) ThreadSpec      = return$ StaticSpec True
         updStorage (CExtern _) ThreadSpec      = return$ ExternSpec True
         updStorage badSpec old
-            = astError (nodeInfo badSpec) $ "Invalid storage specifier "++show badSpec++" in combination with "++show old
+            = astError (nodeInfo badSpec) $ "Invalid storage specifier "++render (pretty badSpec)++" in combination with "++show old
         elideAuto AutoSpec = NoStorageSpec
         elideAuto spec = spec
 

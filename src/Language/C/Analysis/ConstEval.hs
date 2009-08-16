@@ -58,23 +58,6 @@ intExpr n i =
   genName >>= \name ->
     return $ CConst $ CIntConst (cInteger i) (mkNodeInfo (posOf n) name)
 
-fieldOffset :: MonadTrav m => MachineDesc -> Type -> Ident -> m Integer
-fieldOffset md (DirectType (TyComp ctr) _) m =
-  do dt <- getDefTable
-     case lookupTag (sueRef ctr) dt of
-       Just (Left _)   -> astError (nodeInfo ctr)
-                          "composite declared but not defined"
-       Just (Right (CompDef (CompType _ UnionTag _ _ _))) -> return 0
-       Just (Right (CompDef (CompType _ StructTag ms _ ni))) ->
-         do let before = takeWhile ((== m) . declIdent) ms
-            -- XXX: handle padding
-            sizes <- mapM (sizeofType md ni) (map declType before)
-            return $ sum sizes
-       Just (Right (EnumDef _)) -> astError (nodeInfo ctr) "field of enum?"
-       Nothing         -> astError (nodeInfo ctr) "unknown composite"
-fieldOffset _ t i = astError (nodeInfo i) $
-                    "field of non-composite: " ++ render (pretty t)
-
 sizeofType :: (MonadTrav m, CNode n) => MachineDesc -> n -> Type -> m Integer
 sizeofType _  _ (DirectType TyVoid _) = return 0
 sizeofType md _ (DirectType (TyIntegral it) _) = return $ iSize md it

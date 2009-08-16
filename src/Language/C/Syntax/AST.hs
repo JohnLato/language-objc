@@ -302,13 +302,6 @@ data CStorageSpec = CAuto     NodeInfo     -- ^ auto
                   | CTypedef  NodeInfo     -- ^ typedef
                   | CThread   NodeInfo     -- ^ GNUC thread local storage
                  deriving (Eq,Ord,Data,Typeable {-! CNode !-})
-instance Show CStorageSpec where
-    show (CAuto _) = "auto"
-    show (CRegister _) = "register"
-    show (CStatic _) = "static"
-    show (CExtern _) = "extern"
-    show (CTypedef _) = "typedef"
-    show (CThread _) = "__thread"
 
 -- | C type specifier (K&R A8.2, C99 6.7.2)
 --

@@ -217,7 +217,12 @@ instance Pretty CDeclSpec where
     pretty (CTypeQual qu) = pretty qu
 
 instance Pretty CStorageSpec where
-    pretty sp = text (show sp)
+    pretty (CAuto _) = text "auto"
+    pretty (CRegister _) = text "register"
+    pretty (CStatic _) = text "static"
+    pretty (CExtern _) = text "extern"
+    pretty (CTypedef _) = text "typedef"
+    pretty (CThread _) = text "__thread"
 
 instance Pretty CTypeSpec where
     pretty (CVoidType _)        = text "void"

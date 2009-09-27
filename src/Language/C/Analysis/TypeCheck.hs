@@ -73,11 +73,6 @@ checkIntegral t | isIntegralType (canonicalType t) = return ()
                               pType t ++ " (" ++
                               pType (canonicalType t) ++ ")"
 
-handleArray :: Type -> Type
-handleArray (ArrayType bt _ q a) = PtrType bt q a -- XXX: q and a correct?
-handleArray t = t
-
-
 -- | Determine the type of a constant.
 constType :: (MonadCError m, MonadName m) => CConst -> m Type
 constType (CIntConst (CInteger _ _ flags) _) =
@@ -333,6 +328,8 @@ conditionalType t1 t2 =
     (t1', t2') -> compositeType t1' t2'
 
 derefType :: Type -> Either String Type
+derefType (PtrType t _ _) = return t
+derefType (ArrayType t _ _ _) = return t
 derefType t =
   -- XXX: is it good to use canonicalType here?
   case canonicalType t of

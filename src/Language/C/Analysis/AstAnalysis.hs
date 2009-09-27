@@ -477,17 +477,14 @@ tExpr c side (CCond e1 me2 e3 ni)     =
 tExpr c side (CMember e m deref ni)   =
   do t <- tExpr c RValue e
      bt <- if deref then typeErrorOnLeft ni (derefType t) else return t
-     ft <- fieldType ni m bt
-     return $ fixup ft
-  where fixup | side == RValue = handleArray
-              | otherwise = id
+     fieldType ni m bt
 tExpr c side (CComma es _)            =
   mapM (tExpr c side) es >>= return . last
 tExpr c side (CCast d e ni)           =
   do dt <- analyseTypeDecl d
      et <- tExpr c side e
      typeErrorOnLeft ni $ castCompatible dt et
-     return $ handleArray dt
+     return dt
 tExpr c side (CSizeofExpr e ni)       =
   do when (side == LValue) $ typeError ni "sizeof as lvalue"
      tExpr c RValue e
@@ -513,12 +510,8 @@ tExpr _ LValue (CAlignofType _ ni)    =
 tExpr _ LValue (CSizeofType _ ni)     =
   typeError ni "sizeoftype as lvalue"
 tExpr _ side (CVar i ni)              =
-  lookupObject i >>= maybe (typeErrorOnLeft ni $ notFound i) fixup
-  where fixup d | side == RValue =
-                  return $
-                  handleArray $
-                  declType d
-                | otherwise = return $ declType d
+  lookupObject i >>=
+  maybe (typeErrorOnLeft ni $ notFound i) (return . declType)
 tExpr _ _ (CConst c)                  = constType c
 tExpr _ _ (CBuiltinExpr b)            = builtinType b
 tExpr c side (CCall (CVar i _) args ni)

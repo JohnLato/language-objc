@@ -128,7 +128,7 @@ instance Pretty CStat where
             $+$ prettyPrec (-1) else_if_stat
           $$ maybeP prettyElse else_stat
         prettyElse else_stmt =
-          text "else" <+> prettyPrec (-1) else_stmt
+          text "else" $+$ prettyPrec (-1) else_stmt
 
     pretty (CSwitch expr stat _) =
         ii $ text "switch" <+> text "(" <> pretty expr <> text ")"

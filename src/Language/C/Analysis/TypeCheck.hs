@@ -291,9 +291,14 @@ binopType op t1 t2 =
             | isPointerType t1' && isPointerType t2' ->
               compatible t1' t2' >> return boolType
           (_, _) -> fail "incompatible types in comparison"
+    (CSubOp, ArrayType t1' _ _ _, ArrayType t2' _ _ _) ->
+      compatible t1' t2' >> return ptrDiffType
+    (CSubOp, ArrayType t1' _ _ _, PtrType t2' _ _) ->
+      compatible t1' t2' >> return ptrDiffType
+    (CSubOp, PtrType t1' _ _, ArrayType t2' _ _ _) ->
+      compatible t1' t2' >> return ptrDiffType
     (CSubOp, PtrType t1' _ _, PtrType t2' _ _) ->
-      do compatible t1' t2'
-         return ptrDiffType
+      compatible t1' t2' >> return ptrDiffType
     (_, PtrType _ _ _, t2')
       | isPtrOp op && isIntegralType t2' -> return t1
       | otherwise -> fail $ "invalid pointer operation: " ++ show op

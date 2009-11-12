@@ -85,6 +85,9 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_bzero"
                              voidType
                              [ voidPtr, size_tType ]
+                      , func "__builtin_clz"
+                             (integral TyInt)
+                             [ integral TyUInt ]
                       , func "__builtin_constant_p"
                              (integral TyInt)
                              [DirectType (TyBuiltin TyAny) noTypeQuals]

@@ -18,7 +18,7 @@ module Language.C.Analysis.DeclAnalysis (
   mergeOldStyle,
   -- * Dissecting type specs
   canonicalTypeSpec, NumBaseType(..),SignSpec(..),SizeMod(..),NumTypeSpec(..),TypeSpecAnalysis(..),
-  canonicalStorageSpec, StorageSpec(..),hasThreadLocalSpec,
+  canonicalStorageSpec, StorageSpec(..),hasThreadLocalSpec, isTypeDef,
   -- * Helpers
   VarDeclInfo(..),
   tAttr,mkVarName,getOnlyDeclr,nameOfDecl,analyseVarDecl,analyseVarDecl'

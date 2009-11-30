@@ -24,12 +24,23 @@ Flag splitBase
 Flag useByteStrings
     Description: Use ByteString as InputStream datatype
     Default: True
+Flag separateSYB
+  description: Data.Generics available in separate package.
+
 Library
     Extensions: CPP, DeriveDataTypeable, PatternGuards, BangPatterns, ExistentialQuantification, GeneralizedNewtypeDeriving, ScopedTypeVariables
     Build-Depends:  filepath
 
     if flag(splitBase)
-        Build-Depends: base >= 3 && < 4, process, directory, array, containers, pretty
+        Build-Depends: base >= 3 && < 5, process, directory, array, containers, pretty
+
+        If flag(separateSYB)
+          Build-Depends:
+            base >=4 && <5,
+            syb
+        Else
+          Build-Depends:
+            base <4
     else
         Build-Depends: base < 3
 

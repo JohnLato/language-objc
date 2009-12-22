@@ -67,6 +67,7 @@ sizeofType md _ (DirectType (TyComp ctr) _) = compSize md ctr
 sizeofType md _ (DirectType (TyEnum _) _) = return $ iSize md TyInt
 sizeofType md _ (DirectType (TyBuiltin b) _) = return $ builtinSize md b
 sizeofType md _ (PtrType _ _ _)  = return $ ptrSize md
+sizeofType md n (ArrayType bt (UnknownArraySize _) _ _) = return $ ptrSize md
 sizeofType md n (ArrayType bt (ArraySize _ sz) _ _) =
   do sz' <- constEval md sz
      case sz' of

@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Syntax.AST
@@ -24,26 +25,34 @@
 -----------------------------------------------------------------------------
 module Language.C.Syntax.AST (
   -- * C translation units
-  CTranslUnit(..),  CExtDecl(..),
+  CTranslUnit,  CExtDecl,
+  CTranslationUnit(..),  CExternalDeclaration(..),
   -- * Declarations
-  CFunDef(..),  CDecl(..),
-  CStructUnion(..),  CStructTag(..), CEnum(..),
+  CFunDef,  CDecl, CStructUnion, CEnum,
+  CFunctionDef(..),  CDeclaration(..),
+  CStructTag(..), CStructureUnion(..),  CEnumeration(..),
   -- * Declaration attributes
-  CDeclSpec(..), partitionDeclSpecs,
-  CStorageSpec(..), CTypeSpec(..), isSUEDef, CTypeQual(..), CAttr(..),
+  CDeclSpec, partitionDeclSpecs,
+  CStorageSpec, CTypeSpec, isSUEDef, CTypeQual, CAttr,
+  CDeclarationSpecifier(..), CStorageSpecifier(..), CTypeSpecifier(..),
+  CTypeQualifier(..), CAttribute(..),
   -- * Declarators
-  CDeclr(..),CDerivedDeclr(..),CArrSize(..),
+  CDeclr,CDerivedDeclr,CArrSize,
+  CDeclarator(..), CDerivedDeclarator(..), CArraySize(..),
   -- * Initialization
-  CInit(..), CInitList, CDesignator(..),
+  CInit, CInitList, CDesignator,
+  CInitializer(..), CInitializerList, CPartDesignator(..),
   -- * Statements
-  CStat(..), CBlockItem(..),
-  CAsmStmt(..), CAsmOperand(..),
+  CStat, CBlockItem, CAsmStmt, CAsmOperand,
+  CStatement(..), CCompoundBlockItem(..),
+  CAssemblyStatement(..), CAssemblyOperand(..),
   -- * Expressions
-  CExpr(..),
+  CExpr, CExpression(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..),
-  CBuiltin(..),
+  CBuiltin, CBuiltinThing(..),
   -- * Constants
-  CConst(..),CStrLit(..),cstringOfLit,liftStrLit,
+  CConst, CStrLit, cstringOfLit, liftStrLit,
+  CConstant(..), CStringLiteral(..)
 ) where
 import Data.List
 import Language.C.Syntax.Constants
@@ -57,16 +66,20 @@ import Data.Generics
 --
 -- A complete C translation unit, for example representing a C header or source file.
 -- It consists of a list of external (i.e. toplevel) declarations.
-data CTranslUnit = CTranslUnit [CExtDecl] NodeInfo
-                   deriving (Data,Typeable {-! CNode !-})
+type CTranslUnit = CTranslationUnit NodeInfo
+data CTranslationUnit a
+  = CTranslUnit [CExternalDeclaration a] a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | External C declaration (C99 6.9, K&R A10)
 --
 -- Either a toplevel declaration, function definition or external assembler.
-data CExtDecl = CDeclExt CDecl
-              | CFDefExt CFunDef
-              | CAsmExt  CStrLit NodeInfo
-              deriving (Data,Typeable {-! CNode !-})
+type CExtDecl = CExternalDeclaration NodeInfo
+data CExternalDeclaration a
+  = CDeclExt (CDeclaration a)
+  | CFDefExt (CFunctionDef a)
+  | CAsmExt  (CStringLiteral a) a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | C function definition (C99 6.9.1, K&R A10.1)
 --
@@ -81,12 +94,15 @@ data CExtDecl = CDeclExt CDecl
 -- * The optional declaration list @decllist@ is for old-style function declarations.
 --
 -- * The statement @stmt@ is a compound statement.
-data CFunDef = CFunDef [CDeclSpec]      -- type specifier and qualifier
-                       CDeclr           -- declarator
-                       [CDecl]          -- optional declaration list
-                       CStat            -- compound statement
-                       NodeInfo
-               deriving (Data,Typeable {-! CNode !-})
+type CFunDef = CFunctionDef NodeInfo
+data CFunctionDef a
+  = CFunDef
+    [CDeclarationSpecifier a] -- type specifier and qualifier
+    (CDeclarator a)           -- declarator
+    [CDeclaration a]          -- optional declaration list
+    (CStatement a)            -- compound statement
+    a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
 --   declarations and type names.
@@ -130,12 +146,15 @@ data CFunDef = CFunDef [CDeclSpec]      -- type specifier and qualifier
 --   * @init-declarator-list@ must contain at most one triple of the form @(Just declr, Nothing, Nothing)@.
 --     where @declr@ is an abstract declarator (i.e. doesn't contain a declared identifier)
 --
-data CDecl = CDecl [CDeclSpec]          -- type specifier and qualifier, __attribute__
-                   [(Maybe CDeclr,      -- declarator (may be omitted)
-                     Maybe CInit,       -- optional initialize
-                     Maybe CExpr)]      -- optional size (const expr)
-                   NodeInfo
-             deriving (Data,Typeable {-! CNode !-})
+type CDecl = CDeclaration NodeInfo
+data CDeclaration a
+  = CDecl
+    [CDeclarationSpecifier a] -- type specifier and qualifier, __attribute__
+    [(Maybe (CDeclarator a),  -- declarator (may be omitted)
+      Maybe (CInitializer a), -- optional initialize
+      Maybe (CExpression a))] -- optional size (const expr)
+    a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | C declarator (K&R A8.5, C99 6.7.5) and abstract declarator (K&R A8.8, C99 6.7.6)
 --
@@ -181,8 +200,10 @@ data CDecl = CDecl [CDeclSpec]          -- type specifier and qualifier, __attri
 --
 -- > int (* const f)(); ==>
 -- > CDeclr "f" [CPtrDeclr [const], CFunDeclr []]
-data CDeclr = CDeclr (Maybe Ident) [CDerivedDeclr] (Maybe CStrLit) [CAttr] NodeInfo
-              deriving (Data,Typeable {-! CNode !-})
+type CDeclr = CDeclarator NodeInfo
+data CDeclarator a
+  = CDeclr (Maybe Ident) [CDerivedDeclarator a] (Maybe (CStringLiteral a)) [CAttribute a] a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | Derived declarators, see 'CDeclr'
 --
@@ -194,99 +215,129 @@ data CDeclr = CDeclr (Maybe Ident) [CDerivedDeclr] (Maybe CStrLit) [CAttr] NodeI
 --
 --    * New style parameter lists have the form @Right (declarations, isVariadic)@, old style parameter lists have the
 --      form @Left (parameter-names)@
-data CDerivedDeclr =
-              CPtrDeclr [CTypeQual] NodeInfo
-              -- ^ Pointer declarator @CPtrDeclr tyquals declr@
-            | CArrDeclr [CTypeQual] (CArrSize) NodeInfo
-              -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@
-            | CFunDeclr (Either [Ident] ([CDecl],Bool)) [CAttr] NodeInfo
-              -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@
-            deriving (Data,Typeable {-! CNode !-})
+type CDerivedDeclr = CDerivedDeclarator NodeInfo
+data CDerivedDeclarator a
+  = CPtrDeclr [CTypeQualifier a] a
+  -- ^ Pointer declarator @CPtrDeclr tyquals declr@
+  | CArrDeclr [CTypeQualifier a] (CArraySize a) a
+  -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@
+  | CFunDeclr (Either [Ident] ([CDeclaration a],Bool)) [CAttribute a] a
+    -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | Size of an array
-data CArrSize = CNoArrSize Bool     -- ^ @CUnknownSize isCompleteType@
-              | CArrSize Bool CExpr -- ^ @CArrSize isStatic expr@
-              deriving (Data,Typeable)
+type CArrSize = CArraySize NodeInfo
+data CArraySize a
+  = CNoArrSize Bool               -- ^ @CUnknownSize isCompleteType@
+  | CArrSize Bool (CExpression a) -- ^ @CArrSize isStatic expr@
+    deriving (Data,Typeable)
 
 -- | C statement (K&R A9, C99 6.8)
 --
-data CStat = CLabel  Ident CStat [CAttr] NodeInfo  -- ^ An (attributed) label followed by a statement
-           | CCase CExpr CStat NodeInfo            -- ^ A statement of the form @case expr : stmt@
-           | CCases CExpr CExpr CStat NodeInfo     -- ^ A case range of the form @case lower ... upper : stmt@
-           | CDefault CStat NodeInfo               -- ^ The default case @default : stmt@
-           | CExpr (Maybe CExpr) NodeInfo
-           -- ^ A simple statement, that is in C: evaluating an expression with side-effects
-           --   and discarding the result.
-           | CCompound [Ident] [CBlockItem] NodeInfo    -- ^ compound statement @CCompound localLabels blockItems at@
-           | CIf CExpr CStat (Maybe CStat) NodeInfo     -- ^ conditional statement @CIf ifExpr thenStmt maybeElseStmt at@
-           | CSwitch CExpr CStat NodeInfo
-           -- ^ switch statement @CSwitch selectorExpr switchStmt@, where @switchStmt@ usually includes
-           -- /case/, /break/ and /default/ statements
-           | CWhile CExpr CStat Bool NodeInfo      -- ^ while or do-while statement @CWhile guard stmt isDoWhile at@
-           | CFor (Either (Maybe CExpr) CDecl)
-                  (Maybe CExpr)
-                  (Maybe CExpr)
-                  CStat
-                  NodeInfo
-           -- ^ for statement @CFor init expr-2 expr-3 stmt@, where @init@ is either a declaration or
-           -- initializing expression
-           | CGoto Ident NodeInfo            -- ^ goto statement @CGoto label@
-           | CGotoPtr CExpr NodeInfo         -- ^ computed goto @CGotoPtr labelExpr@
-           | CCont NodeInfo                  -- ^ continue statement
-           | CBreak    NodeInfo              -- ^ break statement
-           | CReturn (Maybe CExpr)NodeInfo   -- ^ return statement @CReturn returnExpr@
-           | CAsm CAsmStmt NodeInfo          -- ^ assembly statement
-           deriving (Data,Typeable {-! CNode !-})
+type CStat = CStatement NodeInfo
+data CStatement a
+  -- | An (attributed) label followed by a statement
+  = CLabel  Ident (CStatement a) [CAttribute a] a
+  -- | A statement of the form @case expr : stmt@
+  | CCase (CExpression a) (CStatement a) a
+  -- | A case range of the form @case lower ... upper : stmt@
+  | CCases (CExpression a) (CExpression a) (CStatement a) a
+  -- | The default case @default : stmt@
+  | CDefault (CStatement a) a
+  -- | A simple statement, that is in C: evaluating an expression with
+  --   side-effects and discarding the result.
+  | CExpr (Maybe (CExpression a)) a
+  -- | compound statement @CCompound localLabels blockItems at@
+  | CCompound [Ident] [CCompoundBlockItem a] a
+  -- | conditional statement @CIf ifExpr thenStmt maybeElseStmt at@
+  | CIf (CExpression a) (CStatement a) (Maybe (CStatement a)) a
+  -- | switch statement @CSwitch selectorExpr switchStmt@, where
+  -- @switchStmt@ usually includes /case/, /break/ and /default/
+  -- statements
+  | CSwitch (CExpression a) (CStatement a) a
+  -- | while or do-while statement @CWhile guard stmt isDoWhile at@
+  | CWhile (CExpression a) (CStatement a) Bool a
+  -- | for statement @CFor init expr-2 expr-3 stmt@, where @init@ is
+  -- either a declaration or initializing expression
+  | CFor (Either (Maybe (CExpression a)) (CDeclaration a))
+    (Maybe (CExpression a))
+    (Maybe (CExpression a))
+    (CStatement a)
+    a
+  -- | goto statement @CGoto label@
+  | CGoto Ident a
+  -- | computed goto @CGotoPtr labelExpr@
+  | CGotoPtr (CExpression a) a
+  -- | continue statement
+  | CCont a
+  -- | break statement
+  | CBreak a
+  -- | return statement @CReturn returnExpr@
+  | CReturn (Maybe (CExpression a)) a
+  -- | assembly statement
+  | CAsm CAsmStmt a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | GNU Assembler statement
 --
--- > CAsmStatement type-qual? asm-expr out-ops in-ops clobbers _
+-- > CAssemblyStatement type-qual? asm-expr out-ops in-ops clobbers _
 --
 -- is an inline assembler statement.
 -- The only type-qualifier (if any) allowed is /volatile/.
 -- @asm-expr@ is the actual assembler epxression (a string), @out-ops@ and @in-ops@ are the input
 -- and output operands of the statement.
 -- @clobbers@ is a list of registers which are clobbered when executing the assembler statement
-data CAsmStmt
-  = CAsmStmt (Maybe CTypeQual)     -- maybe volatile
-                    CStrLit        -- assembler expression (String)
-                   [CAsmOperand]   -- output operands
-                   [CAsmOperand]   -- input operands
-                   [CStrLit]       -- Clobbers
-                    NodeInfo
+type CAsmStmt = CAssemblyStatement NodeInfo
+data CAssemblyStatement a
+  = CAsmStmt
+    (Maybe (CTypeQualifier a)) -- maybe volatile
+    (CStringLiteral a)         -- assembler expression (String)
+    [CAsmOperand]              -- output operands
+    [CAsmOperand]              -- input operands
+    [CStringLiteral a]         -- Clobbers
+    a
     deriving (Data,Typeable {-! CNode !-})
 -- | Assembler operand
 --
 -- @CAsmOperand argName? constraintExpr arg@ specifies an operand for an assembler
 -- statement.
-data CAsmOperand = CAsmOperand (Maybe Ident)   -- argument name
-                                CStrLit        -- constraint expr
-                                CExpr          -- argument
-                                NodeInfo
-                   deriving (Data,Typeable {-! CNode !-})
+type CAsmOperand = CAssemblyOperand NodeInfo
+data CAssemblyOperand a
+  = CAsmOperand
+    (Maybe Ident)       -- argument name
+    (CStringLiteral a)  -- constraint expr
+    (CExpression a)     -- argument
+    a
+    deriving (Data,Typeable {-! CNode !-})
 -- | C99 Block items
 --
 --  Things that may appear in compound statements: either statements, declarations
 --   or nested function definitions.
-data CBlockItem = CBlockStmt    CStat           -- ^ A statement
-                | CBlockDecl    CDecl           -- ^ A local declaration
-                | CNestedFunDef CFunDef         -- ^ A nested function (GNU C)
-                  deriving (Data,Typeable {-! CNode !-})
+type CBlockItem = CCompoundBlockItem NodeInfo
+data CCompoundBlockItem a
+  = CBlockStmt    (CStatement a)    -- ^ A statement
+  | CBlockDecl    (CDeclaration a)  -- ^ A local declaration
+  | CNestedFunDef (CFunctionDef a)  -- ^ A nested function (GNU C)
+    deriving (Data,Typeable {-! CNode !-})
 -- | C declaration specifiers and qualifiers
 --
 -- Declaration specifiers include at most one storage-class specifier (C99 6.7.1),
 -- type specifiers (6.7.2) and type qualifiers (6.7.3).
-data CDeclSpec = CStorageSpec CStorageSpec  -- ^ storage-class specifier or typedef
-               | CTypeSpec    CTypeSpec     -- ^ type name
-               | CTypeQual    CTypeQual     -- ^ type qualifier
-                 deriving (Data,Typeable {-! CNode !-})
+type CDeclSpec = CDeclarationSpecifier NodeInfo
+data CDeclarationSpecifier a
+  = CStorageSpec (CStorageSpecifier a) -- ^ storage-class specifier or typedef
+  | CTypeSpec    (CTypeSpecifier a)    -- ^ type name
+  | CTypeQual    (CTypeQualifier a)    -- ^ type qualifier
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | Seperate the declaration specifiers
 --
 -- Note that inline isn't actually a type qualifier, but a function specifier.
 -- @__attribute__@ of a declaration qualify declarations or declarators (but not types),
 -- and are therefore seperated as well.
-partitionDeclSpecs :: [CDeclSpec] -> ([CStorageSpec], [CAttr], [CTypeQual], [CTypeSpec], Bool)
+partitionDeclSpecs :: [CDeclarationSpecifier a]
+                   -> ( [CStorageSpecifier a], [CAttribute a]
+                      , [CTypeQualifier a], [CTypeSpecifier a], Bool)
 partitionDeclSpecs = foldr deals ([],[],[],[],False) where
     deals (CTypeQual (CInlineQual _)) (sts,ats,tqs,tss,_) = (sts,ats,tqs,tss,True)
     deals (CStorageSpec sp) (sts,ats,tqs,tss,inline)  = (sp:sts,ats,tqs,tss,inline)
@@ -295,13 +346,15 @@ partitionDeclSpecs = foldr deals ([],[],[],[],False) where
     deals (CTypeSpec ts) (sts,ats,tqs,tss,inline)     = (sts,ats,tqs,ts:tss,inline)
 
 -- | C storage class specifier (and typedefs) (K&R A8.1, C99 6.7.1)
-data CStorageSpec = CAuto     NodeInfo     -- ^ auto
-                  | CRegister NodeInfo     -- ^ register
-                  | CStatic   NodeInfo     -- ^ static
-                  | CExtern   NodeInfo     -- ^ extern
-                  | CTypedef  NodeInfo     -- ^ typedef
-                  | CThread   NodeInfo     -- ^ GNUC thread local storage
-                 deriving (Eq,Ord,Data,Typeable {-! CNode !-})
+type CStorageSpec = CStorageSpecifier NodeInfo
+data CStorageSpecifier a
+  = CAuto     a     -- ^ auto
+  | CRegister a     -- ^ register
+  | CStatic   a     -- ^ static
+  | CExtern   a     -- ^ extern
+  | CTypedef  a     -- ^ typedef
+  | CThread   a     -- ^ GNUC thread local storage
+    deriving (Eq,Ord,Data,Typeable {-! CNode !-})
 
 -- | C type specifier (K&R A8.2, C99 6.7.2)
 --
@@ -309,23 +362,25 @@ data CStorageSpec = CAuto     NodeInfo     -- ^ auto
 -- @struct@, @union@ or @enum@ specifiers or typedef names.
 --
 -- As a GNU extension, a @typeof@ expression also is a type specifier.
-data CTypeSpec = CVoidType    NodeInfo
-               | CCharType    NodeInfo
-               | CShortType   NodeInfo
-               | CIntType     NodeInfo
-               | CLongType    NodeInfo
-               | CFloatType   NodeInfo
-               | CDoubleType  NodeInfo
-               | CSignedType  NodeInfo
-               | CUnsigType   NodeInfo
-               | CBoolType    NodeInfo
-               | CComplexType NodeInfo
-               | CSUType      CStructUnion NodeInfo  -- ^ Struct or Union specifier
-               | CEnumType    CEnum        NodeInfo  -- ^ Enumeration specifier
-               | CTypeDef     Ident        NodeInfo  -- ^ Typedef name
-               | CTypeOfExpr  CExpr        NodeInfo  -- ^ @typeof(expr)@
-               | CTypeOfType  CDecl        NodeInfo  -- ^ @typeof(type)@
-               deriving (Data,Typeable {-! CNode !-})
+type CTypeSpec = CTypeSpecifier NodeInfo
+data CTypeSpecifier a
+  = CVoidType    a
+  | CCharType    a
+  | CShortType   a
+  | CIntType     a
+  | CLongType    a
+  | CFloatType   a
+  | CDoubleType  a
+  | CSignedType  a
+  | CUnsigType   a
+  | CBoolType    a
+  | CComplexType a
+  | CSUType      CStructUnion a      -- ^ Struct or Union specifier
+  | CEnumType    CEnum        a      -- ^ Enumeration specifier
+  | CTypeDef     Ident        a      -- ^ Typedef name
+  | CTypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
+  | CTypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | returns @True@ if the given typespec is a struct, union or enum /definition/
 isSUEDef :: CTypeSpec -> Bool
@@ -337,12 +392,14 @@ isSUEDef _ = False
 --
 -- @const@, @volatile@ and @restrict@ type qualifiers and @inline@ function specifier.
 -- Additionally, @__attribute__@ annotations for declarations and declarators.
-data CTypeQual = CConstQual NodeInfo
-               | CVolatQual NodeInfo
-               | CRestrQual NodeInfo
-               | CInlineQual NodeInfo
-               | CAttrQual  CAttr
-               deriving (Data,Typeable {-! CNode !-})
+type CTypeQual = CTypeQualifier NodeInfo
+data CTypeQualifier a
+  = CConstQual a
+  | CVolatQual a
+  | CRestrQual a
+  | CInlineQual a
+  | CAttrQual  (CAttribute a)
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
@@ -354,12 +411,15 @@ data CTypeQual = CConstQual NodeInfo
 --     in @struct foo { int y; } x;@ both of them.
 --
 --   * @c-attrs@ is a list of @__attribute__@ annotations associated with the struct or union specifier
-data CStructUnion = CStruct CStructTag
-                            (Maybe Ident)
-                            (Maybe [CDecl])    -- member declarations
-                            [CAttr]            -- __attribute__s
-                            NodeInfo
-                    deriving (Data,Typeable {-! CNode !-})
+type CStructUnion = CStructureUnion NodeInfo
+data CStructureUnion a
+  = CStruct
+    CStructTag
+    (Maybe Ident)
+    (Maybe [CDeclaration a])  -- member declarations
+    [CAttribute a]            -- __attribute__s
+    a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | A tag to determine wheter we refer to a @struct@ or @union@, see 'CStructUnion'.
 data CStructTag = CStructTag
@@ -378,12 +438,15 @@ data CStructTag = CStructTag
 --    is an optional constant integral expression.
 --
 --  * @attrs@ is a list of @__attribute__@ annotations associated with the enumeration specifier
-data CEnum = CEnum (Maybe Ident)
-                   (Maybe [(Ident,             -- variant name
-                            Maybe CExpr)])     -- explicit variant value
-                   [CAttr]                     -- __attribute__s
-                   NodeInfo
-             deriving (Data,Typeable {-! CNode !-})
+type CEnum = CEnumeration NodeInfo
+data CEnumeration a
+  = CEnum
+    (Maybe Ident)
+    (Maybe [(Ident,                   -- variant name
+             Maybe (CExpression a))]) -- explicit variant value
+    [CAttribute a]                    -- __attribute__s
+    a
+    deriving (Data,Typeable {-! CNode !-})
 
 
 -- | C initialization (K&R A8.7, C99 6.7.8)
@@ -391,11 +454,13 @@ data CEnum = CEnum (Maybe Ident)
 -- Initializers are either assignment expressions or initializer lists
 -- (surrounded in curly braces), whose elements are themselves
 -- initializers, paired with an optional list of designators.
-data CInit = CInitExpr CExpr
-                       NodeInfo            -- ^ assignment expression
-           | CInitList CInitList
-                       NodeInfo            -- ^ initialization list (see 'CInitList')
-             deriving (Data,Typeable {-! CNode !-})
+type CInit = CInitializer NodeInfo
+data CInitializer a
+  -- | assignment expression
+  = CInitExpr (CExpression a) a
+  -- | initialization list (see 'CInitList')
+  | CInitList (CInitializerList a) a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | Initializer List
 --
@@ -423,27 +488,30 @@ data CInit = CInitExpr CExpr
 -- >                            ([CMemberDesig "c", CArrDesig 0], CInitExpr 1)
 -- >                          ]
 -- > in  CInitList [(CMemberDesig "s", init_s)]
-type CInitList = [([CDesignator], CInit)]
+type CInitList = CInitializerList NodeInfo
+type CInitializerList a = [([CPartDesignator a], CInitializer a)]
 
 -- | Designators
 --
 -- A designator specifies a member of an object, either an element or range of an array,
 -- or the named member of a struct \/ union.
-data CDesignator = CArrDesig     CExpr
-                                 NodeInfo  -- ^ array position designator
-                 | CMemberDesig  Ident
-                                 NodeInfo  -- ^ member designator
-                 | CRangeDesig   CExpr
-                                 CExpr
-                                 NodeInfo  -- ^ array range designator @CRangeDesig from to _@ (GNU C)
-                   deriving (Data,Typeable {-! CNode !-})
+type CDesignator = CPartDesignator NodeInfo
+data CPartDesignator a
+  -- | array position designator
+  = CArrDesig     (CExpression a) a
+  -- | member designator
+  | CMemberDesig  Ident a
+  -- | array range designator @CRangeDesig from to _@ (GNU C)
+  | CRangeDesig (CExpression a) (CExpression a) a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | @__attribute__@ annotations
 --
 -- Those are of the form @CAttr attribute-name attribute-parameters@,
 -- and serve as generic properties of some syntax tree elements.
-data CAttr = CAttr Ident [CExpr] NodeInfo
-             deriving (Data,Typeable {-! CNode !-})
+type CAttr = CAttribute NodeInfo
+data CAttribute a = CAttr Ident [CExpression a] a
+                    deriving (Data,Typeable {-! CNode !-})
 
 -- | C expression (K&R A7)
 --
@@ -452,76 +520,82 @@ data CAttr = CAttr Ident [CExpr] NodeInfo
 --
 -- * GNU C extensions: @alignof@, @__real@, @__imag@, @({ stmt-expr })@, @&& label@ and built-ins
 --
-data CExpr = CComma       [CExpr]       -- comma expression list, n >= 2
-                          NodeInfo
-           | CAssign      CAssignOp     -- assignment operator
-                          CExpr         -- l-value
-                          CExpr         -- r-value
-                          NodeInfo
-           | CCond        CExpr         -- conditional
-                   (Maybe CExpr)        -- true-expression (GNU allows omitting)
-                          CExpr         -- false-expression
-                          NodeInfo
-           | CBinary      CBinaryOp     -- binary operator
-                          CExpr         -- lhs
-                          CExpr         -- rhs
-                          NodeInfo
-           | CCast        CDecl         -- type name
-                          CExpr
-                          NodeInfo
-           | CUnary       CUnaryOp      -- unary operator
-                          CExpr
-                          NodeInfo
-           | CSizeofExpr  CExpr
-                          NodeInfo
-           | CSizeofType  CDecl         -- type name
-                          NodeInfo
-           | CAlignofExpr CExpr
-                          NodeInfo
-           | CAlignofType CDecl         -- type name
-                          NodeInfo
-           | CComplexReal CExpr         -- real part of complex number
-                          NodeInfo
-           | CComplexImag CExpr         -- imaginary part of complex number
-                          NodeInfo
-           | CIndex       CExpr         -- array
-                          CExpr         -- index
-                          NodeInfo
-           | CCall        CExpr         -- function
-                          [CExpr]       -- arguments
-                          NodeInfo
-           | CMember      CExpr         -- structure
-                          Ident         -- member name
-                          Bool          -- deref structure? (True for `->')
-                          NodeInfo
-           | CVar         Ident         -- identifier (incl. enumeration const)
-                          NodeInfo
-           | CConst       CConst        -- ^ integer, character, floating point and string constants
-           | CCompoundLit CDecl
-                          CInitList     -- type name & initialiser list
-                          NodeInfo      -- ^ C99 compound literal
-           | CStatExpr    CStat NodeInfo  -- ^ GNU C compound statement as expr
-           | CLabAddrExpr Ident NodeInfo  -- ^ GNU C address of label
-           | CBuiltinExpr CBuiltin        -- ^ builtin expressions, see 'CBuiltin'
-           deriving (Data,Typeable {-! CNode !-})
+type CExpr = CExpression NodeInfo
+data CExpression a
+  = CComma       [CExpression a]         -- comma expression list, n >= 2
+                 a
+  | CAssign      CAssignOp               -- assignment operator
+                 (CExpression a)         -- l-value
+                 (CExpression a)         -- r-value
+                 a
+  | CCond        (CExpression a)         -- conditional
+                 (Maybe (CExpression a)) -- true-expression (GNU allows omitting)
+                 (CExpression a)         -- false-expression
+                 a
+  | CBinary      CBinaryOp               -- binary operator
+                 (CExpression a)         -- lhs
+                 (CExpression a)         -- rhs
+                 a
+  | CCast        (CDeclaration a)        -- type name
+                 (CExpression a)
+                 a
+  | CUnary       CUnaryOp                -- unary operator
+                 (CExpression a)
+                 a
+  | CSizeofExpr  (CExpression a)
+                 a
+  | CSizeofType  (CDeclaration a)        -- type name
+                 a
+  | CAlignofExpr (CExpression a)
+                 a
+  | CAlignofType (CDeclaration a)        -- type name
+                 a
+  | CComplexReal (CExpression a)         -- real part of complex number
+                 a
+  | CComplexImag (CExpression a)         -- imaginary part of complex number
+                 a
+  | CIndex       (CExpression a)         -- array
+                 (CExpression a)         -- index
+                 a
+  | CCall        (CExpression a)         -- function
+                 [CExpression a]         -- arguments
+                 a
+  | CMember      (CExpression a)         -- structure
+                 Ident                   -- member name
+                 Bool                    -- deref structure? (True for `->')
+                 a
+  | CVar         Ident                   -- identifier (incl. enumeration const)
+                 a
+  | CConst       CConst                  -- ^ integer, character, floating point and string constants
+  | CCompoundLit (CDeclaration a)
+                 (CInitializerList a)    -- type name & initialiser list
+                 a                       -- ^ C99 compound literal
+  | CStatExpr    (CStatement a) a        -- ^ GNU C compound statement as expr
+  | CLabAddrExpr Ident a                 -- ^ GNU C address of label
+  | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
+    deriving (Data,Typeable {-! CNode !-})
 
 
 -- | GNU Builtins, which cannot be typed in C99
-data CBuiltin =
-          CBuiltinVaArg CExpr CDecl NodeInfo            -- ^ @(expr, type)@
-        | CBuiltinOffsetOf CDecl [CDesignator] NodeInfo -- ^ @(type, designator-list)@
-        | CBuiltinTypesCompatible CDecl CDecl NodeInfo  -- ^ @(type,type)@
-        deriving (Data,Typeable {-! CNode !-})
+type CBuiltin = CBuiltinThing NodeInfo
+data CBuiltinThing a
+  = CBuiltinVaArg (CExpression a) (CDeclaration a) a            -- ^ @(expr, type)@
+  | CBuiltinOffsetOf (CDeclaration a) [CDesignator] a -- ^ @(type, designator-list)@
+  | CBuiltinTypesCompatible (CDeclaration a) (CDeclaration a) a  -- ^ @(type,type)@
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | C constant (K&R A2.5 & A7.2)
-data CConst = CIntConst   CInteger NodeInfo
-            | CCharConst  CChar NodeInfo
-            | CFloatConst CFloat NodeInfo
-            | CStrConst   CString NodeInfo
-            deriving (Data,Typeable {-! CNode !-})
+type CConst = CConstant NodeInfo
+data CConstant a
+  = CIntConst   CInteger a
+  | CCharConst  CChar a
+  | CFloatConst CFloat a
+  | CStrConst   CString a
+    deriving (Data,Typeable {-! CNode !-})
 
 -- | Attributed string literals
-data CStrLit = CStrLit CString NodeInfo
+type CStrLit = CStringLiteral NodeInfo
+data CStringLiteral a = CStrLit CString a
             deriving (Data,Typeable {-! CNode !-})
 
 cstringOfLit :: CStrLit -> CString

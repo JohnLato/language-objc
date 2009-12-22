@@ -1,4 +1,4 @@
-{-# OPTIONS  #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.C.Pretty

@@ -50,6 +50,7 @@ import Text.PrettyPrint.HughesPJ
 
 import Control.Monad
 import Prelude hiding (reverse)
+import Data.Either (rights)
 import Data.Foldable (foldrM)
 import Data.List hiding (reverse)
 import qualified Data.Map as Map
@@ -592,7 +593,26 @@ tExpr c _ (CCall fe args ni)          =
             return $ canonicalType rt
        _  -> typeError ni $ "attempt to call non-function of type " ++ pType t
   where checkArg (pty, aty, arg) =
-          assignCompatible' (nodeInfo arg) CAssignOp pty aty
+          case canonicalType pty of
+            DirectType (TyComp (CompTypeRef sue _ _)) _ ->
+              do td <- lookupSUE (nodeInfo arg) sue
+                 case td of
+                   CompDef (CompType _ UnionTag ms attrs _)
+                     | isTransparentUnion attrs ->
+                       when (null (rights matches)) $
+                            astError (nodeInfo arg) $
+                              "argument matches none of the elements " ++
+                              "of transparent union"
+                         where matches =
+                                 map (\d -> assignCompatible
+                                            CAssignOp
+                                            (declType d)
+                                            aty
+                                     ) ms
+                   _ -> assignCompatible' (nodeInfo arg) CAssignOp pty aty
+            _ -> assignCompatible' (nodeInfo arg) CAssignOp pty aty
+        isTransparentUnion =
+          any (\(Attr n _ _) -> identToString n == "__transparent_union__")
 tExpr c _ (CAssign op le re ni)       =
   do lt <- tExpr c LValue le
      rt <- tExpr c RValue re

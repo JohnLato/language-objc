@@ -22,7 +22,8 @@ module Language.C.Analysis.AstAnalysis (
     -- * Type checking
     tExpr, ExprSide(..),
     tStmt, StmtCtx(..),
-    tDesignator
+    tDesignator,
+    defaultMD
 )
 where
 import Language.C.Analysis.SemError
@@ -415,20 +416,60 @@ checkGuard :: MonadTrav m => [StmtCtx] -> CExpr -> m ()
 checkGuard c e = tExpr c RValue e >>= checkScalar' (nodeInfo e)
 
 -- XXX: this is bogus, correct only for IA32. We should eventually
--- have a collection of these and allo people to choose one.
+-- have a collection of these and allow people to choose one.
 defaultMD :: MachineDesc
 defaultMD =
   MachineDesc
-  { boolSize       = 4
-  , charSize       = 1
-  , shortSize      = 2
-  , intSize        = 4
-  , longSize       = 4
-  , longLongSize   = 8
-  , floatSize      = 4
-  , doubleSize     = 8
-  , longDoubleSize = 10
-  , ptrSize        = 4
+  { iSize = \it ->
+            case it of
+              TyBool   -> 1
+              TyChar   -> 1
+              TySChar  -> 1
+              TyUChar  -> 1
+              TyShort  -> 2
+              TyUShort -> 2
+              TyInt    -> 4
+              TyUInt   -> 4
+              TyLong   -> 4
+              TyULong  -> 4
+              TyLLong  -> 8
+              TyULLong -> 8
+  , fSize = \ft ->
+            case ft of
+              TyFloat   -> 4
+              TyDouble  -> 8
+              TyLDouble -> 16
+  , builtinSize = \bt ->
+                  case bt of
+                    TyVaList -> 4
+                    TyAny    -> 4
+  , ptrSize = 4
+  , voidSize = 1
+  , iAlign = \it ->
+             case it of
+               TyBool   -> 1
+               TyChar   -> 1
+               TySChar  -> 1
+               TyUChar  -> 1
+               TyShort  -> 2
+               TyUShort -> 2
+               TyInt    -> 4
+               TyUInt   -> 4
+               TyLong   -> 4
+               TyULong  -> 4
+               TyLLong  -> 8
+               TyULLong -> 8
+  , fAlign = \ft ->
+             case ft of
+               TyFloat   -> 4
+               TyDouble  -> 8
+               TyLDouble -> 16
+  , builtinAlign = \bt ->
+                   case bt of
+                     TyVaList -> 4
+                     TyAny    -> 4
+  , ptrAlign = 4
+  , voidAlign = 1
   }
 
 -- | Typecheck an expression, with information about whether it

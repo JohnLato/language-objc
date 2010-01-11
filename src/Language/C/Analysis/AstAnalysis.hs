@@ -583,7 +583,7 @@ tExpr c _ (CCall fe args ni)          =
      case canonicalType t of
        PtrType (FunctionType (FunType rt pdecls varargs _)) _ _ ->
          do let ptys = map declType pdecls
-            mapM_ (uncurry (assignCompatible' ni CAssignOp)) (zip ptys atys)
+            mapM_ checkArg $ zip3 ptys atys args
             unless varargs $ when (length atys /= length ptys) $
                    typeError ni "incorrect number of arguments"
             return $ canonicalType rt
@@ -591,6 +591,8 @@ tExpr c _ (CCall fe args ni)          =
          do -- warn $ invalidAST ni "incomplete function type"
             return $ canonicalType rt
        _  -> typeError ni $ "attempt to call non-function of type " ++ pType t
+  where checkArg (pty, aty, arg) =
+          assignCompatible' (nodeInfo arg) CAssignOp pty aty
 tExpr c _ (CAssign op le re ni)       =
   do lt <- tExpr c LValue le
      rt <- tExpr c RValue re

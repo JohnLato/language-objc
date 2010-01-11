@@ -18,40 +18,17 @@ import Text.PrettyPrint.HughesPJ
 
 data MachineDesc =
   MachineDesc
-  { boolSize       :: Integer
-  , charSize       :: Integer
-  , shortSize      :: Integer
-  , intSize        :: Integer
-  , longSize       :: Integer
-  , longLongSize   :: Integer
-  , floatSize      :: Integer
-  , doubleSize     :: Integer
-  , longDoubleSize :: Integer
-  , ptrSize        :: Integer
+  { iSize        :: IntType -> Integer
+  , fSize        :: FloatType -> Integer
+  , builtinSize  :: BuiltinType -> Integer
+  , ptrSize      :: Integer
+  , voidSize     :: Integer
+  , iAlign       :: IntType -> Integer
+  , fAlign       :: FloatType -> Integer
+  , builtinAlign :: BuiltinType -> Integer
+  , ptrAlign     :: Integer
+  , voidAlign    :: Integer
   }
-
-iSize :: MachineDesc -> IntType -> Integer
-iSize md TyBool = boolSize md
-iSize md TyChar = charSize md
-iSize md TySChar = charSize md
-iSize md TyUChar = charSize md
-iSize md TyShort = shortSize md
-iSize md TyUShort = shortSize md
-iSize md TyInt = intSize md
-iSize md TyUInt = intSize md
-iSize md TyLong = longSize md
-iSize md TyULong = longSize md
-iSize md TyLLong = longLongSize md
-iSize md TyULLong = longLongSize md
-
-fSize :: MachineDesc -> FloatType -> Integer
-fSize md TyFloat = floatSize md
-fSize md TyDouble = doubleSize md
-fSize md TyLDouble = longDoubleSize md
-
-builtinSize :: MachineDesc -> BuiltinType -> Integer
-builtinSize md TyVaList = ptrSize md
-builtinSize md TyAny    = ptrSize md
 
 intExpr :: (Pos n, MonadName m) => n -> Integer -> m CExpr
 intExpr n i =
@@ -59,7 +36,7 @@ intExpr n i =
     return $ CConst $ CIntConst (cInteger i) (mkNodeInfo (posOf n) name)
 
 sizeofType :: (MonadTrav m, CNode n) => MachineDesc -> n -> Type -> m Integer
-sizeofType _  _ (DirectType TyVoid _) = return 0
+sizeofType md _ (DirectType TyVoid _) = return $ voidSize md
 sizeofType md _ (DirectType (TyIntegral it) _) = return $ iSize md it
 sizeofType md _ (DirectType (TyFloating ft) _) = return $ fSize md ft
 sizeofType md _ (DirectType (TyComplex ft) _) = return $ 2 * fSize md ft
@@ -79,6 +56,20 @@ sizeofType md n (ArrayType bt (ArraySize _ sz) _ _) =
 sizeofType md n (TypeDefType (TypeDefRef _ (Just t) _)) = sizeofType md n t
 sizeofType _ n t = astError (nodeInfo n) $
                  "can't find size of type: " ++ (render . pretty) t
+
+alignofType :: (MonadTrav m, CNode n) => MachineDesc -> n -> Type -> m Integer
+alignofType md _ (DirectType TyVoid _) = return $ voidAlign md
+alignofType md _ (DirectType (TyIntegral it) _) = return $ iAlign md it
+alignofType md _ (DirectType (TyFloating ft) _) = return $ fAlign md ft
+alignofType md _ (DirectType (TyComplex ft) _) = return $ fAlign md ft
+alignofType md _ (DirectType (TyEnum _) _) = return $ iAlign md TyInt
+alignofType md _ (DirectType (TyBuiltin b) _) = return $ builtinAlign md b
+alignofType md _ (PtrType _ _ _)  = return $ ptrAlign md
+alignofType md n (ArrayType bt (UnknownArraySize _) _ _) = return $ ptrAlign md
+alignofType md n (ArrayType bt (ArraySize _ sz) _ _) = alignofType md n bt
+alignofType md n (TypeDefType (TypeDefRef _ (Just t) _)) = alignofType md n t
+alignofType _ n t = astError (nodeInfo n) $
+                 "can't find alignment of type: " ++ (render . pretty) t
 
 compSize :: MonadTrav m => MachineDesc -> CompTypeRef -> m Integer
 compSize md ctr =
@@ -182,9 +173,15 @@ constEval md (CSizeofType d ni) =
   do t <- analyseTypeDecl d
      sz <- sizeofType md d t
      intExpr ni sz
+constEval md (CAlignofExpr e ni) =
+  do t <- tExpr [] RValue e
+     sz <- alignofType md e t
+     intExpr ni sz
+constEval md (CAlignofType d ni) =
+  do t <- analyseTypeDecl d
+     sz <- alignofType md d t
+     intExpr ni sz
 -- Eventually, we'll do these, too
---constEval md (CAlignofExpr e ni) =
---constEval md (CAlignofType t ni) =
 --constEval md (CIndex b i ni) =
 --constEval md (CMember e m deref ni) =
 --constEval md (CVar i ni) =

@@ -160,13 +160,7 @@ deepDerefTypeDef (PtrType t quals attrs) =
 deepDerefTypeDef (ArrayType t size quals attrs) =
   ArrayType (deepDerefTypeDef t) size quals attrs
 deepDerefTypeDef (FunctionType (FunType rt params varargs attrs)) =
-  FunctionType (FunType (deepDerefTypeDef rt) params' varargs attrs)
-  where params' = map derefParam params
-        derefParam (ParamDecl vd ni) = ParamDecl (derefVarDecl vd) ni
-        derefParam (AbstractParamDecl vd ni) =
-          AbstractParamDecl (derefVarDecl vd) ni
-        derefVarDecl (VarDecl name atts ty) =
-          VarDecl name atts (deepDerefTypeDef ty)
+  FunctionType (FunType (deepDerefTypeDef rt) params varargs attrs)
 deepDerefTypeDef (FunctionType (FunTypeIncomplete rt attrs)) =
   FunctionType (FunTypeIncomplete (deepDerefTypeDef rt) attrs)
 deepDerefTypeDef (TypeDefType (TypeDefRef _ (Just t) _)) = deepDerefTypeDef t

@@ -397,3 +397,37 @@ lookupSUE ni sue =
        Just (Right td) -> return td
        _               ->
          typeError ni $ "unknown composite type: " ++ (render . pretty) sue
+
+deepTypeAttrs :: (MonadCError m, MonadSymtab m) =>
+                 Type -> m Attributes
+deepTypeAttrs (DirectType (TyComp (CompTypeRef sue _ ni)) _) =
+  sueAttrs ni sue
+deepTypeAttrs (DirectType (TyEnum (EnumTypeRef sue ni)) _) =
+  sueAttrs ni sue
+deepTypeAttrs (DirectType _ _) = return []
+deepTypeAttrs (PtrType t _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
+deepTypeAttrs (ArrayType t _ _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
+deepTypeAttrs (FunctionType (FunType t _ _ attrs)) =
+  (attrs ++) `liftM` deepTypeAttrs t
+deepTypeAttrs (FunctionType (FunTypeIncomplete t attrs)) =
+  (attrs ++) `liftM` deepTypeAttrs t
+deepTypeAttrs (TypeDefType (TypeDefRef i _ ni)) = typeDefAttrs ni i
+
+typeDefAttrs :: (MonadCError m, MonadSymtab m) =>
+                NodeInfo -> Ident -> m Attributes
+typeDefAttrs ni i =
+  do dt <- getDefTable
+     case lookupIdent i dt of
+       Nothing -> astError ni $ "can't find typedef name: " ++ identToString i
+       Just (Left (TypeDef _ t attrs _)) -> (attrs ++) `liftM` deepTypeAttrs t
+       Just (Right _) -> astError ni $ "not a typedef name: " ++ identToString i
+
+sueAttrs :: (MonadCError m, MonadSymtab m) =>
+            NodeInfo -> SUERef -> m Attributes
+sueAttrs ni sue =
+  do dt <- getDefTable
+     case lookupTag sue dt of
+       Nothing -> astError ni $ "SUE not found: " ++ render (pretty sue)
+       Just (Left _) -> return []
+       Just (Right (CompDef (CompType _ _ _ attrs _))) -> return attrs
+       Just (Right (EnumDef (EnumType _ _ attrs _))) -> return attrs

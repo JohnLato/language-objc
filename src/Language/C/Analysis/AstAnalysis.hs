@@ -593,24 +593,26 @@ tExpr c _ (CCall fe args ni)          =
             return $ canonicalType rt
        _  -> typeError ni $ "attempt to call non-function of type " ++ pType t
   where checkArg (pty, aty, arg) =
-          case canonicalType pty of
-            DirectType (TyComp (CompTypeRef sue _ _)) _ ->
-              do td <- lookupSUE (nodeInfo arg) sue
-                 case td of
-                   CompDef (CompType _ UnionTag ms attrs _)
-                     | isTransparentUnion attrs ->
-                       when (null (rights matches)) $
-                            astError (nodeInfo arg) $
-                              "argument matches none of the elements " ++
-                              "of transparent union"
-                         where matches =
-                                 map (\d -> assignCompatible
-                                            CAssignOp
-                                            (declType d)
-                                            aty
-                                     ) ms
-                   _ -> assignCompatible' (nodeInfo arg) CAssignOp pty aty
-            _ -> assignCompatible' (nodeInfo arg) CAssignOp pty aty
+          do attrs <- deepTypeAttrs pty
+             case isTransparentUnion attrs of
+               True ->
+                 case canonicalType pty of
+                   DirectType (TyComp ctr) _ ->
+                     do td <- lookupSUE (nodeInfo arg) (sueRef ctr)
+                        ms <- tagMembers (nodeInfo arg) td
+                        when (null $ rights $ matches ms) $
+                             astError (nodeInfo arg) $
+                             "argument matches none of the elements " ++
+                             "of transparent union"
+                     where matches =
+                             map (\d -> assignCompatible
+                                        CAssignOp
+                                        (snd d)
+                                        aty
+                                 )
+                   _ -> astError (nodeInfo arg)
+                        "non-composite has __transparent_union__ attribute"
+               False -> assignCompatible' (nodeInfo arg) CAssignOp pty aty
         isTransparentUnion =
           any (\(Attr n _ _) -> identToString n == "__transparent_union__")
 tExpr c _ (CAssign op le re ni)       =

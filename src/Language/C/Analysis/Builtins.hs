@@ -10,7 +10,7 @@ builtins :: DefTable
 builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
   where doTypeDef d = snd . defineTypeDef (identOfTypeDef d) d
         doIdent   d = snd . defineGlobalIdent (declIdent d) d
-        dName     s = VarName (internalIdent s) Nothing
+        dName     s = VarName (builtinIdent s) Nothing
         param ty    = ParamDecl (VarDecl
                                  NoName
                                  (DeclAttrs False (Auto False) [])
@@ -18,13 +18,18 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
         fnAttrs     = DeclAttrs False (FunLinkage ExternalLinkage) []
         varAttrs    = DeclAttrs False (Static InternalLinkage False) []
         fnType r as = FunctionType (FunType r (map param as) False [])
+        fnType' r as = FunctionType (FunType r (map param as) True [])
         func n r as = Declaration
                       (Decl
                        (VarDecl (dName n) fnAttrs (fnType r as))
                        undefNode)
+        func' n r as = Declaration
+                       (Decl
+                        (VarDecl (dName n) fnAttrs (fnType' r as))
+                        undefNode)
         var n t     = Declaration
                       (Decl (VarDecl (dName n) varAttrs t) undefNode)
-        typedef n t = TypeDef (internalIdent n) t [] undefNode
+        typedef n t = TypeDef (builtinIdent n) t [] undefNode
         typedefs    = [ typedef "__builtin_va_list"
                                 valistType
                       ]
@@ -113,4 +118,84 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                             stringType
                       , var "__PRETTY_FUNCTION__"
                             stringType
+                      -- Builtin GCC error checking functions
+                      , func "__builtin_object_size"
+                             size_tType
+                             [ voidPtr, integral TyInt ]
+                      , func "__builtin___memcpy_chk"
+                             voidPtr
+                             [ voidPtr, constVoidPtr, size_tType, size_tType ]
+                      , func "__builtin___mempcpy_chk"
+                             voidPtr
+                             [ voidPtr, constVoidPtr, size_tType, size_tType ]
+                      , func "__builtin___memmove_chk"
+                             voidPtr
+                             [ voidPtr, constVoidPtr, size_tType, size_tType ]
+                      , func "__builtin___memset_chk"
+                             voidPtr
+                             [ voidPtr, integral TyInt, size_tType, size_tType ]
+                      , func "__builtin___strcpy_chk"
+                             charPtr
+                             [ constCharPtr -- XXX: restrict
+                             , constCharPtr -- XXX: restrict
+                             , size_tType
+                             ]
+                      , func "__builtin___stpcpy_chk"
+                             charPtr
+                             [ constCharPtr -- XXX: restrict
+                             , constCharPtr -- XXX: restrict
+                             , size_tType
+                             ]
+                      , func "__builtin___strncpy_chk"
+                             charPtr
+                             [ constCharPtr -- XXX: restrict
+                             , constCharPtr -- XXX: restrict
+                             , size_tType
+                             , size_tType
+                             ]
+                      , func "__builtin___strcat_chk"
+                             charPtr
+                             [ constCharPtr -- XXX: restrict
+                             , constCharPtr -- XXX: restrict
+                             , size_tType
+                             ]
+                      , func "__builtin___strncat_chk"
+                             charPtr
+                             [ constCharPtr -- XXX: restrict
+                             , constCharPtr -- XXX: restrict
+                             , size_tType
+                             , size_tType
+                             ]
+                      , func' "__builtin___sprintf_chk"
+                             (integral TyInt)
+                             [ charPtr
+                             , integral TyInt
+                             , size_tType
+                             , constCharPtr
+                             ]
+                      , func' "__builtin___snprintf_chk"
+                             (integral TyInt)
+                             [ charPtr
+                             , size_tType
+                             , integral TyInt
+                             , size_tType
+                             , constCharPtr
+                             ]
+                      , func "__builtin___vsprintf_chk"
+                             (integral TyInt)
+                             [ charPtr
+                             , integral TyInt
+                             , size_tType
+                             , constCharPtr
+                             , valistType
+                             ]
+                      , func "__builtin___vsnprintf_chk"
+                             (integral TyInt)
+                             [ charPtr
+                             , size_tType
+                             , integral TyInt
+                             , size_tType
+                             , constCharPtr
+                             , valistType
+                             ]
                       ]

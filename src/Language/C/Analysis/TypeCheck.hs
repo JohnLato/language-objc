@@ -216,9 +216,11 @@ compositeParamDecl' :: (VarDecl -> NodeInfo -> ParamDecl)
                     -> VarDecl
                     -> NodeInfo
                     -> Either String ParamDecl
-compositeParamDecl' f vd1 vd2 dni =
-  do vd <- compositeVarDecl vd1 vd2
+compositeParamDecl' f (VarDecl n1 attrs1 t1) (VarDecl n2 attrs2 t2) dni =
+  do vd <- compositeVarDecl (VarDecl n1 attrs1 t1') (VarDecl n2 attrs2 t2')
      return $ f vd dni
+  where t1' = canonicalType t1
+        t2' = canonicalType t2
 
 compositeVarDecl :: VarDecl -> VarDecl -> Either String VarDecl
 compositeVarDecl (VarDecl n1 attrs1 t1) (VarDecl _ attrs2 t2) =

@@ -12,6 +12,7 @@
 -- Export 'SemRep' entities to 'AST' nodes.
 -----------------------------------------------------------------------------
 module Language.C.Analysis.Export (
+exportDeclr,
 exportType, exportTypeDecl, exportTypeSpec,
 exportTypeDef,
 exportCompType, exportCompTypeDecl, exportCompTypeRef,
@@ -24,6 +25,9 @@ import Language.C.Syntax.AST
 import Language.C.Analysis.SemRep
 import Data.Maybe
 
+-- |Export Declarator
+--
+--  Synopsis: @exportDeclr other_specs type attributes variable-name@
 exportDeclr :: [CDeclSpec] -> Type -> Attributes -> VarName -> ([CDeclSpec],CDeclr)
 exportDeclr other_specs ty attrs name =
     (other_specs ++ specs, CDeclr ident derived asmname (exportAttrs attrs) ni)

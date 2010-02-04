@@ -9,9 +9,9 @@ all: test
 test:
 	for f in $(PROG_C_1); do $(SCANFILE) $$f; done
 	for f in $(PROG_CS); do $(SCANFILE) $$f; done
-	for f in $(ERROR_CS); do ( $(SCANFILE) $$f; ../expect_error $$? "Expecting error when analysing $$f"); done	
+	for f in $(ERROR_CS); do ( $(SCANFILE) $$f; sh ../expect_error $$? "Expecting error when analysing $$f"); done	
 test-gcc:
 	gcc -o prog $(PROG_C_1)
 	gcc -c $(PROG_CS)
-	for f in $(ERROR_CS); do (gcc -c $$f 2>.log ; ../expect_error $$? `cat .log`); done
+	for f in $(ERROR_CS); do (gcc -c $$f 2>.log ; sh ../expect_error $$? `cat .log`); done
 clean:

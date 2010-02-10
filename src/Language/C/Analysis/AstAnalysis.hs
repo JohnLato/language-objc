@@ -561,7 +561,7 @@ tExpr c side (CCall (CVar i _) args ni)
     case args of
       [g, e1, e2] ->
         -- XXX: the MachineDesc parameter below should be configurable
-        do b <- constEval defaultMD g
+        do b <- constEval defaultMD Map.empty g
            case boolValue b of
              Just True -> tExpr c side e1
              Just False -> tExpr c side e2

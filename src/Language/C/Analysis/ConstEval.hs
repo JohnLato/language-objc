@@ -4,6 +4,7 @@ module Language.C.Analysis.ConstEval where
 import Control.Monad
 import Data.Bits
 import Data.Maybe
+import qualified Data.Map as Map
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants
 import {-# SOURCE #-} Language.C.Analysis.AstAnalysis (tExpr, ExprSide(..))
@@ -46,7 +47,7 @@ sizeofType md _ (DirectType (TyBuiltin b) _) = return $ builtinSize md b
 sizeofType md _ (PtrType _ _ _)  = return $ ptrSize md
 sizeofType md n (ArrayType bt (UnknownArraySize _) _ _) = return $ ptrSize md
 sizeofType md n (ArrayType bt (ArraySize _ sz) _ _) =
-  do sz' <- constEval md sz
+  do sz' <- constEval md Map.empty sz
      case sz' of
        CConst (CIntConst i _) ->
          do s <- sizeofType md n bt
@@ -135,25 +136,26 @@ intValue (CConst (CIntConst i _))  = Just $ getCInteger i
 intValue (CConst (CCharConst c _)) = Just $ getCCharAsInt c
 intValue _                         = Nothing
 
-constEval :: MonadTrav m => MachineDesc -> CExpr -> m CExpr
-constEval md (CCond e1 me2 e3 ni) =
-  do e1'  <- constEval md e1
-     me2' <- maybe (return Nothing) (\e -> Just `liftM` constEval md e) me2
-     e3'  <- constEval md e3
+constEval :: (MonadTrav m) =>
+             MachineDesc -> Map.Map Ident CExpr -> CExpr -> m CExpr
+constEval md env (CCond e1 me2 e3 ni) =
+  do e1'  <- constEval md env e1
+     me2' <- maybe (return Nothing) (\e -> Just `liftM` constEval md env e) me2
+     e3'  <- constEval md env e3
      case boolValue e1' of
        Just True  -> return $ fromMaybe e1' me2'
        Just False -> return e3'
        Nothing    -> return $ CCond e1' me2' e3' ni
-constEval md e@(CBinary op e1 e2 ni) =
-  do e1' <- constEval md e1
-     e2' <- constEval md e2
+constEval md env e@(CBinary op e1 e2 ni) =
+  do e1' <- constEval md env e1
+     e2' <- constEval md env e2
      t <- tExpr [] RValue e
      bytes <- sizeofType md e t
      case (intValue e1', intValue e2') of
        (Just i1, Just i2) -> intExpr ni (withWordBytes bytes (intOp op i1 i2))
        (_, _)             -> return $ CBinary op e1' e2' ni
-constEval md (CUnary op e ni) =
-  do e' <- constEval md e
+constEval md env (CUnary op e ni) =
+  do e' <- constEval md env e
      t <- tExpr [] RValue e
      bytes <- sizeofType md e t
      case intValue e' of
@@ -162,40 +164,39 @@ constEval md (CUnary op e ni) =
                     Nothing -> astError ni
                                "invalid unary operator applied to constant"
        Nothing -> return $ CUnary op e' ni
-constEval md (CCast d e ni) =
-  do e' <- constEval md e
+constEval md env (CCast d e ni) =
+  do e' <- constEval md env e
      return $ CCast d e' ni
-constEval md (CSizeofExpr e ni) =
+constEval md _ (CSizeofExpr e ni) =
   do t <- tExpr [] RValue e
      sz <- sizeofType md e t
      intExpr ni sz
-constEval md (CSizeofType d ni) =
+constEval md _ (CSizeofType d ni) =
   do t <- analyseTypeDecl d
      sz <- sizeofType md d t
      intExpr ni sz
-constEval md (CAlignofExpr e ni) =
+constEval md _ (CAlignofExpr e ni) =
   do t <- tExpr [] RValue e
      sz <- alignofType md e t
      intExpr ni sz
-constEval md (CAlignofType d ni) =
+constEval md _ (CAlignofType d ni) =
   do t <- analyseTypeDecl d
      sz <- alignofType md d t
      intExpr ni sz
--- Eventually, we'll do these, too
---constEval md (CIndex b i ni) =
---constEval md (CMember e m deref ni) =
---constEval md (CVar i ni) =
-constEval md e@(CVar i _)       =
+constEval md env e@(CVar i _) | Map.member i env =
+  return $ fromMaybe e $ Map.lookup i env
+constEval md env e@(CVar i _) =
   do t <- tExpr [] RValue e
      case derefTypeDef t of
        DirectType (TyEnum etr) _ ->
          do dt <- getDefTable
             case lookupTag (sueRef etr) dt of
               Just (Right (EnumDef (EnumType _ es _ _))) ->
-                do ecs <- mapM enumConst es
-                   maybe (return e) return (lookup i ecs)
+                do env' <- foldM enumConst env es
+                   return $ fromMaybe e $ Map.lookup i env'
               _ -> return e
        _ -> return e
-  where enumConst (Enumerator n e' _ _) = do c <- constEval md e'
-                                             return (n, c)
-constEval _ e = return e
+  where enumConst env' (Enumerator n e' _ _) =
+          do c <- constEval md env' e'
+             return $ Map.insert n c env'
+constEval _ _ e = return e

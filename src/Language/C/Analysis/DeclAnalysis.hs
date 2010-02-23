@@ -88,7 +88,7 @@ tMemberDecls (CDecl declspecs [] node) =
      canonTySpecs <- canonicalTypeSpec typespecs
      ty <- tType True node typequals canonTySpecs [] []
      case ty of
-       DirectType (TyComp _) _ ->
+       DirectType (TyComp _) _ _ ->
          return $ [MemberDecl
                    -- XXX: are these DeclAttrs correct?
                    (VarDecl NoName (DeclAttrs False NoStorage []) ty)
@@ -209,7 +209,7 @@ tType handle_sue_def top_node typequals canonTySpecs derived_declrs oldstyle_par
     buildType (CArrDeclr arrquals size node : dds)
         = buildType dds >>= buildArrayType arrquals size node
     buildType (CFunDeclr ~(Right (params, isVariadic)) attrs node : dds)
-        = buildType dds >>= (liftM FunctionType . buildFunctionType params isVariadic attrs node)
+        = buildType dds >>= (liftM  (uncurry FunctionType) . buildFunctionType params isVariadic attrs node)
     buildPointerType ptrquals _node inner_ty
         = liftM (\(quals,attrs) -> PtrType inner_ty quals attrs) (tTypeQuals ptrquals)
     buildArrayType arr_quals size _node inner_ty
@@ -222,11 +222,12 @@ tType handle_sue_def top_node typequals canonTySpecs derived_declrs oldstyle_par
         = do enterPrototypeScope
              params' <- mapM tParamDecl params
              leavePrototypeScope
-             attrs'   <- mapM tAttr attrs
-             return $ case (map declType params',is_variadic) of
-               ([],False) -> FunTypeIncomplete return_ty attrs'  -- may be improved later on
-               ([DirectType TyVoid _],False) -> FunType return_ty [] False attrs'
-               _ -> FunType return_ty params' is_variadic attrs'
+             attrs'  <- mapM tAttr attrs
+             return $ (\t -> (t,attrs')) $ 
+                case (map declType params',is_variadic) of
+                    ([],False) -> FunTypeIncomplete return_ty  -- may be improved later on
+                    ([DirectType TyVoid _ _],False) -> FunType return_ty [] False
+                    _ -> FunType return_ty params' is_variadic
 
 -- | translate a type without (syntactic) indirections
 -- Due to the GNU @typeof@ extension and typeDefs, this can be an arbitrary type
@@ -234,7 +235,7 @@ tDirectType :: (MonadTrav m) =>
                Bool -> NodeInfo -> [CTypeQual] -> TypeSpecAnalysis -> m Type
 tDirectType handle_sue_def node ty_quals canonTySpec = do
     (quals,attrs) <- tTypeQuals ty_quals
-    let baseType ty_name = DirectType ty_name quals
+    let baseType ty_name = DirectType ty_name quals attrs
     case canonTySpec of
         TSNone -> return$ baseType (TyIntegral TyInt)
         TSVoid -> return$ baseType TyVoid
@@ -246,7 +247,7 @@ tDirectType handle_sue_def node ty_quals canonTySpec = do
                     Left (floatType,iscomplex) | iscomplex -> TyComplex floatType
                                                | otherwise -> TyFloating floatType
                     Right intType  -> TyIntegral intType
-        TSTypeDef tdr -> return$ TypeDefType tdr
+        TSTypeDef tdr -> return$ TypeDefType tdr quals attrs
         TSNonBasic (CSUType su _tnode)      -> liftM (baseType . TyComp) $ tCompTypeDecl handle_sue_def su
         TSNonBasic (CEnumType enum _tnode)   -> liftM (baseType . TyEnum) $ tEnumTypeDecl handle_sue_def enum
         TSType t                             ->  mergeTypeAttributes node quals attrs t
@@ -261,20 +262,18 @@ tDirectType handle_sue_def node ty_quals canonTySpec = do
 mergeTypeAttributes :: (MonadCError m) => NodeInfo -> TypeQuals -> [Attr] -> Type -> m Type
 mergeTypeAttributes node_info quals attrs typ =
     case typ of
-        DirectType ty_name quals' -> merge quals' [] $ mkDirect ty_name
+        DirectType ty_name quals' attrs' -> merge quals' attrs' $ mkDirect ty_name
         PtrType ty quals' attrs'  -> merge quals' attrs' $ PtrType ty
         ArrayType ty array_sz quals' attrs' -> merge quals' attrs' $ ArrayType ty array_sz
-        FunctionType (FunType return_ty params inline attrs')
-            | not (null attrs) -> astError node_info "type qualifiers for function type"
-            | otherwise        -> return$ FunctionType (FunType return_ty params inline (attrs' ++ attrs))
-        TypeDefType tdr | not (null attrs) -> astError node_info "attributes for typedef type"
-                        | constant quals -> astError node_info "constant qualifier on typedef"
-                        | volatile quals -> astError node_info "volatile qualifier on typedef"
-                        | restrict quals -> astError node_info "restrict qualifier on typedef"
-                        | otherwise -> return $ TypeDefType tdr
+        FunctionType (FunType return_ty params inline) attrs'
+-- /FIXME/: This needs review, but checking (null attrs) seems strange here
+--            | not (null attrs) -> astError node_info "type qualifiers for function type"
+--           | otherwise        -> return$ FunctionType (FunType return_ty params inline (attrs' ++ attrs))
+            -> return$ FunctionType (FunType return_ty params inline)  (attrs' ++ attrs)
+        TypeDefType tdr quals' attrs'
+            -> merge quals' attrs' $ TypeDefType tdr
     where
-    mkDirect ty_name quals' attrs' | null attrs' = DirectType ty_name quals'
-                                   | otherwise   = error "_attribute__ s for DirectType"
+    mkDirect ty_name quals' attrs' = DirectType ty_name quals' attrs'
     merge quals' attrs' tyf = return $ tyf (mergeTypeQuals quals quals') (attrs' ++ attrs)
 
 typeDefRef :: (MonadCError m, MonadSymtab m) => NodeInfo -> Ident -> m TypeDefRef

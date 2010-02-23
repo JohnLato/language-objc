@@ -151,8 +151,8 @@ mergeNameSpace :: (Ord k) =>
                   NameSpaceMap k a
                -> NameSpaceMap k a
                -> NameSpaceMap k a
-mergeNameSpace (NsMap g1 l1) (NsMap g2 l2) =
-  NsMap (Map.union g1 g2) (localUnion l1 l2)
+mergeNameSpace (NsMap global1 local1) (NsMap global2 local2) =
+  NsMap (Map.union global1 global2) (localUnion local1 local2)
   where localUnion (l1:ls1) (l2:ls2) =
           List.unionBy (\p1 p2 -> fst p1 == fst p2) l1 l2 : localUnion ls1 ls2
         localUnion [] ls2 = ls2

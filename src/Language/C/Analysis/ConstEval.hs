@@ -15,6 +15,7 @@ import Language.C.Data
 import Language.C.Pretty
 import Language.C.Analysis.SemRep
 import Language.C.Analysis.TravMonad
+import Language.C.Analysis.TypeUtils
 import Text.PrettyPrint.HughesPJ
 
 data MachineDesc =
@@ -37,13 +38,13 @@ intExpr n i =
     return $ CConst $ CIntConst (cInteger i) (mkNodeInfo (posOf n) name)
 
 sizeofType :: (MonadTrav m, CNode n) => MachineDesc -> n -> Type -> m Integer
-sizeofType md _ (DirectType TyVoid _) = return $ voidSize md
-sizeofType md _ (DirectType (TyIntegral it) _) = return $ iSize md it
-sizeofType md _ (DirectType (TyFloating ft) _) = return $ fSize md ft
-sizeofType md _ (DirectType (TyComplex ft) _) = return $ 2 * fSize md ft
-sizeofType md _ (DirectType (TyComp ctr) _) = compSize md ctr
-sizeofType md _ (DirectType (TyEnum _) _) = return $ iSize md TyInt
-sizeofType md _ (DirectType (TyBuiltin b) _) = return $ builtinSize md b
+sizeofType md _ (DirectType TyVoid _ _) = return $ voidSize md
+sizeofType md _ (DirectType (TyIntegral it) _ _) = return $ iSize md it
+sizeofType md _ (DirectType (TyFloating ft) _ _) = return $ fSize md ft
+sizeofType md _ (DirectType (TyComplex ft) _ _) = return $ 2 * fSize md ft
+sizeofType md _ (DirectType (TyComp ctr) _ _) = compSize md ctr
+sizeofType md _ (DirectType (TyEnum _) _ _) = return $ iSize md TyInt
+sizeofType md _ (DirectType (TyBuiltin b) _ _) = return $ builtinSize md b
 sizeofType md _ (PtrType _ _ _)  = return $ ptrSize md
 sizeofType md n (ArrayType bt (UnknownArraySize _) _ _) = return $ ptrSize md
 sizeofType md n (ArrayType bt (ArraySize _ sz) _ _) =
@@ -54,21 +55,21 @@ sizeofType md n (ArrayType bt (ArraySize _ sz) _ _) =
             return $ getCInteger i * s
        _ -> astError (nodeInfo sz) $
             "array size is not a constant: " ++ (render . pretty) sz
-sizeofType md n (TypeDefType (TypeDefRef _ (Just t) _)) = sizeofType md n t
+sizeofType md n (TypeDefType (TypeDefRef _ (Just t) _) _ _) = sizeofType md n t
 sizeofType _ n t = astError (nodeInfo n) $
                  "can't find size of type: " ++ (render . pretty) t
 
 alignofType :: (MonadTrav m, CNode n) => MachineDesc -> n -> Type -> m Integer
-alignofType md _ (DirectType TyVoid _) = return $ voidAlign md
-alignofType md _ (DirectType (TyIntegral it) _) = return $ iAlign md it
-alignofType md _ (DirectType (TyFloating ft) _) = return $ fAlign md ft
-alignofType md _ (DirectType (TyComplex ft) _) = return $ fAlign md ft
-alignofType md _ (DirectType (TyEnum _) _) = return $ iAlign md TyInt
-alignofType md _ (DirectType (TyBuiltin b) _) = return $ builtinAlign md b
+alignofType md _ (DirectType TyVoid _ _) = return $ voidAlign md
+alignofType md _ (DirectType (TyIntegral it) _ _) = return $ iAlign md it
+alignofType md _ (DirectType (TyFloating ft) _ _) = return $ fAlign md ft
+alignofType md _ (DirectType (TyComplex ft) _ _) = return $ fAlign md ft
+alignofType md _ (DirectType (TyEnum _) _ _) = return $ iAlign md TyInt
+alignofType md _ (DirectType (TyBuiltin b) _ _) = return $ builtinAlign md b
 alignofType md _ (PtrType _ _ _)  = return $ ptrAlign md
 alignofType md n (ArrayType bt (UnknownArraySize _) _ _) = return $ ptrAlign md
 alignofType md n (ArrayType bt (ArraySize _ sz) _ _) = alignofType md n bt
-alignofType md n (TypeDefType (TypeDefRef _ (Just t) _)) = alignofType md n t
+alignofType md n (TypeDefType (TypeDefRef _ (Just t) _) _ _) = alignofType md n t
 alignofType _ n t = astError (nodeInfo n) $
                  "can't find alignment of type: " ++ (render . pretty) t
 
@@ -188,7 +189,7 @@ constEval md env e@(CVar i _) | Map.member i env =
 constEval md env e@(CVar i _) =
   do t <- tExpr [] RValue e
      case derefTypeDef t of
-       DirectType (TyEnum etr) _ ->
+       DirectType (TyEnum etr) _ _ ->
          do dt <- getDefTable
             case lookupTag (sueRef etr) dt of
               Just (Right (EnumDef (EnumType _ es _ _))) ->

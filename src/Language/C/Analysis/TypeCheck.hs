@@ -19,6 +19,8 @@ import Language.C.Analysis.TypeConversions
 import Language.C.Analysis.TypeUtils
 import Text.PrettyPrint.HughesPJ
 
+-- This is the standard MonadError instance for Either String
+-- /FIXME/: Is this exported outside Language.C ?
 instance Monad (Either String) where
     return        = Right
     Left  l >>= _ = Left l
@@ -59,7 +61,7 @@ conditionalType' ni t1 t2 = typeErrorOnLeft ni $ conditionalType t1 t2
 checkScalar :: Type -> Either String ()
 checkScalar t =
   case canonicalType t of
-    DirectType _ _    -> return ()
+    DirectType _ _ _  -> return ()
     PtrType _ _ _     -> return ()
     ArrayType _ _ _ _ -> return () -- because it's just a pointer
     t' -> fail $
@@ -76,15 +78,15 @@ checkIntegral t | isIntegralType (canonicalType t) = return ()
 -- | Determine the type of a constant.
 constType :: (MonadCError m, MonadName m) => CConst -> m Type
 constType (CIntConst (CInteger _ _ flags) _) =
-  return $ DirectType (TyIntegral (getIntType flags)) noTypeQuals
+  return $ DirectType (TyIntegral (getIntType flags)) noTypeQuals noAttributes
 constType (CCharConst (CChar _ True) _) =
-  return $ DirectType (TyIntegral TyInt) noTypeQuals
+  return $ DirectType (TyIntegral TyInt) noTypeQuals noAttributes
 constType (CCharConst (CChar _ False) _) =
-  return $ DirectType (TyIntegral TyChar) noTypeQuals
+  return $ DirectType (TyIntegral TyChar) noTypeQuals noAttributes
 constType (CCharConst (CChars _ _) _)  =
-  return $ DirectType (TyIntegral TyInt) noTypeQuals -- XXX
+  return $ DirectType (TyIntegral TyInt) noTypeQuals noAttributes -- XXX
 constType (CFloatConst (CFloat fs) _) =
-  return $ DirectType (TyFloating (getFloatType fs)) noTypeQuals
+  return $ DirectType (TyFloating (getFloatType fs)) noTypeQuals noAttributes
 -- XXX: should strings have any type qualifiers or attributes?
 constType (CStrConst (CString chars wide) ni) =
   do n <- genName
@@ -96,7 +98,7 @@ constType (CStrConst (CString chars wide) ni) =
                      (CConst
                       (CIntConst
                        (cInteger (toInteger (length chars))) ni'))
-     return $ ArrayType (DirectType (TyIntegral charType) noTypeQuals)
+     return $ ArrayType (DirectType (TyIntegral charType) noTypeQuals noAttributes)
                         arraySize noTypeQuals []
 
 -- | Determine whether two types are compatible.
@@ -105,9 +107,9 @@ compatible t1 t2 = compositeType t1 t2 >> return ()
 
 -- | Determine the composite type of two compatible types.
 compositeType :: Type -> Type -> Either String Type
-compositeType t1 (DirectType (TyBuiltin TyAny) _) = return t1
-compositeType (DirectType (TyBuiltin TyAny) _) t2 = return t2
-compositeType t1@(DirectType tn1 q1) t2@(DirectType tn2 q2) =
+compositeType t1 (DirectType (TyBuiltin TyAny) _ _) = return t1
+compositeType (DirectType (TyBuiltin TyAny) _ _) t2 = return t2
+compositeType t1@(DirectType tn1 q1 a1) t2@(DirectType tn2 q2 a2) =
   do tn <- case (tn1, tn2) of
              (TyVoid, TyVoid) -> return TyVoid
              (TyIntegral _, TyEnum _) -> return tn1
@@ -135,7 +137,7 @@ compositeType t1@(DirectType tn1 q1) t2@(DirectType tn2 q2) =
                       ++ pType t1 ++ ", " ++ pType t2
              (_, _) -> fail $ "incompatible direct types: "
                        ++ pType t1 ++ ", " ++ pType t2
-     return $ DirectType tn (mergeTypeQuals q1 q2)
+     return $ DirectType tn (mergeTypeQuals q1 q2) (mergeAttributes a1 a2)
 compositeType (PtrType t1 q1 a1) t2 | isIntegralType t2 =
   return $ PtrType t1 (mergeTypeQuals q1 (typeQuals t2)) a1
 compositeType t1 (PtrType t2 q2 a2) | isIntegralType t1 =
@@ -151,7 +153,7 @@ compositeType t1 t2 | isPointerType t1 && isPointerType t2 =
      let quals = mergeTypeQuals (typeQuals t1) (typeQuals t2)
          attrs = mergeAttrs (typeAttrs t1) (typeAttrs t2)
      return (PtrType t quals attrs)
-compositeType (TypeDefType tdr1) (TypeDefType tdr2) =
+compositeType (TypeDefType tdr1 q1 a1) (TypeDefType tdr2 q2 a2) =
   case (tdr1, tdr2) of
     (TypeDefRef i1 Nothing _, TypeDefRef i2 _ _) -> doTypeDef i1 i2 tdr1
     (TypeDefRef i1 _ _, TypeDefRef i2 Nothing _) -> doTypeDef i1 i2 tdr2
@@ -160,27 +162,28 @@ compositeType (TypeDefType tdr1) (TypeDefType tdr2) =
   where doTypeDef i1 i2 tdr =
           do when (i1 /= i2) $ fail $ "incompatible typedef types: "
                                ++ identToString i1 ++ ", " ++ identToString i2
-             return (TypeDefType tdr)
-compositeType (FunctionType ft1) (FunctionType ft2) =
+             return (TypeDefType tdr (mergeTypeQuals q1 q2) (mergeAttributes a1 a2))
+compositeType (FunctionType ft1 attrs1) (FunctionType ft2 attrs2) =
   case (ft1, ft2) of
-    (FunType rt1 args1 varargs1 attrs1, FunType rt2 args2 varargs2 attrs2) ->
+    (FunType rt1 args1 varargs1, FunType rt2 args2 varargs2) ->
       do when (length args1 /= length args2) $
               fail "different numbers of arguments in function types"
          args <- mapM (uncurry compositeParamDecl) (zip args1 args2)
          when (varargs1 /= varargs2) $
               fail "incompatible varargs declarations"
-         doFunType rt1 rt2 args varargs1 attrs1 attrs2
-    (FunType rt1 args1 varargs1 attrs1, FunTypeIncomplete rt2 attrs2) ->
-      doFunType rt1 rt2 args1 varargs1 attrs1 attrs2
-    (FunTypeIncomplete rt1 attrs1, FunType rt2 args2 varargs2 attrs2) ->
-      doFunType rt1 rt2 args2 varargs2 attrs1 attrs2
-    (FunTypeIncomplete rt1 attrs1, FunTypeIncomplete rt2 attrs2) ->
+         doFunType rt1 rt2 args varargs1
+    (FunType rt1 args1 varargs1, FunTypeIncomplete rt2) ->
+      doFunType rt1 rt2 args1 varargs1
+    (FunTypeIncomplete rt1, FunType rt2 args2 varargs2) ->
+      doFunType rt1 rt2 args2 varargs2
+    (FunTypeIncomplete rt1, FunTypeIncomplete rt2) ->
       do rt <- compositeType rt1 rt2
-         return (FunctionType (FunTypeIncomplete rt (mergeAttrs attrs1 attrs2)))
-  where doFunType rt1 rt2 args varargs attrs1 attrs2 =
+         return (FunctionType (FunTypeIncomplete rt) (mergeAttrs attrs1 attrs2))
+  where doFunType rt1 rt2 args varargs =
           do rt <- compositeType rt1 rt2
              return (FunctionType
-                     (FunType rt args varargs (mergeAttrs attrs1 attrs2)))
+                     (FunType rt args varargs)
+                     (mergeAttrs attrs1 attrs2))
 compositeType t1 t2 = fail $ "incompatible types: "
                          ++ pType t1 ++ ", " ++ pType t2
 
@@ -235,19 +238,19 @@ compositeDeclAttrs (DeclAttrs inl stor attrs1) (DeclAttrs _ _ attrs2) =
 castCompatible :: Type -> Type -> Either String ()
 castCompatible t1 t2 =
   case (canonicalType t1, canonicalType t2) of
-    (DirectType TyVoid _, _) -> return ()
+    (DirectType TyVoid _ _, _) -> return ()
     (_, _) -> checkScalar t1 >> checkScalar t2
 
 -- | Determine whether two types are compatible in an assignment expression.
 assignCompatible :: CAssignOp -> Type -> Type -> Either String ()
 assignCompatible CAssignOp t1 t2 =
   case (canonicalType t1, canonicalType t2) of
-    (DirectType (TyBuiltin TyAny) _, _) -> return ()
-    (_, DirectType (TyBuiltin TyAny) _) -> return ()
+    (DirectType (TyBuiltin TyAny) _ _, _) -> return ()
+    (_, DirectType (TyBuiltin TyAny) _ _) -> return ()
     -- XXX: check qualifiers
-    (PtrType (DirectType TyVoid _) _ _, t2') | isPointerType t2' -> return ()
+    (PtrType (DirectType TyVoid _ _) _ _, t2') | isPointerType t2' -> return ()
     -- XXX: check qualifiers
-    (t1', PtrType (DirectType TyVoid _) _ _) | isPointerType t1' -> return ()
+    (t1', PtrType (DirectType TyVoid _ _) _ _) | isPointerType t1' -> return ()
     (PtrType _ _ _, t2') | isIntegralType t2' -> return ()
     (t1', t2') | isPointerType t1' && isPointerType t2' ->
                  do compatible (baseType t1') (baseType t2')
@@ -255,14 +258,14 @@ assignCompatible CAssignOp t1 t2 =
                 --       fail $
                 --       "incompatible qualifiers in pointer assignment: "
                 --       ++ pType t1 ++ ", " ++ pType t2
-    (DirectType (TyComp c1) _, DirectType (TyComp c2) _)
+    (DirectType (TyComp c1) _ _, DirectType (TyComp c2) _ _)
       | sueRef c1 == sueRef c2 -> return ()
       | otherwise -> fail $
                      "incompatible compound types in assignment: "
                      ++ pType t1 ++ ", " ++ pType t2
-    (DirectType (TyBuiltin TyVaList) _, DirectType (TyBuiltin TyVaList) _) ->
+    (DirectType (TyBuiltin TyVaList) _ _, DirectType (TyBuiltin TyVaList) _ _) ->
       return ()
-    (DirectType tn1 _, DirectType tn2 _)
+    (DirectType tn1 _ _, DirectType tn2 _ _)
       | isJust (arithmeticConversion tn1 tn2) -> return ()
       | otherwise -> fail $ "incompatible direct types in assignment: "
                      ++ pType t1 ++ ", " ++ pType t2
@@ -278,14 +281,14 @@ binopType op t1 t2 =
         checkScalar t1' >> checkScalar t2' >> return boolType
       | isCmpOp op ->
         case (t1', t2') of
-          (DirectType tn1 _, DirectType tn2 _) ->
+          (DirectType tn1 _ _, DirectType tn2 _ _) ->
                 case arithmeticConversion tn1 tn2 of
                   Just _ -> return boolType
                   Nothing -> fail
                              "incompatible arithmetic types in comparison"
-          (PtrType (DirectType TyVoid _) _ _, _)
+          (PtrType (DirectType TyVoid _ _) _ _, _)
             | isPointerType t2' -> return boolType
-          (_, PtrType (DirectType TyVoid _) _ _)
+          (_, PtrType (DirectType TyVoid _ _) _ _)
             | isPointerType t1' -> return boolType
           (_, _)
             | isPointerType t1' && isIntegralType t2' -> return boolType
@@ -309,10 +312,10 @@ binopType op t1 t2 =
       | isPtrOp op && isIntegralType t2' -> return t1
       | otherwise -> fail $ "invalid pointer operation: " ++ show op
     (CAddOp, t1', ArrayType _ _ _ _) | isIntegralType t1' -> return t2
-    (_, DirectType tn1 q1, DirectType tn2 q2) ->
+    (_, DirectType tn1 q1 a1, DirectType tn2 q2 a2) ->
         do when (isBitOp op) (checkIntegral t1 >> checkIntegral t2)
            case arithmeticConversion tn1 tn2 of
-             Just tn -> return $ DirectType tn (mergeTypeQuals q1 q2)
+             Just tn -> return $ DirectType tn (mergeTypeQuals q1 q2) (mergeAttributes a1 a2)
              Nothing -> fail $ "invalid binary operation: " ++
                         show op ++ ", " ++ pType t1 ++ ", " ++ pType t2
     (_, _, _) -> fail $ "unhandled binary operation: "
@@ -322,15 +325,15 @@ binopType op t1 t2 =
 conditionalType :: Type -> Type -> Either String Type
 conditionalType t1 t2 =
   case (canonicalType t1, canonicalType t2) of
-    (PtrType (DirectType TyVoid _) _ _, t2') | isPointerType t2' -> return t2
-    (t1', PtrType (DirectType TyVoid _) _ _) | isPointerType t1' -> return t1
+    (PtrType (DirectType TyVoid _ _) _ _, t2') | isPointerType t2' -> return t2
+    (t1', PtrType (DirectType TyVoid _ _) _ _) | isPointerType t1' -> return t1
     (ArrayType t1' _ q1 a1, ArrayType t2' _ q2 a2) ->
       do t <- compositeType t1' t2'
          return $ ArrayType t (UnknownArraySize False)
                   (mergeTypeQuals q1 q2) (mergeAttrs a1 a2)
-    (t1'@(DirectType tn1 q1), t2'@(DirectType tn2 q2)) ->
+    (t1'@(DirectType tn1 q1 a1), t2'@(DirectType tn2 q2 a2)) ->
       case arithmeticConversion tn1 tn2 of
-        Just tn -> return $ DirectType tn (mergeTypeQuals q1 q2)
+        Just tn -> return $ DirectType tn (mergeTypeQuals q1 q2) (mergeAttributes a1 a2)
         Nothing -> compositeType t1' t2'
     (t1', t2') -> compositeType t1' t2'
 
@@ -358,13 +361,13 @@ varAddrType d =
 fieldType :: (MonadCError m, MonadSymtab m) => NodeInfo -> Ident -> Type -> m Type
 fieldType ni m t =
   case canonicalType t of
-    DirectType (TyComp ctr) _ ->
+    DirectType (TyComp ctr) _ _ ->
       do td <- lookupSUE ni (sueRef ctr)
          ms <- tagMembers ni td
          case lookup m ms of
            Just ft -> return ft
            Nothing -> typeError ni $ "field not found: " ++ identToString m
-    t' -> astError ni $
+    _t' -> astError ni $
           "field of non-composite type: " ++ identToString m
           ++ ", " ++ pType t
 
@@ -386,7 +389,7 @@ tagMembers ni td =
 expandAnonymous :: (MonadCError m, MonadSymtab m) =>
                    NodeInfo -> (VarName, Type)
                 -> m [(Ident, Type)]
-expandAnonymous ni (NoName, DirectType (TyComp ctr) _) =
+expandAnonymous ni (NoName, DirectType (TyComp ctr) _ _) =
   lookupSUE ni (sueRef ctr) >>= tagMembers ni
 expandAnonymous _ (NoName, _) = return []
 expandAnonymous _ (VarName n _, t) = return [(n, t)]
@@ -402,18 +405,19 @@ lookupSUE ni sue =
 
 deepTypeAttrs :: (MonadCError m, MonadSymtab m) =>
                  Type -> m Attributes
-deepTypeAttrs (DirectType (TyComp (CompTypeRef sue _ ni)) _) =
-  sueAttrs ni sue
-deepTypeAttrs (DirectType (TyEnum (EnumTypeRef sue ni)) _) =
-  sueAttrs ni sue
-deepTypeAttrs (DirectType _ _) = return []
+deepTypeAttrs (DirectType (TyComp (CompTypeRef sue _ ni)) _ attrs) =
+  (attrs ++) `liftM` sueAttrs ni sue
+deepTypeAttrs (DirectType (TyEnum (EnumTypeRef sue ni)) _ attrs) =
+  (attrs ++) `liftM` sueAttrs ni sue
+deepTypeAttrs (DirectType _ _ attrs) = return attrs
 deepTypeAttrs (PtrType t _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
 deepTypeAttrs (ArrayType t _ _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
-deepTypeAttrs (FunctionType (FunType t _ _ attrs)) =
+deepTypeAttrs (FunctionType (FunType t _ _) attrs) =
   (attrs ++) `liftM` deepTypeAttrs t
-deepTypeAttrs (FunctionType (FunTypeIncomplete t attrs)) =
+deepTypeAttrs (FunctionType (FunTypeIncomplete t)  attrs) =
   (attrs ++) `liftM` deepTypeAttrs t
-deepTypeAttrs (TypeDefType (TypeDefRef i _ ni)) = typeDefAttrs ni i
+deepTypeAttrs (TypeDefType (TypeDefRef i _ ni) _ attrs) =
+  (attrs ++) `liftM` typeDefAttrs ni i
 
 typeDefAttrs :: (MonadCError m, MonadSymtab m) =>
                 NodeInfo -> Ident -> m Attributes

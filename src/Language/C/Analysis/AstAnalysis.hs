@@ -107,8 +107,8 @@ analyseFunDef (CFunDef declspecs declr oldstyle_decls stmt node_info) = do
     -- callback for definition
     handleFunDef ident (FunDef var_decl stmt' node_info)
     where
-    improveFunDefType (FunctionType (FunTypeIncomplete return_ty attrs)) =
-      return . FunctionType $ FunType return_ty [] False attrs
+    improveFunDefType (FunctionType (FunTypeIncomplete return_ty) attrs) =
+      return $ FunctionType (FunType return_ty [] False) attrs
     improveFunDefType ty = return $ ty
 
 -- | Analyse a declaration other than a function definition
@@ -185,7 +185,7 @@ computeFunDefStorage ident other_spec  = do
 
 -- (private) Get parameters of a function type
 getParams :: Type -> Maybe [ParamDecl]
-getParams (FunctionType (FunType _ params _ _)) = Just params
+getParams (FunctionType (FunType _ params _) _) = Just params
 getParams _ = Nothing
 
 -- | handle a function prototype
@@ -362,13 +362,13 @@ tStmt c (CBreak ni)              =
 tStmt c (CReturn (Just e) ni)    =
   do t <- tExpr c RValue e
      rt <- case enclosingFunctionType c of
-             Just (FunctionType (FunType rt _ _ _)) -> return rt
-             Just (FunctionType (FunTypeIncomplete rt _)) -> return rt
+             Just (FunctionType (FunType rt _ _) _) -> return rt
+             Just (FunctionType (FunTypeIncomplete rt) _) -> return rt
              Just ft -> astError ni $ "bad function type: " ++ pType ft
              Nothing -> astError ni "return statement outside function"
      case (rt, t) of
        -- apparently it's ok to return void from a void function?
-       (DirectType TyVoid _, DirectType TyVoid _) -> return ()
+       (DirectType TyVoid _ _, DirectType TyVoid _ _) -> return ()
        _ -> assignCompatible' ni CAssignOp rt t
      return voidType
 tStmt _ (CReturn Nothing _)      = return voidType
@@ -571,7 +571,8 @@ tExpr c side (CCall (CVar i _) args ni)
 tExpr c _ (CCall fe args ni)          =
   do let defType = FunctionType
                    (FunTypeIncomplete
-                    (DirectType (TyIntegral TyInt) noTypeQuals) [])
+                    (DirectType (TyIntegral TyInt) noTypeQuals noAttributes))
+                   noAttributes
          fallback i = do warn $ invalidAST ni $
                                 "unknown function: " ++ identToString i
                          return defType
@@ -582,13 +583,13 @@ tExpr c _ (CCall fe args ni)          =
      atys <- mapM (tExpr c RValue) args
      -- XXX: we don't actually want to return the canonical return type here
      case canonicalType t of
-       PtrType (FunctionType (FunType rt pdecls varargs _)) _ _ ->
+       PtrType (FunctionType (FunType rt pdecls varargs) _) _ _ ->
          do let ptys = map declType pdecls
             mapM_ checkArg $ zip3 ptys atys args
             unless varargs $ when (length atys /= length ptys) $
                    typeError ni "incorrect number of arguments"
             return $ canonicalType rt
-       PtrType (FunctionType (FunTypeIncomplete rt _)) _ _ ->
+       PtrType (FunctionType (FunTypeIncomplete rt) _) _ _ ->
          do -- warn $ invalidAST ni "incomplete function type"
             return $ canonicalType rt
        _  -> typeError ni $ "attempt to call non-function of type " ++ pType t
@@ -597,7 +598,7 @@ tExpr c _ (CCall fe args ni)          =
              case isTransparentUnion attrs of
                True ->
                  case canonicalType pty of
-                   DirectType (TyComp ctr) _ ->
+                   DirectType (TyComp ctr) _ _ ->
                      do td <- lookupSUE (nodeInfo arg) (sueRef ctr)
                         ms <- tagMembers (nodeInfo arg) td
                         when (null $ rights $ matches ms) $
@@ -634,19 +635,19 @@ tExpr c _ (CStatExpr s _)             =
      return t
 
 tInitList :: MonadTrav m => NodeInfo -> Type -> CInitList -> m ()
-tInitList ni t@(ArrayType (DirectType (TyIntegral TyChar) _) _ _ _)
+tInitList ni t@(ArrayType (DirectType (TyIntegral TyChar) _ _) _ _ _)
              [([], CInitExpr e@(CConst (CStrConst _ _)) _)] =
   tExpr [] RValue e >> return ()
 tInitList ni t@(ArrayType _ _ _ _) initList =
   do let default_ds =
            repeat (CArrDesig (CConst (CIntConst (cInteger 0) ni)) ni)
      checkInits t default_ds initList
-tInitList ni t@(DirectType (TyComp ctr) _) initList =
+tInitList ni t@(DirectType (TyComp ctr) _ _) initList =
   do td <- lookupSUE ni (sueRef ctr)
      ms <- tagMembers ni td
      let default_ds = map (\m -> CMemberDesig (fst m) ni) ms
      checkInits t default_ds initList
-tInitList ni (PtrType (DirectType TyVoid _) _ _ ) _ =
+tInitList ni (PtrType (DirectType TyVoid _ _) _ _ ) _ =
           return () -- XXX: more checking
 tInitList _ t [([], i)] = tInit t i >> return ()
 tInitList ni t _ = typeError ni $ "initializer list for type: " ++ pType t
@@ -681,10 +682,10 @@ tDesignator (ArrayType bt _ _ _) (CRangeDesig e1 e2 ni : ds) =
      tDesignator bt ds
 tDesignator (ArrayType _ _ _ _) (d : ds) =
   typeError (nodeInfo d) "member designator in array initializer"
-tDesignator t@(DirectType (TyComp _) _) (CMemberDesig m ni : ds) =
+tDesignator t@(DirectType (TyComp _) _ _) (CMemberDesig m ni : ds) =
   do mt <- fieldType ni m t
      tDesignator (canonicalType mt) ds
-tDesignator t@(DirectType (TyComp _) _) (d : _) =
+tDesignator t@(DirectType (TyComp _) _ _) (d : _) =
   typeError (nodeInfo d) "array designator in compound initializer"
 tDesignator t [] = return t
 
@@ -700,8 +701,8 @@ complexBaseType :: MonadTrav m => NodeInfo -> [StmtCtx] -> ExprSide -> CExpr -> 
 complexBaseType ni c side e =
   do t <- tExpr c side e
      case canonicalType t of
-       DirectType (TyComplex ft) quals ->
-         return $ DirectType (TyFloating ft) quals
+       DirectType (TyComplex ft) quals attrs ->
+         return $ DirectType (TyFloating ft) quals attrs
        _ -> typeError ni $ "expected complex type, got: " ++ pType t
 
 

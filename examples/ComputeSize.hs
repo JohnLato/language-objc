@@ -10,6 +10,7 @@ import Data.Generics      ; import Data.List
 
 import Language.C   -- Language.C.{Data,Syntax,Pretty,Parser,InputStream}
 import Language.C.Analysis        -- analysis API
+import Language.C.Analysis.TypeUtils -- analysis type utilities
 import Language.C.System.GCC      -- preprocessor used
 import Language.C.Analysis.Export -- [starting point for exporting SemRep to AST]
 
@@ -57,7 +58,8 @@ generateSizeTests pat globals =
     fromComp (EnumDef _) = Nothing
     fromCompTyDef (TypeDef name ty _ _) =
       case ty of 
-        (DirectType (TyComp ref@(CompTypeRef sueref tag _)) _) -> Just (sueref,(ref,name))
+        (DirectType (TyComp ref@(CompTypeRef sueref tag _)) _ _) ->
+            Just (sueref,(ref,name))
         _ -> Nothing
     
 filterDefs :: (CNode v, Ord k) => String -> Map k v -> Map k v
@@ -84,8 +86,8 @@ computeRefClosure all_comps initial_comps =
         | (Just r) <- Map.lookup ref all_comps = Just r
         | otherwise = error $ "Internal Error: Could not find definition for "++show ref
     fromCompTy _ = Nothing
-    fromDirectRefdType (DirectType tyname _) = Just tyname
-    fromDirectRefdType (TypeDefType (TypeDefRef _ ref _)) = (fromDirectRefdType.fromJust) ref
+    fromDirectRefdType (DirectType tyname _ _) = Just tyname
+    fromDirectRefdType (TypeDefType (TypeDefRef _ ref _) _ _) = (fromDirectRefdType.fromJust) ref
     fromDirectRefdType (ArrayType ty _ _ _) = fromDirectRefdType ty
     fromDirectRefdType _ = Nothing
 
@@ -99,8 +101,6 @@ defineComp :: CompType -> CExtDecl
 defineComp ty = CDeclExt (CDecl (map CTypeSpec (exportCompType $ derefTypeDefs ty)) [] undefNode)
     where
     derefTypeDefs ty = everywhere (mkT derefTypeDef `extT` replaceEnum) ty
-    derefTypeDef (TypeDefType (TypeDefRef _ (Just ty) _)) = ty
-    derefTypeDef ty = ty
     replaceEnum (TyEnum _) = TyIntegral TyInt
     replaceEnum dty = dty
     

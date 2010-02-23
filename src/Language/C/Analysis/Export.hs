@@ -51,20 +51,30 @@ exportTypeDef (TypeDef ident ty attrs node_info) =
   (declspecs,derived) = exportType ty
   declr = (Just $ CDeclr (Just ident) derived Nothing (exportAttrs attrs) ni, Nothing, Nothing)
 
+-- |Export a type to syntax
 exportType :: Type -> ([CDeclSpec],[CDerivedDeclr])
 exportType ty = exportTy [] ty
-    where
-    exportTy dd (PtrType ity tyquals attrs) = exportTy (ptr_declr : dd) ity where
-        ptr_declr = CPtrDeclr (exportTypeQualsAttrs tyquals attrs) ni
-    exportTy dd (ArrayType ity array_sz tyquals attrs) = exportTy (arr_declr : dd) ity where
-        arr_declr = CArrDeclr (exportTypeQualsAttrs tyquals attrs) (exportArraySize array_sz) ni
-    exportTy dd (FunctionType (FunType ity params variadic attrs)) = exportTy (fun_declr : dd) ity where
-        fun_declr = CFunDeclr (Right (map exportParamDecl params,variadic)) (exportAttrs attrs) ni
-    exportTy dd (FunctionType (FunTypeIncomplete ity attrs)) = exportTy (fun_declr : dd) ity where
-        fun_declr = CFunDeclr (Right ([],False)) (exportAttrs attrs) ni
-    exportTy dd (TypeDefType (TypeDefRef ty_ident _ node)) = ([CTypeSpec (CTypeDef ty_ident node)], reverse dd)
-    exportTy dd (DirectType ity quals) = (map CTypeQual (exportTypeQuals quals) ++
-                                        map CTypeSpec (exportTypeSpec ity), reverse dd)
+  where
+    exportTy dd (PtrType ity tyquals attrs) =
+        let ptr_declr = CPtrDeclr (exportTypeQualsAttrs tyquals attrs) ni
+        in  exportTy (ptr_declr : dd) ity
+    exportTy dd (ArrayType ity array_sz tyquals attrs) =
+        let arr_declr = CArrDeclr (exportTypeQualsAttrs tyquals attrs) (exportArraySize array_sz) ni
+        in  exportTy (arr_declr : dd) ity
+    exportTy dd (FunctionType (FunType ity params variadic) attrs) =
+        let fun_declr = CFunDeclr (Right (map exportParamDecl params,variadic)) (exportAttrs attrs) ni
+        in  exportTy (fun_declr : dd) ity
+    exportTy dd (FunctionType (FunTypeIncomplete ity) attrs) =
+        let fun_declr = CFunDeclr (Right ([],False)) (exportAttrs attrs) ni
+        in  exportTy (fun_declr : dd) ity
+    exportTy dd (TypeDefType (TypeDefRef ty_ident _ node) quals attrs) =
+        let declspecs =    [CTypeSpec (CTypeDef ty_ident node)]
+                        ++ map CTypeQual (exportTypeQualsAttrs quals attrs)
+        in (declspecs, reverse dd)
+    exportTy dd (DirectType ity quals attrs) =
+        let declspecs =    map CTypeQual (exportTypeQualsAttrs quals attrs)
+                        ++ map CTypeSpec (exportTypeSpec ity)
+        in (declspecs, reverse dd)
 
 exportTypeQuals :: TypeQuals -> [CTypeQual]
 exportTypeQuals quals = mapMaybe select [(constant,CConstQual ni),(volatile,CVolatQual ni),(restrict,CRestrQual ni)]
@@ -188,8 +198,10 @@ exportStorage NoStorage = []
 exportStorage (Auto reg) = if reg then [CRegister ni] else []
 exportStorage (Static InternalLinkage thread_local) = threadLocal thread_local [CStatic ni]
 exportStorage (Static ExternalLinkage thread_local) = threadLocal thread_local [CExtern ni]
-exportStorage (FunLinkage ExternalLinkage) = []
+exportStorage (Static NoLinkage _) = error "impossible storage: static without linkage"
 exportStorage (FunLinkage InternalLinkage) = [CStatic ni]
+exportStorage (FunLinkage ExternalLinkage) = []
+exportStorage (FunLinkage NoLinkage) = error "impossible storage: function without linkage"
 
 threadLocal :: Bool -> [CStorageSpec] -> [CStorageSpec]
 threadLocal False = id
@@ -200,8 +212,8 @@ exportAttrs = map exportAttr where
     exportAttr (Attr ident es n) = CAttr ident es n
 
 fromDirectType :: Type -> TypeName
-fromDirectType (DirectType ty _) = ty
-fromDirectType (TypeDefType (TypeDefRef _ ref _)) = maybe (error "undefined typeDef") fromDirectType ref
+fromDirectType (DirectType ty _ _) = ty
+fromDirectType (TypeDefType (TypeDefRef _ ref _) _ _) = maybe (error "undefined typeDef") fromDirectType ref
 fromDirectType _ = error "fromDirectType"
 
 ni :: NodeInfo

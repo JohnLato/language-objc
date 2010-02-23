@@ -610,194 +610,194 @@ liftStrLit (CStrLit str at) = CStrConst str at
 --------------------------------------------------------
 -- DERIVES GENERATED CODE
 -- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 583262931
+-- CHECKSUM: 1085644567
 
-instance CNode CTranslUnit
-    where nodeInfo (CTranslUnit _ nodeinfo) = nodeinfo
-instance Pos CTranslUnit
+instance CNode t1 => CNode (CTranslationUnit t1)
+    where nodeInfo (CTranslUnit _ t) = nodeInfo t
+instance CNode t1 => Pos (CTranslationUnit t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CExtDecl
+instance CNode t1 => CNode (CExternalDeclaration t1)
     where nodeInfo (CDeclExt d) = nodeInfo d
           nodeInfo (CFDefExt d) = nodeInfo d
-          nodeInfo (CAsmExt _ nodeinfo) = nodeinfo
-instance Pos CExtDecl
+          nodeInfo (CAsmExt _ t) = nodeInfo t
+instance CNode t1 => Pos (CExternalDeclaration t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CFunDef
-    where nodeInfo (CFunDef _ _ _ _ nodeinfo) = nodeinfo
-instance Pos CFunDef
+instance CNode t1 => CNode (CFunctionDef t1)
+    where nodeInfo (CFunDef _ _ _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CFunctionDef t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CDecl
-    where nodeInfo (CDecl _ _ nodeinfo) = nodeinfo
-instance Pos CDecl
+instance CNode t1 => CNode (CDeclaration t1)
+    where nodeInfo (CDecl _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CDeclaration t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CDeclr
-    where nodeInfo (CDeclr _ _ _ _ nodeinfo) = nodeinfo
-instance Pos CDeclr
+instance CNode t1 => CNode (CDeclarator t1)
+    where nodeInfo (CDeclr _ _ _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CDeclarator t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CDerivedDeclr
-    where nodeInfo (CPtrDeclr _ nodeinfo) = nodeinfo
-          nodeInfo (CArrDeclr _ _ nodeinfo) = nodeinfo
-          nodeInfo (CFunDeclr _ _ nodeinfo) = nodeinfo
-instance Pos CDerivedDeclr
+instance CNode t1 => CNode (CDerivedDeclarator t1)
+    where nodeInfo (CPtrDeclr _ t) = nodeInfo t
+          nodeInfo (CArrDeclr _ _ t) = nodeInfo t
+          nodeInfo (CFunDeclr _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CDerivedDeclarator t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CStat
-    where nodeInfo (CLabel _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CCase _ _ nodeinfo) = nodeinfo
-          nodeInfo (CCases _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CDefault _ nodeinfo) = nodeinfo
-          nodeInfo (CExpr _ nodeinfo) = nodeinfo
-          nodeInfo (CCompound _ _ nodeinfo) = nodeinfo
-          nodeInfo (CIf _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CSwitch _ _ nodeinfo) = nodeinfo
-          nodeInfo (CWhile _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CFor _ _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CGoto _ nodeinfo) = nodeinfo
-          nodeInfo (CGotoPtr _ nodeinfo) = nodeinfo
-          nodeInfo (CCont nodeinfo) = nodeinfo
-          nodeInfo (CBreak nodeinfo) = nodeinfo
-          nodeInfo (CReturn _ nodeinfo) = nodeinfo
-          nodeInfo (CAsm _ nodeinfo) = nodeinfo
-instance Pos CStat
+instance CNode t1 => CNode (CStatement t1)
+    where nodeInfo (CLabel _ _ _ t) = nodeInfo t
+          nodeInfo (CCase _ _ t) = nodeInfo t
+          nodeInfo (CCases _ _ _ t) = nodeInfo t
+          nodeInfo (CDefault _ t) = nodeInfo t
+          nodeInfo (CExpr _ t) = nodeInfo t
+          nodeInfo (CCompound _ _ t) = nodeInfo t
+          nodeInfo (CIf _ _ _ t) = nodeInfo t
+          nodeInfo (CSwitch _ _ t) = nodeInfo t
+          nodeInfo (CWhile _ _ _ t) = nodeInfo t
+          nodeInfo (CFor _ _ _ _ t) = nodeInfo t
+          nodeInfo (CGoto _ t) = nodeInfo t
+          nodeInfo (CGotoPtr _ t) = nodeInfo t
+          nodeInfo (CCont d) = nodeInfo d
+          nodeInfo (CBreak d) = nodeInfo d
+          nodeInfo (CReturn _ t) = nodeInfo t
+          nodeInfo (CAsm _ t) = nodeInfo t
+instance CNode t1 => Pos (CStatement t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CAsmStmt
-    where nodeInfo (CAsmStmt _ _ _ _ _ nodeinfo) = nodeinfo
-instance Pos CAsmStmt
+instance CNode t1 => CNode (CAssemblyStatement t1)
+    where nodeInfo (CAsmStmt _ _ _ _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CAssemblyStatement t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CAsmOperand
-    where nodeInfo (CAsmOperand _ _ _ nodeinfo) = nodeinfo
-instance Pos CAsmOperand
+instance CNode t1 => CNode (CAssemblyOperand t1)
+    where nodeInfo (CAsmOperand _ _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CAssemblyOperand t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CBlockItem
+instance CNode t1 => CNode (CCompoundBlockItem t1)
     where nodeInfo (CBlockStmt d) = nodeInfo d
           nodeInfo (CBlockDecl d) = nodeInfo d
           nodeInfo (CNestedFunDef d) = nodeInfo d
-instance Pos CBlockItem
+instance CNode t1 => Pos (CCompoundBlockItem t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CDeclSpec
+instance CNode t1 => CNode (CDeclarationSpecifier t1)
     where nodeInfo (CStorageSpec d) = nodeInfo d
           nodeInfo (CTypeSpec d) = nodeInfo d
           nodeInfo (CTypeQual d) = nodeInfo d
-instance Pos CDeclSpec
+instance CNode t1 => Pos (CDeclarationSpecifier t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CStorageSpec
-    where nodeInfo (CAuto nodeinfo) = nodeinfo
-          nodeInfo (CRegister nodeinfo) = nodeinfo
-          nodeInfo (CStatic nodeinfo) = nodeinfo
-          nodeInfo (CExtern nodeinfo) = nodeinfo
-          nodeInfo (CTypedef nodeinfo) = nodeinfo
-          nodeInfo (CThread nodeinfo) = nodeinfo
-instance Pos CStorageSpec
+instance CNode t1 => CNode (CStorageSpecifier t1)
+    where nodeInfo (CAuto d) = nodeInfo d
+          nodeInfo (CRegister d) = nodeInfo d
+          nodeInfo (CStatic d) = nodeInfo d
+          nodeInfo (CExtern d) = nodeInfo d
+          nodeInfo (CTypedef d) = nodeInfo d
+          nodeInfo (CThread d) = nodeInfo d
+instance CNode t1 => Pos (CStorageSpecifier t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CTypeSpec
-    where nodeInfo (CVoidType nodeinfo) = nodeinfo
-          nodeInfo (CCharType nodeinfo) = nodeinfo
-          nodeInfo (CShortType nodeinfo) = nodeinfo
-          nodeInfo (CIntType nodeinfo) = nodeinfo
-          nodeInfo (CLongType nodeinfo) = nodeinfo
-          nodeInfo (CFloatType nodeinfo) = nodeinfo
-          nodeInfo (CDoubleType nodeinfo) = nodeinfo
-          nodeInfo (CSignedType nodeinfo) = nodeinfo
-          nodeInfo (CUnsigType nodeinfo) = nodeinfo
-          nodeInfo (CBoolType nodeinfo) = nodeinfo
-          nodeInfo (CComplexType nodeinfo) = nodeinfo
-          nodeInfo (CSUType _ nodeinfo) = nodeinfo
-          nodeInfo (CEnumType _ nodeinfo) = nodeinfo
-          nodeInfo (CTypeDef _ nodeinfo) = nodeinfo
-          nodeInfo (CTypeOfExpr _ nodeinfo) = nodeinfo
-          nodeInfo (CTypeOfType _ nodeinfo) = nodeinfo
-instance Pos CTypeSpec
+instance CNode t1 => CNode (CTypeSpecifier t1)
+    where nodeInfo (CVoidType d) = nodeInfo d
+          nodeInfo (CCharType d) = nodeInfo d
+          nodeInfo (CShortType d) = nodeInfo d
+          nodeInfo (CIntType d) = nodeInfo d
+          nodeInfo (CLongType d) = nodeInfo d
+          nodeInfo (CFloatType d) = nodeInfo d
+          nodeInfo (CDoubleType d) = nodeInfo d
+          nodeInfo (CSignedType d) = nodeInfo d
+          nodeInfo (CUnsigType d) = nodeInfo d
+          nodeInfo (CBoolType d) = nodeInfo d
+          nodeInfo (CComplexType d) = nodeInfo d
+          nodeInfo (CSUType _ t) = nodeInfo t
+          nodeInfo (CEnumType _ t) = nodeInfo t
+          nodeInfo (CTypeDef _ t) = nodeInfo t
+          nodeInfo (CTypeOfExpr _ t) = nodeInfo t
+          nodeInfo (CTypeOfType _ t) = nodeInfo t
+instance CNode t1 => Pos (CTypeSpecifier t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CTypeQual
-    where nodeInfo (CConstQual nodeinfo) = nodeinfo
-          nodeInfo (CVolatQual nodeinfo) = nodeinfo
-          nodeInfo (CRestrQual nodeinfo) = nodeinfo
-          nodeInfo (CInlineQual nodeinfo) = nodeinfo
+instance CNode t1 => CNode (CTypeQualifier t1)
+    where nodeInfo (CConstQual d) = nodeInfo d
+          nodeInfo (CVolatQual d) = nodeInfo d
+          nodeInfo (CRestrQual d) = nodeInfo d
+          nodeInfo (CInlineQual d) = nodeInfo d
           nodeInfo (CAttrQual d) = nodeInfo d
-instance Pos CTypeQual
+instance CNode t1 => Pos (CTypeQualifier t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CStructUnion
-    where nodeInfo (CStruct _ _ _ _ nodeinfo) = nodeinfo
-instance Pos CStructUnion
+instance CNode t1 => CNode (CStructureUnion t1)
+    where nodeInfo (CStruct _ _ _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CStructureUnion t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CEnum
-    where nodeInfo (CEnum _ _ _ nodeinfo) = nodeinfo
-instance Pos CEnum
+instance CNode t1 => CNode (CEnumeration t1)
+    where nodeInfo (CEnum _ _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CEnumeration t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CInit
-    where nodeInfo (CInitExpr _ nodeinfo) = nodeinfo
-          nodeInfo (CInitList _ nodeinfo) = nodeinfo
-instance Pos CInit
+instance CNode t1 => CNode (CInitializer t1)
+    where nodeInfo (CInitExpr _ t) = nodeInfo t
+          nodeInfo (CInitList _ t) = nodeInfo t
+instance CNode t1 => Pos (CInitializer t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CDesignator
-    where nodeInfo (CArrDesig _ nodeinfo) = nodeinfo
-          nodeInfo (CMemberDesig _ nodeinfo) = nodeinfo
-          nodeInfo (CRangeDesig _ _ nodeinfo) = nodeinfo
-instance Pos CDesignator
+instance CNode t1 => CNode (CPartDesignator t1)
+    where nodeInfo (CArrDesig _ t) = nodeInfo t
+          nodeInfo (CMemberDesig _ t) = nodeInfo t
+          nodeInfo (CRangeDesig _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CPartDesignator t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CAttr
-    where nodeInfo (CAttr _ _ nodeinfo) = nodeinfo
-instance Pos CAttr
+instance CNode t1 => CNode (CAttribute t1)
+    where nodeInfo (CAttr _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CAttribute t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CExpr
-    where nodeInfo (CComma _ nodeinfo) = nodeinfo
-          nodeInfo (CAssign _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CCond _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CBinary _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CCast _ _ nodeinfo) = nodeinfo
-          nodeInfo (CUnary _ _ nodeinfo) = nodeinfo
-          nodeInfo (CSizeofExpr _ nodeinfo) = nodeinfo
-          nodeInfo (CSizeofType _ nodeinfo) = nodeinfo
-          nodeInfo (CAlignofExpr _ nodeinfo) = nodeinfo
-          nodeInfo (CAlignofType _ nodeinfo) = nodeinfo
-          nodeInfo (CComplexReal _ nodeinfo) = nodeinfo
-          nodeInfo (CComplexImag _ nodeinfo) = nodeinfo
-          nodeInfo (CIndex _ _ nodeinfo) = nodeinfo
-          nodeInfo (CCall _ _ nodeinfo) = nodeinfo
-          nodeInfo (CMember _ _ _ nodeinfo) = nodeinfo
-          nodeInfo (CVar _ nodeinfo) = nodeinfo
+instance CNode t1 => CNode (CExpression t1)
+    where nodeInfo (CComma _ t) = nodeInfo t
+          nodeInfo (CAssign _ _ _ t) = nodeInfo t
+          nodeInfo (CCond _ _ _ t) = nodeInfo t
+          nodeInfo (CBinary _ _ _ t) = nodeInfo t
+          nodeInfo (CCast _ _ t) = nodeInfo t
+          nodeInfo (CUnary _ _ t) = nodeInfo t
+          nodeInfo (CSizeofExpr _ t) = nodeInfo t
+          nodeInfo (CSizeofType _ t) = nodeInfo t
+          nodeInfo (CAlignofExpr _ t) = nodeInfo t
+          nodeInfo (CAlignofType _ t) = nodeInfo t
+          nodeInfo (CComplexReal _ t) = nodeInfo t
+          nodeInfo (CComplexImag _ t) = nodeInfo t
+          nodeInfo (CIndex _ _ t) = nodeInfo t
+          nodeInfo (CCall _ _ t) = nodeInfo t
+          nodeInfo (CMember _ _ _ t) = nodeInfo t
+          nodeInfo (CVar _ t) = nodeInfo t
           nodeInfo (CConst d) = nodeInfo d
-          nodeInfo (CCompoundLit _ _ nodeinfo) = nodeinfo
-          nodeInfo (CStatExpr _ nodeinfo) = nodeinfo
-          nodeInfo (CLabAddrExpr _ nodeinfo) = nodeinfo
+          nodeInfo (CCompoundLit _ _ t) = nodeInfo t
+          nodeInfo (CStatExpr _ t) = nodeInfo t
+          nodeInfo (CLabAddrExpr _ t) = nodeInfo t
           nodeInfo (CBuiltinExpr d) = nodeInfo d
-instance Pos CExpr
+instance CNode t1 => Pos (CExpression t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CBuiltin
-    where nodeInfo (CBuiltinVaArg _ _ nodeinfo) = nodeinfo
-          nodeInfo (CBuiltinOffsetOf _ _ nodeinfo) = nodeinfo
-          nodeInfo (CBuiltinTypesCompatible _ _ nodeinfo) = nodeinfo
-instance Pos CBuiltin
+instance CNode t1 => CNode (CBuiltinThing t1)
+    where nodeInfo (CBuiltinVaArg _ _ t) = nodeInfo t
+          nodeInfo (CBuiltinOffsetOf _ _ t) = nodeInfo t
+          nodeInfo (CBuiltinTypesCompatible _ _ t) = nodeInfo t
+instance CNode t1 => Pos (CBuiltinThing t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CConst
-    where nodeInfo (CIntConst _ nodeinfo) = nodeinfo
-          nodeInfo (CCharConst _ nodeinfo) = nodeinfo
-          nodeInfo (CFloatConst _ nodeinfo) = nodeinfo
-          nodeInfo (CStrConst _ nodeinfo) = nodeinfo
-instance Pos CConst
+instance CNode t1 => CNode (CConstant t1)
+    where nodeInfo (CIntConst _ t) = nodeInfo t
+          nodeInfo (CCharConst _ t) = nodeInfo t
+          nodeInfo (CFloatConst _ t) = nodeInfo t
+          nodeInfo (CStrConst _ t) = nodeInfo t
+instance CNode t1 => Pos (CConstant t1)
     where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CStrLit
-    where nodeInfo (CStrLit _ nodeinfo) = nodeinfo
-instance Pos CStrLit
+instance CNode t1 => CNode (CStringLiteral t1)
+    where nodeInfo (CStrLit _ t) = nodeInfo t
+instance CNode t1 => Pos (CStringLiteral t1)
     where posOf x = posOfNode (nodeInfo x)

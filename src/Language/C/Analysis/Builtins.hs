@@ -17,8 +17,8 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                                  ty) undefNode
         fnAttrs     = DeclAttrs False (FunLinkage ExternalLinkage) []
         varAttrs    = DeclAttrs False (Static InternalLinkage False) []
-        fnType r as = FunctionType (FunType r (map param as) False [])
-        fnType' r as = FunctionType (FunType r (map param as) True [])
+        fnType r as = FunctionType (FunType r (map param as) False) noAttributes
+        fnType' r as = FunctionType (FunType r (map param as) True) noAttributes
         func n r as = Declaration
                       (Decl
                        (VarDecl (dName n) fnAttrs (fnType r as))
@@ -95,7 +95,7 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                              [ integral TyUInt ]
                       , func "__builtin_constant_p"
                              (integral TyInt)
-                             [DirectType (TyBuiltin TyAny) noTypeQuals]
+                             [DirectType (TyBuiltin TyAny) noTypeQuals noAttributes]
                       -- XXX: I don't know if the following has the
                       -- correct type. It doesn't seem to be
                       -- documented.

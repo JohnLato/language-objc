@@ -34,8 +34,7 @@ Storage(..),declStorage,ThreadLocal,Register,
 Linkage(..),hasLinkage,declLinkage,
 -- * Types
 Type(..),
-FunType(..),isFunctionType,
-derefTypeDef,referencedType,
+FunType(..),
 ArraySize(..),
 TypeDefRef(..),
 TypeName(..),BuiltinType(..),
@@ -48,7 +47,7 @@ TypeQuals(..),noTypeQuals,mergeTypeQuals,
 -- * Variable names
 VarName(..),identOfVarName,isNoName,AsmName,
 -- * Attributes (STUB, not yet analyzed)
-Attr(..),Attributes,
+Attr(..),Attributes,noAttributes,mergeAttributes,
 -- * Statements and Expressions (STUB, aliases to Syntax)
 Stmt,Expr,Initializer,AsmBlock,
 )
@@ -332,48 +331,24 @@ declLinkage decl =
 
 -- | types of C objects
 data Type =
-       DirectType TypeName TypeQuals
+       DirectType TypeName TypeQuals Attributes
      -- ^ a non-derived type
      | PtrType Type TypeQuals Attributes
      -- ^ pointer type
      | ArrayType Type ArraySize TypeQuals Attributes
      -- ^ array type
-     | FunctionType FunType
+     | FunctionType FunType Attributes
      -- ^ function type
-     | TypeDefType TypeDefRef
+     | TypeDefType TypeDefRef TypeQuals Attributes
      -- ^ a defined type
      deriving (Typeable, Data)
 
--- | Function types are of the form @FunType return-type params isVariadic attrs@.
+-- | Function types are of the form @FunType return-type params isVariadic@.
 --
 -- If the parameter types aren't yet known, the function has type @FunTypeIncomplete type attrs@.
-data FunType = FunType Type [ParamDecl] Bool Attributes
-            |  FunTypeIncomplete Type Attributes
+data FunType = FunType Type [ParamDecl] Bool
+            |  FunTypeIncomplete Type
                deriving (Typeable, Data)
-
--- | resolve typedefs, if possible
-derefTypeDef :: Type -> Type
-derefTypeDef (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = derefTypeDef actual_ty
-derefTypeDef ty = ty
-
--- may not be called on undefined typeDefs or typeof(expr)
-referencedType :: Type -> Maybe Type
-referencedType (PtrType ty _ _) = Just ty
-referencedType (FunctionType (FunType ty _ _ _)) = Just ty
-referencedType (ArrayType ty _ _ _) = Just ty
-referencedType (TypeDefType (TypeDefRef _ (Just actual_ty) _)) = Just actual_ty
-referencedType (DirectType _ _) = Nothing
-referencedType _ = error "referencedType: failed to resolve type"
-
--- | return @True@ if the given type is a function type
---
---   Result is undefined in the presence of undefined typeDefs
-isFunctionType :: Type -> Bool
-isFunctionType ty =
-    case ty of  TypeDefType (TypeDefRef _ (Just actual_ty) _) -> isFunctionType actual_ty
-                TypeDefType _ -> error "isFunctionType: unresolved typeDef"
-                FunctionType _ -> True
-                _ -> False
 
 -- | An array type may either have unknown size or a specified array size, the latter either variable or constant.
 -- Furthermore, when used as a function parameters, the size may be qualified as /static/.
@@ -496,7 +471,7 @@ instance Declaration Enumerator where
     VarDecl
       (VarName ide Nothing)
       (DeclAttrs False NoStorage [])
-      (DirectType (typeOfEnumDef enumty) noTypeQuals)
+      (DirectType (typeOfEnumDef enumty) noTypeQuals noAttributes)
 
 -- | Type qualifiers: constant, volatile and restrict
 data TypeQuals = TypeQuals { constant :: Bool, volatile :: Bool, restrict :: Bool }
@@ -567,6 +542,15 @@ data Attr = Attr Ident [Expr] NodeInfo
             deriving (Typeable, Data {-! CNode !-})
 
 type Attributes = [Attr]
+
+-- |Empty attribute list
+noAttributes :: Attributes
+noAttributes = []
+
+-- |Merge attribute lists
+-- /TODO/: currently does not remove duplicates
+mergeAttributes :: Attributes -> Attributes -> Attributes
+mergeAttributes = (++)
 
 -- * statements and expressions (Type aliases)
 

@@ -34,8 +34,6 @@ module Language.C.Analysis.TravMonad (
     enterBlockScope,leaveBlockScope,
     -- * Symbol table lookup (delegate)
     lookupTypeDef, lookupObject,
-    -- * Definition name lookup
-    canonicalName, canonicalIdent,
     -- * Symbol table modification
     createSUERef,
     -- * Additional error handling facilities
@@ -320,15 +318,6 @@ lookupObject ident = do
         case obj of
         Right objdef -> addRef ident objdef >> return objdef
         Left _tydef  -> astError (nodeInfo ident) (mismatchErr "lookupObject" "an object" "a typeDef")
-
--- | lookup definition Name (if it exists) given use Name
-canonicalName :: (MonadSymtab m) => Name -> m (Maybe Name)
-canonicalName n = getDefTable >>= return . lookup (nameId n) . refTable
-
--- | modify Ident to use definition Name (if it exists)
-canonicalIdent :: (MonadSymtab m) => Ident -> m (Maybe Ident)
-canonicalIdent (Ident s h (NodeInfo p pl n)) =
-  canonicalName n >>= (return . liftM (\n' -> Ident s h (NodeInfo p pl n')))
 
 -- | add link between use and definition (private)
 addRef :: (MonadCError m, MonadSymtab m, CNode u, CNode d) => u -> d -> m ()

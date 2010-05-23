@@ -168,7 +168,11 @@ constEval md env (CUnary op e ni) =
        Nothing -> return $ CUnary op e' ni
 constEval md env (CCast d e ni) =
   do e' <- constEval md env e
-     return $ CCast d e' ni
+     t <- analyseTypeDecl d
+     bytes <- sizeofType md d t
+     case intValue e' of
+       Just i -> intExpr ni (withWordBytes bytes i)
+       Nothing -> return $ CCast d e' ni
 constEval md _ (CSizeofExpr e ni) =
   do t <- tExpr [] RValue e
      sz <- sizeofType md e t

@@ -56,6 +56,7 @@ sizeofType md n (ArrayType bt (ArraySize _ sz) _ _) =
        _ -> astError (nodeInfo sz) $
             "array size is not a constant: " ++ (render . pretty) sz
 sizeofType md n (TypeDefType (TypeDefRef _ (Just t) _) _ _) = sizeofType md n t
+sizeofType md _ (FunctionType _ _) = return $ ptrSize md
 sizeofType _ n t = astError (nodeInfo n) $
                  "can't find size of type: " ++ (render . pretty) t
 

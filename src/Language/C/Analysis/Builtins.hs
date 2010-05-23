@@ -60,6 +60,8 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_va_copy"
                              voidType
                              [ valistType, valistType ]
+                      , func "__builtin_va_arg_pack" (integral TyInt) []
+                      , func "__builtin_va_arg_pack_len" (integral TyInt) []
                       , func "__builtin_alloca"
                              voidPtr
                              [ size_tType ]
@@ -86,6 +88,9 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                              ]
                       , func "__builtin_strcmp"
                              (integral TyInt)
+                             [ constCharPtr, constCharPtr ]
+                      , func "__builtin_strpbrk"
+                             charPtr
                              [ constCharPtr, constCharPtr ]
                       , func "__builtin_bzero"
                              voidType
@@ -117,6 +122,8 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , var "__func__"
                             stringType
                       , var "__PRETTY_FUNCTION__"
+                            stringType
+                      , var "__FUNCTION__"
                             stringType
                       -- Builtin GCC error checking functions
                       , func "__builtin_object_size"

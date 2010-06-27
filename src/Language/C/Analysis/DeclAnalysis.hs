@@ -30,7 +30,7 @@ import Language.C.Data.Ident
 import Language.C.Pretty
 import Language.C.Syntax
 import {-# SOURCE #-} Language.C.Analysis.AstAnalysis (tExpr, ExprSide(..))
-import Language.C.Analysis.DefTable (TagFwdDecl(..))
+import Language.C.Analysis.DefTable (TagFwdDecl(..), insertType, lookupType)
 import Language.C.Analysis.Export
 import Language.C.Analysis.SemError
 import Language.C.Analysis.SemRep
@@ -164,7 +164,6 @@ analyseVarDecl handle_sue_def storage_specs decl_attrs typequals canonTySpecs in
 isTypeDef :: [CDeclSpec] -> Bool
 isTypeDef declspecs = not $ null [ n | (CStorageSpec (CTypedef n)) <- declspecs ]
 
-
 -- * translation
 
 -- | get the type of a /type declaration/
@@ -190,8 +189,11 @@ analyseTypeDecl (CDecl declspecs declrs node)
         | (not (null storagespec) || inline) = astError node "storage specifier for type declaration"
         | otherwise                          =
           do canonTySpecs <- canonicalTypeSpec typespecs
-             tType True node (map CAttrQual (attrs++attrs_decl) ++ typequals)
+             t <- tType True node (map CAttrQual (attrs++attrs_decl) ++ typequals)
                    canonTySpecs derived_declrs []
+             case nameOfNode node of
+               Just n -> withDefTable (\dt -> (t, insertType dt n t))
+               Nothing -> return t
         where
         (storagespec, attrs_decl, typequals, typespecs, inline) = partitionDeclSpecs declspecs
     analyseTyDeclr _ = astError node "Non-abstract declarator in type declaration"

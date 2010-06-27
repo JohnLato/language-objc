@@ -29,6 +29,7 @@ module Language.C.Analysis.DefTable (
     defineTypeDef, defineGlobalIdent, defineScopedIdent, defineScopedIdentWhen,
     declareTag,defineTag,defineLabel,lookupIdent,
     lookupTag,lookupLabel,lookupIdentInner,lookupTagInner,
+    insertType, lookupType,
     mergeDefTable
 )
 where
@@ -97,12 +98,13 @@ data DefTable = DefTable
         tagDecls   :: NameSpaceMap SUERef TagEntry,        -- ^ declared struct/union/enum  tags
         labelDefs  :: NameSpaceMap Ident Ident,            -- ^ defined labels
         memberDecls :: NameSpaceMap Ident MemberDecl,      -- ^ member declarations (only local)
-        refTable   :: IntMap Name                          -- ^ link names with definitions
+        refTable   :: IntMap Name,                         -- ^ link names with definitions
+        typeTable  :: IntMap Type
     }
 
 -- | empty definition table, with all name space maps in global scope
 emptyDefTable :: DefTable
-emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap IntMap.empty
+emptyDefTable = DefTable nameSpaceMap nameSpaceMap nameSpaceMap nameSpaceMap IntMap.empty IntMap.empty
 
 -- | get the globally defined entries of a definition table
 globalDefs :: DefTable -> GlobalDecls
@@ -309,14 +311,23 @@ lookupIdentInner ident deftbl = lookupInnermostScope (identDecls deftbl) ident
 lookupTagInner :: SUERef -> DefTable -> Maybe TagEntry
 lookupTagInner sue_ref deftbl = lookupInnermostScope (tagDecls deftbl) sue_ref
 
+-- | Record the type of a node.
+insertType :: DefTable -> Name -> Type -> DefTable
+insertType dt n t = dt { typeTable = IntMap.insert (nameId n) t (typeTable dt) }
+
+-- | Lookup the type of a node.
+lookupType :: DefTable -> Name -> Maybe Type
+lookupType dt n = IntMap.lookup (nameId n) (typeTable dt)
+
 -- | Merge two DefTables. If both tables contain an entry for a given
 --   key, they must agree on its value.
 mergeDefTable :: DefTable -> DefTable -> DefTable
-mergeDefTable (DefTable i1 t1 l1 m1 r1) (DefTable i2 t2 l2 m2 r2) =
+mergeDefTable (DefTable i1 t1 l1 m1 r1 tt1) (DefTable i2 t2 l2 m2 r2 tt2) =
   DefTable
   (mergeNameSpace i1 i2)
   (mergeNameSpace t1 t2)
   (mergeNameSpace l1 l2)
   (mergeNameSpace m1 m2)
   (union r1 r2)
+  (union tt1 tt2)
 

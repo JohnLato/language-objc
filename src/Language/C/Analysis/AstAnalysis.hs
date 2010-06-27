@@ -33,7 +33,7 @@ import Language.C.Analysis.ConstEval
 import Language.C.Analysis.Debug
 import Language.C.Analysis.DefTable (DefTable, globalDefs, defineScopedIdent,
                                      defineLabel, inFileScope, lookupTag,
-                                     lookupLabel)
+                                     lookupLabel, insertType, lookupType)
 import Language.C.Analysis.DeclAnalysis
 import Language.C.Analysis.TypeUtils
 import Language.C.Analysis.TypeCheck
@@ -473,15 +473,27 @@ defaultMD =
   , voidAlign = 1
   }
 
+tExpr :: MonadTrav m => [StmtCtx] -> ExprSide -> CExpr -> m Type
+tExpr c side e =
+  case nameOfNode (nodeInfo e) of
+    Just n ->
+      do dt <- getDefTable
+         case lookupType dt n of
+           Just t -> return t
+           Nothing ->
+             do t <- tExpr' c side e
+                withDefTable (\dt -> (t, insertType dt n t))
+    Nothing -> tExpr' c side e
+
 -- | Typecheck an expression, with information about whether it
 --   appears as an lvalue or an rvalue.
-tExpr :: MonadTrav m => [StmtCtx] -> ExprSide -> CExpr -> m Type
-tExpr c side (CBinary op le re ni)    =
+tExpr' :: MonadTrav m => [StmtCtx] -> ExprSide -> CExpr -> m Type
+tExpr' c side (CBinary op le re ni)    =
   do when (side == LValue) $ typeError ni "binary operator as lvalue"
      lt <- tExpr c RValue le
      rt <- tExpr c RValue re
      binopType' ni op lt rt
-tExpr c side (CUnary CAdrOp e ni)     =
+tExpr' c side (CUnary CAdrOp e ni)     =
   do when (side == LValue) $
           typeError ni "address-of operator as lvalue"
      case e of
@@ -489,25 +501,25 @@ tExpr c side (CUnary CAdrOp e ni)     =
        CVar i _ -> lookupObject i >>=
                    typeErrorOnLeft ni . maybe (notFound i) varAddrType
        _        -> simplePtr `liftM` tExpr c LValue e
-tExpr c _ (CUnary CIndOp e ni)     =
+tExpr' c _ (CUnary CIndOp e ni)     =
   tExpr c RValue e >>= (typeErrorOnLeft ni . derefType)
-tExpr c _ (CUnary CCompOp e ni)    =
+tExpr' c _ (CUnary CCompOp e ni)    =
   do t <- tExpr c RValue e
      checkIntegral' ni t
      return t
-tExpr c side (CUnary CNegOp e ni)      =
+tExpr' c side (CUnary CNegOp e ni)      =
   do when (side == LValue) $
           typeError ni "logical negation used as lvalue"
      tExpr c RValue e >>= checkScalar' ni
      return boolType
-tExpr c side (CUnary op e _)          =
+tExpr' c side (CUnary op e _)          =
   tExpr c (if isEffectfulOp op then LValue else side) e
-tExpr c _ (CIndex b i ni)             =
+tExpr' c _ (CIndex b i ni)             =
   do bt <- tExpr c RValue b
      it <- tExpr c RValue i
      addrTy <- binopType' ni CAddOp bt it
      typeErrorOnLeft ni $ derefType addrTy
-tExpr c side (CCond e1 me2 e3 ni)     =
+tExpr' c side (CCond e1 me2 e3 ni)     =
   do t1 <- tExpr c RValue e1
      checkScalar' (nodeInfo e1) t1
      t3 <- tExpr c side e3
@@ -516,47 +528,47 @@ tExpr c side (CCond e1 me2 e3 ni)     =
          do t2 <- tExpr c side e2
             conditionalType' ni t2 t3
        Nothing -> conditionalType' ni t1 t3
-tExpr c side (CMember e m deref ni)   =
+tExpr' c side (CMember e m deref ni)   =
   do t <- tExpr c RValue e
      bt <- if deref then typeErrorOnLeft ni (derefType t) else return t
      fieldType ni m bt
-tExpr c side (CComma es _)            =
+tExpr' c side (CComma es _)            =
   mapM (tExpr c side) es >>= return . last
-tExpr c side (CCast d e ni)           =
+tExpr' c side (CCast d e ni)           =
   do dt <- analyseTypeDecl d
      et <- tExpr c side e
      typeErrorOnLeft ni $ castCompatible dt et
      return dt
-tExpr c side (CSizeofExpr e ni)       =
+tExpr' c side (CSizeofExpr e ni)       =
   do when (side == LValue) $ typeError ni "sizeof as lvalue"
      tExpr c RValue e
      return size_tType
-tExpr c side (CAlignofExpr e ni)      =
+tExpr' c side (CAlignofExpr e ni)      =
   do when (side == LValue) $ typeError ni "alignof as lvalue"
      tExpr c RValue e
      return size_tType
-tExpr c side (CComplexReal e ni)      = complexBaseType ni c side e
-tExpr c side (CComplexImag e ni)      = complexBaseType ni c side e
-tExpr _ side (CLabAddrExpr _ ni)      =
+tExpr' c side (CComplexReal e ni)      = complexBaseType ni c side e
+tExpr' c side (CComplexImag e ni)      = complexBaseType ni c side e
+tExpr' _ side (CLabAddrExpr _ ni)      =
   do when (side == LValue) $ typeError ni "label address as lvalue"
      return $ PtrType voidType noTypeQuals []
-tExpr _ side (CCompoundLit d initList ni) =
+tExpr' _ side (CCompoundLit d initList ni) =
   do when (side == LValue) $ typeError ni "compound literal as lvalue"
      lt <- analyseTypeDecl d
      tInitList ni (canonicalType lt) initList
      return lt
-tExpr _ RValue (CAlignofType _ _)     = return size_tType
-tExpr _ RValue (CSizeofType _ _)      = return size_tType
-tExpr _ LValue (CAlignofType _ ni)    =
+tExpr' _ RValue (CAlignofType _ _)     = return size_tType
+tExpr' _ RValue (CSizeofType _ _)      = return size_tType
+tExpr' _ LValue (CAlignofType _ ni)    =
   typeError ni "alignoftype as lvalue"
-tExpr _ LValue (CSizeofType _ ni)     =
+tExpr' _ LValue (CSizeofType _ ni)     =
   typeError ni "sizeoftype as lvalue"
-tExpr _ side (CVar i ni)              =
+tExpr' _ side (CVar i ni)              =
   lookupObject i >>=
   maybe (typeErrorOnLeft ni $ notFound i) (return . declType)
-tExpr _ _ (CConst c)                  = constType c
-tExpr _ _ (CBuiltinExpr b)            = builtinType b
-tExpr c side (CCall (CVar i _) args ni)
+tExpr' _ _ (CConst c)                  = constType c
+tExpr' _ _ (CBuiltinExpr b)            = builtinType b
+tExpr' c side (CCall (CVar i _) args ni)
   | identToString i == "__builtin_choose_expr" =
     case args of
       [g, e1, e2] ->
@@ -568,7 +580,7 @@ tExpr c side (CCall (CVar i _) args ni)
              Nothing ->
                astError ni "non-constant argument to __builtin_choose_expr"
       _ -> astError ni "wrong number of arguments to __builtin_choose_expr"
-tExpr c _ (CCall fe args ni)          =
+tExpr' c _ (CCall fe args ni)          =
   do let defType = FunctionType
                    (FunTypeIncomplete
                     (DirectType (TyIntegral TyInt) noTypeQuals noAttributes))
@@ -616,7 +628,7 @@ tExpr c _ (CCall fe args ni)          =
                False -> assignCompatible' (nodeInfo arg) CAssignOp pty aty
         isTransparentUnion =
           any (\(Attr n _ _) -> identToString n == "__transparent_union__")
-tExpr c _ (CAssign op le re ni)       =
+tExpr' c _ (CAssign op le re ni)       =
   do lt <- tExpr c LValue le
      rt <- tExpr c RValue re
      when (constant $ typeQuals lt) $
@@ -627,7 +639,7 @@ tExpr c _ (CAssign op le re ni)       =
          | isPointerType lt' && getCInteger i == 0 -> return ()
        (_, _) -> assignCompatible' ni op lt rt
      return lt
-tExpr c _ (CStatExpr s _)             =
+tExpr' c _ (CStatExpr s _)             =
   do enterBlockScope
      mapM_ (withDefTable . defineLabel) (getLabels s)
      t <- tStmt c s

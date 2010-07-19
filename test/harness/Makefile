@@ -1,5 +1,6 @@
 all:
-	(cd ../..; cd examples ; make clean all > /dev/null)
+	make -C ../../examples clean all
+	make -C ../
 
 	(cd attributes && make clean all)
 

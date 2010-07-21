@@ -189,8 +189,8 @@ runEquivTest (CTranslUnit decls1 _) (CTranslUnit decls2 _) = do
   
   -- get generic asts
   (result,t) <- time $ do
-    let ast1 = map toGenericAST decls1
-    let ast2 = map toGenericAST decls2
+    let ast1 = map (toGenericAST . normalizeAST) decls1
+    let ast2 = map (toGenericAST . normalizeAST) decls2
     if (length ast1 /= length ast2)
       then 
         return $ Left ("Length mismatch: " ++ show (length ast1) ++ " vs. " ++ show (length ast2), Nothing)

@@ -36,7 +36,15 @@ data GenLeaf = GIdent Ident |
               deriving (Show,Eq,Ord)
 -- | Convert C AST into generic AST
 mkGenericCAST :: CTranslUnit -> GenAST
-mkGenericCAST = toGenericAST
+mkGenericCAST = toGenericAST . normalizeAST
+
+-- Preprocess AST to normalize blocks
+-- compound statements with a single statement in them (no declarations, no local labels) are removed
+normalizeAST :: (Data a) => a -> a
+normalizeAST = everywhere $ mkT normalizeCompound where
+  normalizeCompound :: CStat -> CStat
+  normalizeCompound (CCompound [] [CBlockStmt stmt] _) = stmt
+  normalizeCompound s = s
 
 -- To build a generic ast, we proceed as follows:
 -- If we have a primitive (Ident,Char,String,Integer or Double), we create a generic leaf.

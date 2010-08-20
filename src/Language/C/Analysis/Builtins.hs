@@ -51,6 +51,9 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                       , func "__builtin_huge_val" (floating TyDouble) []
                       , func "__builtin_huge_valf" (floating TyFloat) []
                       , func "__builtin_huge_vall" (floating TyLDouble) []
+                      , func "__builtin_copysign"
+                             (floating TyDouble)
+                             [ floating TyDouble, floating TyDouble ]
                       , func "__builtin_va_start"
                              voidType
                              [ valistType , voidPtr ]
@@ -71,6 +74,9 @@ builtins = foldr doIdent (foldr doTypeDef emptyDefTable typedefs) idents
                              , constVoidPtr
                              , size_tType
                              ]
+                      , func "__builtin_strspn"
+                             size_tType
+                             [ constCharPtr, constCharPtr ]
                       , func "__builtin_strchr"
                              charPtr
                              [ constCharPtr, integral TyInt]

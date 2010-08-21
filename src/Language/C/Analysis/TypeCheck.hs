@@ -142,6 +142,10 @@ compositeType (PtrType t1 q1 a1) t2 | isIntegralType t2 =
   return $ PtrType t1 (mergeTypeQuals q1 (typeQuals t2)) a1
 compositeType t1 (PtrType t2 q2 a2) | isIntegralType t1 =
   return $ PtrType t2 (mergeTypeQuals (typeQuals t1) q2) a2
+compositeType (ArrayType t1 sz1 q1 a1) t2 | isIntegralType t2 =
+  return $ PtrType t1 q1 a1
+compositeType t1 (ArrayType t2 sz2 q2 a2) | isIntegralType t1 =
+  return $ PtrType t2 q2 a2
 compositeType (ArrayType t1 s1 q1 a1) (ArrayType t2 s2 q2 a2) =
   do t <- compositeType t1 t2
      s <- compositeSize s1 s2

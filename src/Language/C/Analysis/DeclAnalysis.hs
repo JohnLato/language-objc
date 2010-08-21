@@ -210,8 +210,11 @@ tType handle_sue_def top_node typequals canonTySpecs derived_declrs oldstyle_par
         buildType dds >>= buildPointerType ptrquals node
     buildType (CArrDeclr arrquals size node : dds)
         = buildType dds >>= buildArrayType arrquals size node
-    buildType (CFunDeclr ~(Right (params, isVariadic)) attrs node : dds)
+    buildType (CFunDeclr (Right (params, isVariadic)) attrs node : dds)
         = buildType dds >>= (liftM  (uncurry FunctionType) . buildFunctionType params isVariadic attrs node)
+    buildType (CFunDeclr (Left _) _ _ : _)
+        -- /FIXME/: this is really an internal error, not an AST error.
+        = astError top_node "old-style parameters remaining after mergeOldStyle"
     buildPointerType ptrquals _node inner_ty
         = liftM (\(quals,attrs) -> PtrType inner_ty quals attrs) (tTypeQuals ptrquals)
     buildArrayType arr_quals size _node inner_ty

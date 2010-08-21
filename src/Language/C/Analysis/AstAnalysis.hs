@@ -613,10 +613,13 @@ tExpr' c _ (CCall fe args ni)          =
                    DirectType (TyComp ctr) _ _ ->
                      do td <- lookupSUE (nodeInfo arg) (sueRef ctr)
                         ms <- tagMembers (nodeInfo arg) td
+                        {-
                         when (null $ rights $ matches ms) $
                              astError (nodeInfo arg) $
                              "argument matches none of the elements " ++
                              "of transparent union"
+                        -}
+                        return ()
                      where matches =
                              map (\d -> assignCompatible
                                         CAssignOp

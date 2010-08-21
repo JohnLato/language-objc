@@ -166,8 +166,8 @@ compositeType (TypeDefType tdr1 q1 a1) (TypeDefType tdr2 q2 a2) =
 compositeType (FunctionType ft1 attrs1) (FunctionType ft2 attrs2) =
   case (ft1, ft2) of
     (FunType rt1 args1 varargs1, FunType rt2 args2 varargs2) ->
-      do when (length args1 /= length args2) $
-              fail "different numbers of arguments in function types"
+      do {- when (length args1 /= length args2) $
+              fail "different numbers of arguments in function types" -}
          args <- mapM (uncurry compositeParamDecl) (zip args1 args2)
          when (varargs1 /= varargs2) $
               fail "incompatible varargs declarations"
@@ -193,9 +193,11 @@ compositeSize (UnknownArraySize _) s2 = return s2
 compositeSize s1 (UnknownArraySize _) = return s1
 compositeSize (ArraySize s1 e1) (ArraySize s2 e2)
   | s1 == s2 && sizeEqual e1 e2 = return $ ArraySize s1 e1
-  | otherwise =
+  | otherwise = return $ ArraySize s1 e1
+{-
     fail $ "incompatible array sizes: "
            ++ (render . pretty) e1 ++ ", " ++ (render . pretty) e2
+-}
 
 sizeEqual :: CExpr -> CExpr -> Bool
 sizeEqual (CConst (CIntConst i1 _)) (CConst (CIntConst i2 _)) = i1 == i2

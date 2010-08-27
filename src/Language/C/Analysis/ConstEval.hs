@@ -53,8 +53,11 @@ sizeofType md n (ArrayType bt (ArraySize _ sz) _ _) =
        CConst (CIntConst i _) ->
          do s <- sizeofType md n bt
             return $ getCInteger i * s
-       _ -> astError (nodeInfo sz) $
+       _ -> return $ ptrSize md
+            {-
+            astError (nodeInfo sz) $
             "array size is not a constant: " ++ (render . pretty) sz
+            -}
 sizeofType md n (TypeDefType (TypeDefRef _ (Just t) _) _ _) = sizeofType md n t
 sizeofType md _ (FunctionType _ _) = return $ ptrSize md
 sizeofType _ n t = astError (nodeInfo n) $

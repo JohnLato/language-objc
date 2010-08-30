@@ -138,6 +138,10 @@ compositeType t1@(DirectType tn1 q1 a1) t2@(DirectType tn2 q2 a2) =
              (_, _) -> fail $ "incompatible direct types: "
                        ++ pType t1 ++ ", " ++ pType t2
      return $ DirectType tn (mergeTypeQuals q1 q2) (mergeAttributes a1 a2)
+compositeType (PtrType t1 q1 a1) (PtrType (DirectType TyVoid _ _) q2 _) =
+  return $ PtrType t1 (mergeTypeQuals q1 q2) a1
+compositeType (PtrType (DirectType TyVoid _ _) q1 _) (PtrType t2 q2 a2) =
+  return $ PtrType t2 (mergeTypeQuals q1 q2) a2
 compositeType (PtrType t1 q1 a1) t2 | isIntegralType t2 =
   return $ PtrType t1 (mergeTypeQuals q1 (typeQuals t2)) a1
 compositeType t1 (PtrType t2 q2 a2) | isIntegralType t1 =

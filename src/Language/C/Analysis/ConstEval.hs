@@ -127,8 +127,8 @@ intUnOp CCompOp i = Just $ complement i
 intUnOp CNegOp  i = Just $ toInteger $ fromEnum $ i == 0
 intUnOp _       _ = Nothing
 
-withWordBytes :: Integer -> Integer -> Integer
-withWordBytes bytes n = n .&. (2^(bytes * 8) - 1)
+withWordBytes :: Int -> Integer -> Integer
+withWordBytes bytes n = n `rem` (1 `shiftL` (bytes `shiftL` 3))
 
 boolValue :: CExpr -> Maybe Bool
 boolValue (CConst (CIntConst i _))  = Just $ getCInteger i /= 0
@@ -155,14 +155,14 @@ constEval md env e@(CBinary op e1 e2 ni) =
   do e1' <- constEval md env e1
      e2' <- constEval md env e2
      t <- tExpr [] RValue e
-     bytes <- sizeofType md e t
+     bytes <- fromIntegral `liftM` sizeofType md e t
      case (intValue e1', intValue e2') of
        (Just i1, Just i2) -> intExpr ni (withWordBytes bytes (intOp op i1 i2))
        (_, _)             -> return $ CBinary op e1' e2' ni
 constEval md env (CUnary op e ni) =
   do e' <- constEval md env e
      t <- tExpr [] RValue e
-     bytes <- sizeofType md e t
+     bytes <- fromIntegral `liftM` sizeofType md e t
      case intValue e' of
        Just i  -> case intUnOp op i of
                     Just i' -> intExpr ni (withWordBytes bytes i')
@@ -172,7 +172,7 @@ constEval md env (CUnary op e ni) =
 constEval md env (CCast d e ni) =
   do e' <- constEval md env e
      t <- analyseTypeDecl d
-     bytes <- sizeofType md d t
+     bytes <- fromIntegral `liftM` sizeofType md d t
      case intValue e' of
        Just i -> intExpr ni (withWordBytes bytes i)
        Nothing -> return $ CCast d e' ni

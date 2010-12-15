@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, CPP #-}
 module Language.C.Analysis.TypeCheck where
 
 import Control.Monad
@@ -19,13 +19,16 @@ import Language.C.Analysis.TypeConversions
 import Language.C.Analysis.TypeUtils
 import Text.PrettyPrint.HughesPJ
 
--- This is the standard MonadError instance for Either String
--- /FIXME/: Is this exported outside Language.C ?
+-- We used to re-implement and export the standard Either instance for
+-- Monad, which is bad, because as of GHC 7 it is in Control.Monad.Instances
+-- in base >4.2. For backwards compatibility with ghc-6.X, we use CPP here.
+#if __GLASGOW_HASKELL__ < 700
 instance Monad (Either String) where
     return        = Right
     Left  l >>= _ = Left l
     Right r >>= k = k r
     fail msg      = Left msg
+#endif
 
 pType :: Type -> String
 pType = render . pretty

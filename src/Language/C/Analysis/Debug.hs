@@ -27,7 +27,6 @@ import Language.C.Data
 import Language.C.Pretty
 import Language.C.Syntax
 
-import Data.Generics
 import Text.PrettyPrint.HughesPJ
 import Data.Map (Map) ; import qualified Data.Map as Map
 

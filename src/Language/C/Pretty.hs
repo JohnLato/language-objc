@@ -119,18 +119,19 @@ instance Pretty CStat where
     pretty (CExpr expr _) = ii $ maybeP pretty expr <> semi
     pretty c@(CCompound _ _ _) = prettyPrec 0 c
     pretty (CIf expr stat estat _) =
-        ii $  text "if" <+> text "(" <> pretty expr <> text ")"
-                $+$ prettyThen stat
+        ii $  text "if" <+> parens (pretty expr)
+                $+$ prettyBody stat
                 $$  maybeP prettyElse estat
       where
-        prettyThen stat@(CIf _ _ _ _) = text "{" $+$ prettyPrec (-1) stat $$ text "}"
-        prettyThen stat = prettyPrec (-1) stat
+        prettyBody c@(CCompound _ _ _) = prettyPrec (-1) c
+        prettyBody nonCompound         = prettyPrec (-1) (CCompound [] [CBlockStmt nonCompound] undefined)
         prettyElse (CIf else_if_expr else_if_stat else_stat _) =
-          text "else if" <+> text "(" <> pretty else_if_expr <> text ")"
-            $+$ prettyPrec (-1) else_if_stat
-          $$ maybeP prettyElse else_stat
+          text "else if" <+> parens (pretty else_if_expr)
+            $+$ prettyBody else_if_stat
+            $$  maybeP prettyElse else_stat
         prettyElse else_stmt =
-          text "else" $+$ prettyPrec (-1) else_stmt
+          text "else"
+            $+$ prettyBody else_stmt
 
     pretty (CSwitch expr stat _) =
         ii $ text "switch" <+> text "(" <> pretty expr <> text ")"

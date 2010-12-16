@@ -34,11 +34,11 @@ import Data.Generics
 
 -- | C char constants (abstract)
 data CChar = CChar
-              {-# UNPACK #-} !Char
-              {-# UNPACK #-} !Bool  -- wide flag
+              !Char
+              !Bool  -- wide flag
            | CChars
-                              [Char] -- multi-character character constant
-              {-# UNPACK #-} !Bool   -- wide flag
+              [Char] -- multi-character character constant
+              !Bool   -- wide flag
            deriving (Eq,Ord,Data,Typeable)
 
 instance Show CChar where
@@ -98,9 +98,9 @@ instance Show CIntFlag where
 {-# SPECIALIZE testFlag :: CIntFlag -> Flags CIntFlag -> Bool #-}
 
 data CInteger = CInteger
-                 {-# UNPACK #-} !Integer
-                 {-# UNPACK #-} !CIntRepr
-                 {-# UNPACK #-} !(Flags CIntFlag)  -- integer flags
+                 !Integer
+                 !CIntRepr
+                 !(Flags CIntFlag)  -- integer flags
                  deriving (Eq,Ord,Data,Typeable)
 instance Show CInteger where
     showsPrec _ (CInteger i repr flags) = showInt i . showString (concatMap showIFlag [FlagUnsigned .. ]) where
@@ -141,8 +141,8 @@ cInteger i = CInteger i DecRepr noFlags
 
 -- | Floats (represented as strings)
 data CFloat = CFloat
-                {-# UNPACK #-} !String
-                 deriving (Eq,Ord,Data,Typeable)
+               !String
+               deriving (Eq,Ord,Data,Typeable)
 instance Show CFloat where
   showsPrec _ (CFloat internal) = showString internal
 

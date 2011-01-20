@@ -12,7 +12,7 @@
 -- source position and unqiue name
 -----------------------------------------------------------------------------
 module Language.C.Data.Node (
-   NodeInfo(..), undefNode, isUndefNode,
+   NodeInfo(..), undefNode, isUndefNode, NodeInfoS(..),
    mkNodeInfoOnlyPos,mkNodeInfoPosLen, mkNodeInfo,mkNodeInfo',
    internalNode, -- deprecated, use undefNode
    CNode(nodeInfo), fileOfNode,
@@ -26,7 +26,16 @@ import Data.Generics
 -- | Parsed entity attribute
 data NodeInfo = OnlyPos  Position {-# UNPACK #-} !PosLength        -- only pos and last token (for internal stuff only)
               | NodeInfo Position {-# UNPACK #-} !PosLength !Name  -- pos, last token and unique name
-           deriving (Show,Data,Typeable)
+           deriving (Data,Typeable)
+
+instance Show NodeInfo where
+    show _ = "_"
+
+newtype NodeInfoS = NodeInfoS NodeInfo
+
+instance Show NodeInfoS where
+    showsPrec d (NodeInfoS (OnlyPos p l)) = (showString "(OnlyPos ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString ")")
+    showsPrec d (NodeInfoS (NodeInfo p l n)) = (showString "(OnlyPos ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString " ") . (showsPrec d n) . (showString ")")
 
 -- name equality of attributes, used to define (name) equality of objects
 instance Eq NodeInfo where

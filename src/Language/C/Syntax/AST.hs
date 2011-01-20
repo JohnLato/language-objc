@@ -69,7 +69,7 @@ import Data.Generics
 type CTranslUnit = CTranslationUnit NodeInfo
 data CTranslationUnit a
   = CTranslUnit [CExternalDeclaration a] a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | External C declaration (C99 6.9, K&R A10)
 --
@@ -79,7 +79,7 @@ data CExternalDeclaration a
   = CDeclExt (CDeclaration a)
   | CFDefExt (CFunctionDef a)
   | CAsmExt  (CStringLiteral a) a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | C function definition (C99 6.9.1, K&R A10.1)
 --
@@ -102,7 +102,7 @@ data CFunctionDef a
     [CDeclaration a]          -- optional declaration list
     (CStatement a)            -- compound statement
     a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
 --   declarations and type names.
@@ -154,7 +154,7 @@ data CDeclaration a
       Maybe (CInitializer a), -- optional initialize
       Maybe (CExpression a))] -- optional size (const expr)
     a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | C declarator (K&R A8.5, C99 6.7.5) and abstract declarator (K&R A8.8, C99 6.7.6)
 --
@@ -203,7 +203,7 @@ data CDeclaration a
 type CDeclr = CDeclarator NodeInfo
 data CDeclarator a
   = CDeclr (Maybe Ident) [CDerivedDeclarator a] (Maybe (CStringLiteral a)) [CAttribute a] a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | Derived declarators, see 'CDeclr'
 --
@@ -223,14 +223,14 @@ data CDerivedDeclarator a
   -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@
   | CFunDeclr (Either [Ident] ([CDeclaration a],Bool)) [CAttribute a] a
     -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | Size of an array
 type CArrSize = CArraySize NodeInfo
 data CArraySize a
   = CNoArrSize Bool               -- ^ @CUnknownSize isCompleteType@
   | CArrSize Bool (CExpression a) -- ^ @CArrSize isStatic expr@
-    deriving (Data,Typeable)
+    deriving (Show, Data,Typeable)
 
 -- | C statement (K&R A9, C99 6.8)
 --
@@ -276,7 +276,7 @@ data CStatement a
   | CReturn (Maybe (CExpression a)) a
   -- | assembly statement
   | CAsm CAsmStmt a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | GNU Assembler statement
 --
@@ -296,7 +296,7 @@ data CAssemblyStatement a
     [CAsmOperand]              -- input operands
     [CStringLiteral a]         -- Clobbers
     a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 -- | Assembler operand
 --
 -- @CAsmOperand argName? constraintExpr arg@ specifies an operand for an assembler
@@ -308,7 +308,7 @@ data CAssemblyOperand a
     (CStringLiteral a)  -- constraint expr
     (CExpression a)     -- argument
     a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 -- | C99 Block items
 --
 --  Things that may appear in compound statements: either statements, declarations
@@ -318,7 +318,7 @@ data CCompoundBlockItem a
   = CBlockStmt    (CStatement a)    -- ^ A statement
   | CBlockDecl    (CDeclaration a)  -- ^ A local declaration
   | CNestedFunDef (CFunctionDef a)  -- ^ A nested function (GNU C)
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 -- | C declaration specifiers and qualifiers
 --
 -- Declaration specifiers include at most one storage-class specifier (C99 6.7.1),
@@ -328,7 +328,7 @@ data CDeclarationSpecifier a
   = CStorageSpec (CStorageSpecifier a) -- ^ storage-class specifier or typedef
   | CTypeSpec    (CTypeSpecifier a)    -- ^ type name
   | CTypeQual    (CTypeQualifier a)    -- ^ type qualifier
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | Seperate the declaration specifiers
 --
@@ -354,7 +354,7 @@ data CStorageSpecifier a
   | CExtern   a     -- ^ extern
   | CTypedef  a     -- ^ typedef
   | CThread   a     -- ^ GNUC thread local storage
-    deriving (Eq,Ord,Data,Typeable {-! CNode !-})
+    deriving (Show, Eq,Ord,Data,Typeable {-! CNode !-})
 
 -- | C type specifier (K&R A8.2, C99 6.7.2)
 --
@@ -380,7 +380,7 @@ data CTypeSpecifier a
   | CTypeDef     Ident        a      -- ^ Typedef name
   | CTypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
   | CTypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | returns @True@ if the given typespec is a struct, union or enum /definition/
 isSUEDef :: CTypeSpec -> Bool
@@ -399,7 +399,7 @@ data CTypeQualifier a
   | CRestrQual a
   | CInlineQual a
   | CAttrQual  (CAttribute a)
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
@@ -419,12 +419,12 @@ data CStructureUnion a
     (Maybe [CDeclaration a])  -- member declarations
     [CAttribute a]            -- __attribute__s
     a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | A tag to determine wheter we refer to a @struct@ or @union@, see 'CStructUnion'.
 data CStructTag = CStructTag
                 | CUnionTag
-                deriving (Eq,Data,Typeable)
+                deriving (Show, Eq,Data,Typeable)
 
 -- | C enumeration specifier (K&R A8.4, C99 6.7.2.2)
 --
@@ -446,7 +446,7 @@ data CEnumeration a
              Maybe (CExpression a))]) -- explicit variant value
     [CAttribute a]                    -- __attribute__s
     a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 
 -- | C initialization (K&R A8.7, C99 6.7.8)
@@ -460,7 +460,7 @@ data CInitializer a
   = CInitExpr (CExpression a) a
   -- | initialization list (see 'CInitList')
   | CInitList (CInitializerList a) a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | Initializer List
 --
@@ -503,7 +503,7 @@ data CPartDesignator a
   | CMemberDesig  Ident a
   -- | array range designator @CRangeDesig from to _@ (GNU C)
   | CRangeDesig (CExpression a) (CExpression a) a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | @__attribute__@ annotations
 --
@@ -511,7 +511,7 @@ data CPartDesignator a
 -- and serve as generic properties of some syntax tree elements.
 type CAttr = CAttribute NodeInfo
 data CAttribute a = CAttr Ident [CExpression a] a
-                    deriving (Data,Typeable {-! CNode !-})
+                    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | C expression (K&R A7)
 --
@@ -573,7 +573,7 @@ data CExpression a
   | CStatExpr    (CStatement a) a        -- ^ GNU C compound statement as expr
   | CLabAddrExpr Ident a                 -- ^ GNU C address of label
   | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 
 -- | GNU Builtins, which cannot be typed in C99
@@ -582,7 +582,7 @@ data CBuiltinThing a
   = CBuiltinVaArg (CExpression a) (CDeclaration a) a            -- ^ @(expr, type)@
   | CBuiltinOffsetOf (CDeclaration a) [CDesignator] a -- ^ @(type, designator-list)@
   | CBuiltinTypesCompatible (CDeclaration a) (CDeclaration a) a  -- ^ @(type,type)@
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | C constant (K&R A2.5 & A7.2)
 type CConst = CConstant NodeInfo
@@ -591,12 +591,12 @@ data CConstant a
   | CCharConst  CChar a
   | CFloatConst CFloat a
   | CStrConst   CString a
-    deriving (Data,Typeable {-! CNode !-})
+    deriving (Show, Data,Typeable {-! CNode !-})
 
 -- | Attributed string literals
 type CStrLit = CStringLiteral NodeInfo
 data CStringLiteral a = CStrLit CString a
-            deriving (Data,Typeable {-! CNode !-})
+            deriving (Show, Data,Typeable {-! CNode !-})
 
 cstringOfLit :: CStrLit -> CString
 cstringOfLit (CStrLit cstr _) = cstr

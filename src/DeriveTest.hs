@@ -7,15 +7,15 @@ import Data.Data
 data ExplicitNodeInfo = ExplicitNodeInfo1 NodeInfo Int
                       | ExplicitNodeInfo2 Int NodeInfo
                       | ExplicitNodeInfo3 Int NodeInfo Int
-                   deriving (Data,Typeable {-! CNode !-})
+                   deriving (Data,Typeable {-! ,CNode !-})
 data OneArgNodeInfo = ExplicitNodeInfo4 Int NodeInfo
                     | Delegator ExplicitNodeInfo
-                   deriving (Data,Typeable {-! CNode !-})
+                   deriving (Data,Typeable {-! ,CNode !-})
 data PolyVarNodeInfo a = PolyCon2 Int Int a
                        | PolyCon1 Int a
                        | PolyCon0 a
                        | PolyDelegator OneArgNodeInfo
-                   deriving (Data,Typeable {-! CNode !-})
+                   deriving (Data,Typeable {-! ,CNode !-})
 
 -- -- Should fail
 -- data PolyVarNodeInfo a b = PolyCon2 Int Int a

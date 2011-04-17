@@ -1,6 +1,7 @@
 Changes since 0.3.1
 ==========================================================================
-
+Fr April 15 2011: Alexander Bernauer <bernauer@inf.ethz.ch>
+  * Show instances (popular request) for AST types, DumpAst demo
 
 Changes 0.3 - 0.3.1
 ==========================================================================

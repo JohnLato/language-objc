@@ -8,7 +8,7 @@
 -- Stability   :  experimental
 -- Portability :  ghc
 --
--- Base type for errors occuring in parsing, analysing and pretty-printing.
+-- Base type for errors occurring in parsing, analysing and pretty-printing.
 -- With ideas from Simon Marlow's
 -- "An extensible dynamically-typed hierarchy of execeptions [2006]"
 -----------------------------------------------------------------------------
@@ -52,7 +52,7 @@ isHardError = ( > LevelWarn) . errorLevel
 -- | information attached to every error in Language.C
 data ErrorInfo = ErrorInfo ErrorLevel Position [String] deriving Typeable
 
--- to faciliate newtype deriving
+-- to facilitate newtype deriving
 instance Show ErrorInfo where show = showErrorInfo "error"
 instance Error ErrorInfo where
     errorInfo = id

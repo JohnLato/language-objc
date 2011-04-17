@@ -87,7 +87,7 @@ class (Monad m) => MonadCError m where
     throwTravError :: Error e => e -> m a
     -- | catch an 'Error' (we could implement dynamically-typed catch here)
     catchTravError :: m a -> (CError -> m a) -> m a
-    -- | remember that an 'Error' occured (without throwing it)
+    -- | remember that an 'Error' occurred (without throwing it)
     recordError    :: Error e => e -> m ()
     -- | return the list of recorded errors
     getErrors      :: m [CError]
@@ -113,7 +113,7 @@ checkRedef subject new_decl redecl_status =
             -- redefinition LevelWarn subject ShadowedDef (nodeInfo new_decl) (nodeInfo old_def)
         KeepDef _old_def      -> return ()
 
--- | forward declaration of a tag. Only neccessary for name analysis, but otherwise no semantic
+-- | forward declaration of a tag. Only necessary for name analysis, but otherwise no semantic
 -- consequences.
 handleTagDecl :: (MonadCError m, MonadSymtab m) => TagFwdDecl -> m ()
 handleTagDecl decl = do
@@ -353,7 +353,7 @@ createSUERef node_info Nothing | (Just name) <- nameOfNode node_info = return $ 
 handleTravError :: (MonadCError m) => m a -> m (Maybe a)
 handleTravError a = liftM Just a `catchTravError` (\e -> recordError e >> return Nothing)
 
--- | check wheter non-recoverable errors occured
+-- | check wheter non-recoverable errors occurred
 hadHardErrors :: [CError] -> Bool
 hadHardErrors = (not . null . filter isHardError)
 

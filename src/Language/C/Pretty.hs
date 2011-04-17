@@ -73,7 +73,7 @@ instance Pretty CTranslUnit where
 
 -- | Pretty print the given tranlation unit, but replace declarations from header files with @#include@ directives.
 --
--- The resulting file may not compile (because of missing @#define@ directives and similar things), but is very usefull
+-- The resulting file may not compile (because of missing @#define@ directives and similar things), but is very useful
 -- for testing, as otherwise the pretty printed file will be cluttered with declarations from system headers.
 prettyUsingInclude :: CTranslUnit -> Doc
 prettyUsingInclude (CTranslUnit edecls _) =
@@ -91,7 +91,7 @@ prettyUsingInclude (CTranslUnit edecls _) =
     includeHeader hFile = text "#include" <+> doubleQuotes (text hFile)
     isHeaderFile = (".h" `isSuffixOf`)
     includeWarning hs | Set.null hs = empty
-                      | otherwise = text "/* Warning: The #include directives in this file aren't neccessarily correct. */"
+                      | otherwise = text "/* Warning: The #include directives in this file aren't necessarily correct. */"
 
 -- TODO: Check need of __extension__
 instance Pretty CExtDecl where
@@ -385,7 +385,7 @@ instance Pretty CExpr where
     prettyPrec p (CUnary CPostDecOp expr _) =
         parenPrec p 26 $ prettyPrec 26 expr <> text "--"
     prettyPrec p (CUnary op expr@(CUnary _ _ _) _) =
-        --                             parens aren't neccessary, but look nicer imho
+        --                             parens aren't necessary, but look nicer imho
         parenPrec p 25 $ pretty op <+> parens (prettyPrec 25 expr)
     prettyPrec p (CUnary op expr _) =
         parenPrec p 25 $ pretty op <> prettyPrec 25 expr

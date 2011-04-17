@@ -382,11 +382,11 @@ data CDeclarationSpecifier a
     deriving (Show, Data,Typeable {-! ,CNode ,Functor, Annotated !-})
 
 
--- | Seperate the declaration specifiers
+-- | Separate the declaration specifiers
 --
 -- Note that inline isn't actually a type qualifier, but a function specifier.
 -- @__attribute__@ of a declaration qualify declarations or declarators (but not types),
--- and are therefore seperated as well.
+-- and are therefore separated as well.
 partitionDeclSpecs :: [CDeclarationSpecifier a]
                    -> ( [CStorageSpecifier a], [CAttribute a]
                       , [CTypeQualifier a], [CTypeSpecifier a], Bool)

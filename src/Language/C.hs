@@ -29,7 +29,7 @@ import Language.C.Pretty
 import Language.C.Parser
 import Language.C.System.Preprocess
 
--- | preprocess (if neccessary) and parse a C source file
+-- | preprocess (if necessary) and parse a C source file
 --
 --   > Synopsis: parseCFile preprocesssor tmp-dir? cpp-opts file
 --   > Example:  parseCFile (newGCC "gcc") Nothing ["-I/usr/include/gtk-2.0"] my-gtk-exts.c

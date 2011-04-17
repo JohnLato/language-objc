@@ -6,6 +6,7 @@ all:
 	ghc -package language-c-$(VERSION) --make -O SearchDef.hs
 	ghc -package language-c-$(VERSION) --make -O TypeCheck.hs
 	ghc -package language-c-$(VERSION) --make -O ComputeSize.hs
+	ghc -package language-c-$(VERSION) --make -O DumpAst.hs
 clean:
 	rm -f *.o *.hi C2HSTest ComputeSize QuickTest ScanFile SearchDef TypeCheck ParseAndPrint
 clean_tmp:

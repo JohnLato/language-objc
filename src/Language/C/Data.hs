@@ -23,7 +23,7 @@ module Language.C.Data (
      initPos, nopos,builtinPos,internalPos,
      isSourcePos,isBuiltinPos,isInternalPos,
      -- * Syntax tree nodes
-     NodeInfo(..),CNode(..),NodeInfoS(..),
+     NodeInfo(..),CNode(..),
      fileOfNode,posOfNode,nameOfNode,
      undefNode,mkNodeInfoOnlyPos,mkNodeInfo,
      internalNode, -- DEPRECATED

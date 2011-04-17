@@ -12,7 +12,7 @@
 -- source position and unqiue name
 -----------------------------------------------------------------------------
 module Language.C.Data.Node (
-   NodeInfo(..), undefNode, isUndefNode, NodeInfoS(..),
+   NodeInfo(..), undefNode, isUndefNode,
    mkNodeInfoOnlyPos,mkNodeInfoPosLen, mkNodeInfo,mkNodeInfo',
    internalNode, -- deprecated, use undefNode
    CNode(nodeInfo), fileOfNode,
@@ -29,13 +29,10 @@ data NodeInfo = OnlyPos  Position {-# UNPACK #-} !PosLength        -- only pos a
            deriving (Data,Typeable)
 
 instance Show NodeInfo where
-    show _ = "_"
-
-newtype NodeInfoS = NodeInfoS NodeInfo
-
-instance Show NodeInfoS where
-    showsPrec d (NodeInfoS (OnlyPos p l)) = (showString "(OnlyPos ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString ")")
-    showsPrec d (NodeInfoS (NodeInfo p l n)) = (showString "(OnlyPos ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString " ") . (showsPrec d n) . (showString ")")
+    showsPrec d (OnlyPos p l) =
+      (showString "(OnlyPos ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString ")")
+    showsPrec d (NodeInfo p l n) =
+      (showString "(NodeInfo ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString " ") . (showsPrec d n) . (showString ")")
 
 -- name equality of attributes, used to define (name) equality of objects
 instance Eq NodeInfo where

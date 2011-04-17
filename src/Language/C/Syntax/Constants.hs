@@ -46,7 +46,7 @@ instance Show CChar where
     showsPrec _ (CChars cs wideflag) = _showWideFlag wideflag . (sQuote $ concatMap escapeCChar cs)
 
 -- | @showCharConst c@ prepends _a_ String representing the C char constant corresponding to @c@.
--- If neccessary uses octal or hexadecimal escape sequences.
+-- If necessary uses octal or hexadecimal escape sequences.
 showCharConst :: Char -> ShowS
 showCharConst c = sQuote $ escapeCChar c
 
@@ -178,7 +178,7 @@ concatCStrings :: [CString] -> CString
 concatCStrings cs = CString (concatMap getCString cs) (any isWideString cs)
 
 -- | @showStringLiteral s@ prepends a String representing the C string literal corresponding to @s@.
--- If neccessary it uses octal or hexadecimal escape sequences.
+-- If necessary it uses octal or hexadecimal escape sequences.
 showStringLit :: String -> ShowS
 showStringLit = dQuote . concatMap showStringChar
   where
@@ -264,7 +264,7 @@ head' :: String -> [a] -> a
 head' err []  = error err
 head' _ (x:_) = x
 
--- TODO: Move to seperate file ?
+-- TODO: Move to separate file ?
 newtype Flags f = Flags Integer deriving (Eq,Ord,Data,Typeable)
 noFlags :: Flags f
 noFlags = Flags 0
@@ -274,6 +274,3 @@ clearFlag :: (Enum f) => f -> Flags f -> Flags f
 clearFlag flag (Flags k) = Flags$ k `clearBit` fromEnum flag
 testFlag :: (Enum f) => f -> Flags f -> Bool
 testFlag flag (Flags k)  = k `testBit` fromEnum flag
-
-
-

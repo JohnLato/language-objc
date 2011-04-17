@@ -65,7 +65,7 @@ import Data.Maybe
 -- callbacks in the @MonadTrav@ @m@.
 --
 -- Returns the set of global declarations and definitions which where successfully translated.
--- It is the users responsibility to check whether any hard errors occured (@runTrav@ does this for you).
+-- It is the users responsibility to check whether any hard errors occurred (@runTrav@ does this for you).
 analyseAST :: (MonadTrav m) => CTranslUnit -> m GlobalDecls
 analyseAST (CTranslUnit decls _file_node) = do
     -- analyse all declarations, but recover from errors

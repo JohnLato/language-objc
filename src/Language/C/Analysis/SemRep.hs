@@ -72,7 +72,7 @@ class HasCompTyKind a where
 -- | Composite type definitions (tags)
 data TagDef =  CompDef CompType	  --definition
      	       | EnumDef EnumType      -- enum definition
-               deriving (Typeable, Data {-! CNode !-})
+               deriving (Typeable, Data {-! ,CNode !-})
 
 instance HasSUERef TagDef where
     sueRef (CompDef ct) = sueRef ct
@@ -114,7 +114,7 @@ data IdentDecl = Declaration Decl           -- ^ object or function declaration
 	             | ObjectDef ObjDef           -- ^ object definition
 	             | FunctionDef FunDef         -- ^ function definition
 	             | EnumeratorDef Enumerator   -- ^ definition of an enumerator
-               deriving (Typeable, Data {-! CNode !-})
+               deriving (Typeable, Data {-! ,CNode !-})
 
 instance Declaration IdentDecl where
   getVarDecl (Declaration decl) = getVarDecl decl
@@ -203,7 +203,7 @@ data DeclEvent =
 
 -- | Declarations, which aren't definitions
 data Decl = Decl VarDecl NodeInfo
-            deriving (Typeable, Data {-! CNode !-})
+            deriving (Typeable, Data {-! ,CNode !-})
 
 instance Declaration Decl where
     getVarDecl   (Decl vd _) =  vd
@@ -215,7 +215,7 @@ instance Declaration Decl where
 -- If the initializer is missing, it is a tentative definition, i.e. a
 -- definition which might be overriden later on.
 data ObjDef = ObjDef VarDecl (Maybe Initializer) NodeInfo
-             deriving (Typeable, Data {-! CNode !-})
+             deriving (Typeable, Data {-! ,CNode !-})
 instance Declaration ObjDef where
     getVarDecl  (ObjDef vd _ _) =  vd
 
@@ -228,7 +228,7 @@ isTentative (ObjDef decl init_opt _) | isExtDecl decl = maybe True (const False)
 --
 -- A function definition is a declaration together with a statement (the function body).
 data FunDef = FunDef VarDecl Stmt NodeInfo
-             deriving (Typeable, Data {-! CNode !-})
+             deriving (Typeable, Data {-! ,CNode !-})
 instance Declaration FunDef where
     getVarDecl (FunDef vd _ _) = vd
 
@@ -236,7 +236,7 @@ instance Declaration FunDef where
 -- | Parameter declaration
 data ParamDecl = ParamDecl VarDecl NodeInfo
                | AbstractParamDecl VarDecl NodeInfo
-    deriving (Typeable, Data {-! CNode !-} )
+    deriving (Typeable, Data {-! ,CNode !-} )
 
 instance Declaration ParamDecl where
   getVarDecl (ParamDecl vd _) = vd
@@ -247,7 +247,7 @@ data MemberDecl = MemberDecl VarDecl (Maybe Expr) NodeInfo
                   -- ^ @MemberDecl vardecl bitfieldsize node@
                 | AnonBitField Type Expr NodeInfo
                   -- ^ @AnonBitField typ size@
-    deriving (Typeable, Data {-! CNode !-} )
+    deriving (Typeable, Data {-! ,CNode !-} )
 
 instance Declaration MemberDecl where
   getVarDecl (MemberDecl vd _ _) = vd
@@ -257,7 +257,7 @@ instance Declaration MemberDecl where
 --
 -- The identifier is a new name for the given type.
 data TypeDef = TypeDef Ident Type Attributes NodeInfo
-               deriving (Typeable, Data {-! CNode !-} )
+               deriving (Typeable, Data {-! ,CNode !-} )
 
 -- | return the idenitifier of a @typedef@
 identOfTypeDef :: TypeDef -> Ident
@@ -378,7 +378,7 @@ data BuiltinType = TyVaList
 -- | typdef references
 -- If the actual type is known, it is attached for convenience
 data TypeDefRef = TypeDefRef Ident (Maybe Type) NodeInfo
-               deriving (Typeable, Data {-! CNode !-})
+               deriving (Typeable, Data {-! ,CNode !-})
 
 -- | integral types (C99 6.7.2.2)
 data IntType =
@@ -424,18 +424,18 @@ instance Show FloatType where
 
 -- | composite type declarations
 data CompTypeRef = CompTypeRef SUERef CompTyKind NodeInfo
-                    deriving (Typeable, Data {-! CNode !-})
+                    deriving (Typeable, Data {-! ,CNode !-})
 
 instance HasSUERef  CompTypeRef where sueRef  (CompTypeRef ref _ _) = ref
 instance HasCompTyKind CompTypeRef where compTag (CompTypeRef _ tag _)  = tag
 
 data EnumTypeRef = EnumTypeRef SUERef NodeInfo
-    deriving (Typeable, Data {-! CNode !-})
+    deriving (Typeable, Data {-! ,CNode !-})
 instance HasSUERef  EnumTypeRef where sueRef  (EnumTypeRef ref _) = ref
 
 -- | Composite type (struct or union).
 data CompType =  CompType SUERef CompTyKind [MemberDecl] Attributes NodeInfo
-                 deriving (Typeable, Data {-! CNode !-} )
+                 deriving (Typeable, Data {-! ,CNode !-} )
 instance HasSUERef  CompType where sueRef  (CompType ref _ _ _ _) = ref
 instance HasCompTyKind CompType where compTag (CompType _ tag _ _ _) = tag
 
@@ -455,7 +455,7 @@ instance Show CompTyKind where
 -- | Representation of C enumeration types
 data EnumType = EnumType SUERef [Enumerator] Attributes NodeInfo
                  -- ^ @EnumType name enumeration-constants attrs node@
-                 deriving (Typeable, Data {-! CNode !-} )
+                 deriving (Typeable, Data {-! ,CNode !-} )
 
 instance HasSUERef EnumType where sueRef  (EnumType ref _ _ _) = ref
 
@@ -465,7 +465,7 @@ typeOfEnumDef (EnumType ref _ _ _) = TyEnum (EnumTypeRef ref undefNode)
 
 -- | An Enumerator consists of an identifier, a constant expressions and the link to its type
 data Enumerator = Enumerator Ident Expr EnumType NodeInfo
-                  deriving (Typeable, Data {-! CNode !-})
+                  deriving (Typeable, Data {-! ,CNode !-})
 instance Declaration Enumerator where
   getVarDecl (Enumerator ide _ enumty _) =
     VarDecl
@@ -539,7 +539,7 @@ type AsmName = CStrLit
 --
 -- /TODO/: ultimatively, we want to parse attributes and represent them in a typed way
 data Attr = Attr Ident [Expr] NodeInfo
-            deriving (Typeable, Data {-! CNode !-})
+            deriving (Typeable, Data {-! ,CNode !-})
 
 type Attributes = [Attr]
 
@@ -558,101 +558,128 @@ mergeAttributes = (++)
 type Stmt = CStat
 -- | 'Expr' is currently an alias for 'CExpr' (Syntax)
 type Expr = CExpr
+-- GENERATED START
 
 
+instance CNode TagDef where
+        nodeInfo (CompDef d) = nodeInfo d
+        nodeInfo (EnumDef d) = nodeInfo d
 
---------------------------------------------------------
--- DERIVES GENERATED CODE
--- DO NOT MODIFY BELOW THIS LINE
--- CHECKSUM: 2093586448
+instance Pos TagDef where
+        posOf x = posOf (nodeInfo x)
 
-instance CNode TagDef
-    where nodeInfo (CompDef d) = nodeInfo d
-          nodeInfo (EnumDef d) = nodeInfo d
-instance Pos TagDef
-    where posOf x = posOfNode (nodeInfo x)
 
-instance CNode IdentDecl
-    where nodeInfo (Declaration d) = nodeInfo d
-          nodeInfo (ObjectDef d) = nodeInfo d
-          nodeInfo (FunctionDef d) = nodeInfo d
-          nodeInfo (EnumeratorDef d) = nodeInfo d
-instance Pos IdentDecl
-    where posOf x = posOfNode (nodeInfo x)
+instance CNode IdentDecl where
+        nodeInfo (Declaration d) = nodeInfo d
+        nodeInfo (ObjectDef d) = nodeInfo d
+        nodeInfo (FunctionDef d) = nodeInfo d
+        nodeInfo (EnumeratorDef d) = nodeInfo d
 
-instance CNode DeclEvent
-    where nodeInfo (TagEvent d) = nodeInfo d
-          nodeInfo (DeclEvent d) = nodeInfo d
-          nodeInfo (ParamEvent d) = nodeInfo d
-          nodeInfo (LocalEvent d) = nodeInfo d
-          nodeInfo (TypeDefEvent d) = nodeInfo d
-          nodeInfo (AsmEvent d) = nodeInfo d
-instance Pos DeclEvent
-    where posOf x = posOfNode (nodeInfo x)
+instance Pos IdentDecl where
+        posOf x = posOf (nodeInfo x)
 
-instance CNode Decl
-    where nodeInfo (Decl _ nodeinfo) = nodeinfo
-instance Pos Decl
-    where posOf x = posOfNode (nodeInfo x)
 
-instance CNode ObjDef
-    where nodeInfo (ObjDef _ _ nodeinfo) = nodeinfo
-instance Pos ObjDef
-    where posOf x = posOfNode (nodeInfo x)
+instance CNode DeclEvent where
+        nodeInfo (TagEvent d) = nodeInfo d
+        nodeInfo (DeclEvent d) = nodeInfo d
+        nodeInfo (ParamEvent d) = nodeInfo d
+        nodeInfo (LocalEvent d) = nodeInfo d
+        nodeInfo (TypeDefEvent d) = nodeInfo d
+        nodeInfo (AsmEvent d) = nodeInfo d
 
-instance CNode FunDef
-    where nodeInfo (FunDef _ _ nodeinfo) = nodeinfo
-instance Pos FunDef
-    where posOf x = posOfNode (nodeInfo x)
+instance Pos DeclEvent where
+        posOf x = posOf (nodeInfo x)
 
-instance CNode ParamDecl
-    where nodeInfo (ParamDecl _ nodeinfo) = nodeinfo
-          nodeInfo (AbstractParamDecl _ nodeinfo) = nodeinfo
-instance Pos ParamDecl
-    where posOf x = posOfNode (nodeInfo x)
 
-instance CNode MemberDecl
-    where nodeInfo (MemberDecl _ _ nodeinfo) = nodeinfo
-          nodeInfo (AnonBitField _ _ nodeinfo) = nodeinfo
-instance Pos MemberDecl
-    where posOf x = posOfNode (nodeInfo x)
+instance CNode Decl where
+        nodeInfo (Decl _ n) = n
 
-instance CNode TypeDef
-    where nodeInfo (TypeDef _ _ _ nodeinfo) = nodeinfo
-instance Pos TypeDef
-    where posOf x = posOfNode (nodeInfo x)
+instance Pos Decl where
+        posOf x = posOf (nodeInfo x)
 
-instance CNode TypeDefRef
-    where nodeInfo (TypeDefRef _ _ nodeinfo) = nodeinfo
-instance Pos TypeDefRef
-    where posOf x = posOfNode (nodeInfo x)
 
-instance CNode CompTypeRef
-    where nodeInfo (CompTypeRef _ _ nodeinfo) = nodeinfo
-instance Pos CompTypeRef
-    where posOf x = posOfNode (nodeInfo x)
+instance CNode ObjDef where
+        nodeInfo (ObjDef _ _ n) = n
 
-instance CNode EnumTypeRef
-    where nodeInfo (EnumTypeRef _ nodeinfo) = nodeinfo
-instance Pos EnumTypeRef
-    where posOf x = posOfNode (nodeInfo x)
+instance Pos ObjDef where
+        posOf x = posOf (nodeInfo x)
 
-instance CNode CompType
-    where nodeInfo (CompType _ _ _ _ nodeinfo) = nodeinfo
-instance Pos CompType
-    where posOf x = posOfNode (nodeInfo x)
 
-instance CNode EnumType
-    where nodeInfo (EnumType _ _ _ nodeinfo) = nodeinfo
-instance Pos EnumType
-    where posOf x = posOfNode (nodeInfo x)
+instance CNode FunDef where
+        nodeInfo (FunDef _ _ n) = n
 
-instance CNode Enumerator
-    where nodeInfo (Enumerator _ _ _ nodeinfo) = nodeinfo
-instance Pos Enumerator
-    where posOf x = posOfNode (nodeInfo x)
+instance Pos FunDef where
+        posOf x = posOf (nodeInfo x)
 
-instance CNode Attr
-    where nodeInfo (Attr _ _ nodeinfo) = nodeinfo
-instance Pos Attr
-    where posOf x = posOfNode (nodeInfo x)
+
+instance CNode ParamDecl where
+        nodeInfo (ParamDecl _ n) = n
+        nodeInfo (AbstractParamDecl _ n) = n
+
+instance Pos ParamDecl where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode MemberDecl where
+        nodeInfo (MemberDecl _ _ n) = n
+        nodeInfo (AnonBitField _ _ n) = n
+
+instance Pos MemberDecl where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode TypeDef where
+        nodeInfo (TypeDef _ _ _ n) = n
+
+instance Pos TypeDef where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode TypeDefRef where
+        nodeInfo (TypeDefRef _ _ n) = n
+
+instance Pos TypeDefRef where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode CompTypeRef where
+        nodeInfo (CompTypeRef _ _ n) = n
+
+instance Pos CompTypeRef where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode EnumTypeRef where
+        nodeInfo (EnumTypeRef _ n) = n
+
+instance Pos EnumTypeRef where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode CompType where
+        nodeInfo (CompType _ _ _ _ n) = n
+
+instance Pos CompType where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode EnumType where
+        nodeInfo (EnumType _ _ _ n) = n
+
+instance Pos EnumType where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode Enumerator where
+        nodeInfo (Enumerator _ _ _ n) = n
+
+instance Pos Enumerator where
+        posOf x = posOf (nodeInfo x)
+
+
+instance CNode Attr where
+        nodeInfo (Attr _ _ n) = n
+
+instance Pos Attr where
+        posOf x = posOf (nodeInfo x)
+-- GENERATED STOP

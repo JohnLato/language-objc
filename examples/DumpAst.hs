@@ -28,9 +28,13 @@ main = do
     ast <- errorOnLeftM "Parse Error" $
       parseCFile (newGCC "gcc") Nothing opts input_file
     -- dump
-    putStrLn $ show ast
+    putStrLn $ show (fmap (const ShowPlaceholder) ast)
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return
 errorOnLeftM :: (Show a) => String -> IO (Either a b) -> IO b
 errorOnLeftM msg action = action >>= errorOnLeft msg
+
+data ShowPlaceholder = ShowPlaceholder
+instance Show ShowPlaceholder where
+  showsPrec _ ShowPlaceholder = showString "_"

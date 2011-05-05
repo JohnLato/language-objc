@@ -640,7 +640,7 @@ data CExpression a
   | CStatExpr    (CStatement a) a        -- ^ GNU C compound statement as expr
   | CLabAddrExpr Ident a                 -- ^ GNU C address of label
   | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
-    deriving (Show, Data,Typeable {-! ,CNode , Annotated !-})
+    deriving (Data,Typeable,Show {-! ,CNode , Annotated !-})
 
 -- deriving Functor does not work (type synonyms)
 instance Functor CExpression where

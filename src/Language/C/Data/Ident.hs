@@ -64,7 +64,7 @@ instance Ord Ident where
 
 -- for displaying identifiers
 instance Show Ident where
-  showsPrec _ ide = showString ("`" ++ identToString ide ++ "'")
+  showsPrec _ ide = showString ("\"" ++ identToString ide ++ "\"")
 
 -- identifiers are attributed
 instance CNode Ident where

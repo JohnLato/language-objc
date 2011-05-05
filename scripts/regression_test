@@ -7,10 +7,10 @@ function die() {
     echo "*** Regression test failed: $1 ***" 1>&2; exit 1 
 }
 if [ ! -d $TEST_DIR ] ; then 
-    die "'$TEST_DIR' directory does not exist (needs to be a checkout of HEAD)"
+    die "'$TEST_DIR' directory does not exist (needs to be a checkout of your local HEAD)"
 fi
 cd $TEST_DIR
-darcs pull || die "darcs pull failed"
+darcs pull || die "darcs pull (from local HEAD) failed"
 echo "Building via cabal"
 cabal configure || die "cabal configure failed"
 cabal build || die "cabal build failed"

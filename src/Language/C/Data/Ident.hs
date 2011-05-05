@@ -10,7 +10,7 @@
 -- Portability :  ghc
 --
 -- This module provides the notion of identifiers in C, speed up using hashing.
--- Identifiers are associated optionally associated with a 'NodeInfo', i.e. with 
+-- Identifiers are associated optionally associated with a 'NodeInfo', i.e. with
 -- a unique 'Name' and a source location ('Position'). The ordering relation on
 -- identifiers is based on the hash and does not follow the lexical order.
 -----------------------------------------------------------------------------
@@ -19,7 +19,7 @@ module Language.C.Data.Ident (
     SUERef(..), isAnonymousRef,
     mkIdent, builtinIdent, internalIdent, internalIdentAt, isInternalIdent, identToString, dumpIdent)
 where
-  
+
 -- TODO (comment from manuel):
 --  * Hashing is not 8bit clean.
 

@@ -228,7 +228,7 @@ tType handle_sue_def top_node typequals canonTySpecs derived_declrs oldstyle_par
              params' <- mapM tParamDecl params
              leavePrototypeScope
              attrs'  <- mapM tAttr attrs
-             return $ (\t -> (t,attrs')) $ 
+             return $ (\t -> (t,attrs')) $
                 case (map declType params',is_variadic) of
                     ([],False) -> FunTypeIncomplete return_ty  -- may be improved later on
                     ([DirectType TyVoid _ _],False) -> FunType return_ty [] False

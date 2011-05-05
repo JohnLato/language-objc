@@ -54,7 +54,7 @@ instance Pos NodeInfo where
 lengthOfNode :: NodeInfo -> Maybe Int
 lengthOfNode ni = len
     where
-    len = case ni of NodeInfo firstPos lastTok _ -> computeLength firstPos lastTok 
+    len = case ni of NodeInfo firstPos lastTok _ -> computeLength firstPos lastTok
                      OnlyPos firstPos lastTok -> computeLength firstPos lastTok
     computeLength pos (lastPos,len) | len < 0   = Nothing
                                     | otherwise = Just (posOffset lastPos + len - posOffset pos)
@@ -103,7 +103,7 @@ isUndefNode (OnlyPos p _) | isNoPos p = True
                           | otherwise = False
 isUndefNode _ = False
 
--- | 
+-- |
 -- | Given only a source position, create a new node attribute
 mkNodeInfoOnlyPos :: Position -> NodeInfo
 mkNodeInfoOnlyPos pos  = OnlyPos pos (nopos,-1)

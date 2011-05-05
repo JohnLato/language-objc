@@ -440,13 +440,52 @@ instance Pretty CBuiltin where
         (parens $ pretty ty1 <> comma <+> pretty ty2)
 
 instance Pretty CAssignOp where
-    pretty = text . show
+  pretty op = text $ case op of
+    CAssignOp -> "="
+    CMulAssOp -> "*="
+    CDivAssOp -> "/="
+    CRmdAssOp -> "%="
+    CAddAssOp -> "+="
+    CSubAssOp -> "-="
+    CShlAssOp -> "<<="
+    CShrAssOp -> ">>="
+    CAndAssOp -> "&="
+    CXorAssOp -> "^="
+    COrAssOp  -> "|="
 
 instance Pretty CBinaryOp where
-    pretty = text . show
+  pretty op = text $ case op of
+    CMulOp -> "*"
+    CDivOp -> "/"
+    CRmdOp -> "%"
+    CAddOp -> "+"
+    CSubOp -> "-"
+    CShlOp -> "<<"
+    CShrOp -> ">>"
+    CLeOp  -> "<"
+    CGrOp  -> ">"
+    CLeqOp -> "<="
+    CGeqOp -> ">="
+    CEqOp  -> "=="
+    CNeqOp -> "!="
+    CAndOp -> "&"
+    CXorOp -> "^"
+    COrOp  -> "|"
+    CLndOp -> "&&"
+    CLorOp -> "||"
 
 instance Pretty CUnaryOp where
-    pretty = text . show
+  pretty op = text $ case op of
+    CPreIncOp  -> "++"
+    CPreDecOp  -> "--"
+    CPostIncOp -> "++"
+    CPostDecOp -> "--"
+    CAdrOp     -> "&"
+    CIndOp     -> "*"
+    CPlusOp    -> "+"
+    CMinOp     -> "-"
+    CCompOp    -> "~"
+    CNegOp     -> "!"
 
 instance Pretty CConst where
     pretty (CIntConst   int_const _) = text (show int_const)

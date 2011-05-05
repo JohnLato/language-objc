@@ -38,19 +38,7 @@ data CAssignOp = CAssignOp
                | CAndAssOp
                | CXorAssOp
                | COrAssOp
-               deriving (Eq, Ord,Data,Typeable)
-instance Show CAssignOp where
-  show CAssignOp = "="
-  show CMulAssOp = "*="
-  show CDivAssOp = "/="
-  show CRmdAssOp = "%="
-  show CAddAssOp = "+="
-  show CSubAssOp = "-="
-  show CShlAssOp = "<<="
-  show CShrAssOp = ">>="
-  show CAndAssOp = "&="
-  show CXorAssOp = "^="
-  show COrAssOp  = "|="
+               deriving (Eq,Ord,Show,Data,Typeable)
 
 assignBinop :: CAssignOp -> CBinaryOp
 assignBinop CAssignOp = error "direct assignment has no binary operator"
@@ -85,26 +73,7 @@ data CBinaryOp = CMulOp
                | COrOp                  -- ^ inclusive bitwise or
                | CLndOp                 -- ^ logical and
                | CLorOp                 -- ^ logical or
-               deriving (Eq,Ord,Data,Typeable)
-instance Show CBinaryOp where
-  show CMulOp = "*"
-  show CDivOp = "/"
-  show CRmdOp = "%"
-  show CAddOp = "+"
-  show CSubOp = "-"
-  show CShlOp = "<<"
-  show CShrOp = ">>"
-  show CLeOp  = "<"
-  show CGrOp  = ">"
-  show CLeqOp = "<="
-  show CGeqOp = ">="
-  show CEqOp  = "=="
-  show CNeqOp = "!="
-  show CAndOp = "&"
-  show CXorOp = "^"
-  show COrOp  = "|"
-  show CLndOp = "&&"
-  show CLorOp = "||"
+               deriving (Eq,Ord,Show,Data,Typeable)
 
 isCmpOp :: CBinaryOp -> Bool
 isCmpOp op = op `elem` [ CLeqOp, CGeqOp, CLeOp, CGrOp, CEqOp, CNeqOp ]
@@ -130,18 +99,7 @@ data CUnaryOp = CPreIncOp               -- ^ prefix increment operator
               | CMinOp                  -- ^ prefix minus
               | CCompOp                 -- ^ one's complement
               | CNegOp                  -- ^ logical negation
-              deriving (Eq,Ord,Data,Typeable)
-instance Show CUnaryOp where
-  show CPreIncOp  = "++"
-  show CPreDecOp  = "--"
-  show CPostIncOp = "++"
-  show CPostDecOp = "--"
-  show CAdrOp     = "&"
-  show CIndOp     = "*"
-  show CPlusOp    = "+"
-  show CMinOp     = "-"
-  show CCompOp    = "~"
-  show CNegOp     = "!"
+              deriving (Eq,Ord,Show,Data,Typeable)
 
 isEffectfulOp :: CUnaryOp -> Bool
 isEffectfulOp op = op `elem` [ CPreIncOp, CPreDecOp, CPostIncOp, CPostDecOp ]

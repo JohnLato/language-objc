@@ -319,20 +319,20 @@ binopType op t1 t2 =
       compatible t1' t2' >> return ptrDiffType
     (_, PtrType _ _ _, t2')
       | isPtrOp op && isIntegralType t2' -> return t1
-      | otherwise -> fail $ "invalid pointer operation: " ++ show op
+      | otherwise -> fail $ "invalid pointer operation: " ++ render (pretty op)
     (CAddOp, t1', PtrType _ _ _) | isIntegralType t1' -> return t2
     (_, ArrayType _ _ _ _, t2')
       | isPtrOp op && isIntegralType t2' -> return t1
-      | otherwise -> fail $ "invalid pointer operation: " ++ show op
+      | otherwise -> fail $ "invalid pointer operation: " ++ render (pretty op)
     (CAddOp, t1', ArrayType _ _ _ _) | isIntegralType t1' -> return t2
     (_, DirectType tn1 q1 a1, DirectType tn2 q2 a2) ->
         do when (isBitOp op) (checkIntegral t1 >> checkIntegral t2)
            case arithmeticConversion tn1 tn2 of
              Just tn -> return $ DirectType tn (mergeTypeQuals q1 q2) (mergeAttributes a1 a2)
-             Nothing -> fail $ "invalid binary operation: " ++
-                        show op ++ ", " ++ pType t1 ++ ", " ++ pType t2
-    (_, _, _) -> fail $ "unhandled binary operation: "
-                 ++ pType t1 ++ show op ++ pType t2
+             Nothing -> fail $ render $
+                        text "invalid binary operation:" <+> pretty t1 <+> pretty op <+> pretty t2
+    (_, _, _) -> fail $ render $
+                 text "unhandled binary operation:" <+> pretty t1 <+> pretty op <+> pretty t2
 
 -- | Determine the type of a conditional expression.
 conditionalType :: Type -> Type -> Either String Type

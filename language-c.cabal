@@ -89,10 +89,10 @@ Library
                       Language.C.Analysis.TypeCheck
                       Language.C.Analysis.TypeConversions
                       Language.C.Analysis.TypeUtils
+                      Language.C.Analysis.NameSpaceMap
                       -- semrep -> code [alpha]
                       Language.C.Analysis.Export
     Other-Modules:
-                      Language.C.Analysis.NameSpaceMap
                       Language.C.Data.RList
                       -- parser implementation
                       Language.C.Parser.Builtin

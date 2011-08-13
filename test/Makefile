@@ -9,7 +9,7 @@ ifndef HC
 endif
 
 ifndef OPT
-	OPT=-O
+	OPT=-O -rtsopts
 endif
 
 ifdef PROFILE
@@ -56,7 +56,7 @@ check_args: autogen
 	rm build/Main.o 
 clean:
 	rm -rf build/*
-	
+
 autogen: build/autogen/Language/C/Parser/Lexer.hs build/autogen/Language/C/Parser/Parser.hs
 build/autogen/Language/C/Parser/Lexer.hs: ../src/Language/C/Parser/Lexer.x
 	mkdir -p build/autogen/Language/C/Parser

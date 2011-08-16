@@ -24,7 +24,7 @@ for f in `find . -name $cf | grep -v noncompile`; do
 
 	gcc -I$DG_DIR -I$DG_DIR/cpp -fsyntax-only -std=gnu9x $f 2>/dev/null
 	if [ $? -eq 0 ] ; then 
-		sh run-test $f		
+		bash run-test $f
 	else
 		echo "[ERROR] Not running Test $f"
 		gcc -I$DG_DIR -I$DG_DIR/cpp -fsyntax-only -std=gnu9x $f

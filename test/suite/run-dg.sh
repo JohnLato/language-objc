@@ -1,10 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 source ./configuration
 
 TEST_SUITES="gcc-dg-incompliant gcc-dg-c89 gcc-dg-c99 gcc-dg-gnu99"
 for t in $TEST_SUITES; do
 	echo "Cleaning test suite $t"
-	sh clear_test_suite $t
+	bash clear_test_suite $t
 done
 
 BASE_DIR=`pwd`
@@ -37,6 +37,6 @@ for cf in `find . -name '*.c'`; do
 		echo "[INFO] Running Test $f ($COMPLIANCE)"
 		source $CTEST_BINDIR/set_test_suite gcc-dg-$COMPLIANCE
 		export CTEST_DRIVER=CRoundTrip
-		sh run-test $f
+		bash run-test $f
 	fi
 done

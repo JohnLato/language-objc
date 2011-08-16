@@ -22,7 +22,6 @@ module Main (
 main
 )  where
 import Language.C
-import Language.C.Parser
 import Language.C.System.GCC
 import Language.C.Analysis
 import Language.C.Test.Environment
@@ -83,7 +82,7 @@ main = do
       ("-e":str:[]) -> runP config expressionP str >> exitWith ExitSuccess
       ("-s":str:[]) -> runP config statementP str >> exitWith ExitSuccess
       ("-d":str:[]) -> runP config extDeclP str >> exitWith ExitSuccess
-      otherArgs ->
+      _otherArgs ->
           case mungeCcArgs args of
             Groked [cFile] gccOpts -> do
                 presult <- parseCFile (newGCC "gcc") (Just tmpdir) gccOpts cFile
@@ -111,13 +110,16 @@ output config file ast = do
         let result = runTrav_ (analyseAST ast)
         case result of
             Left errs -> hPutStrLn stderr (show errs)
-            Right (ok,warnings) -> do mapM (hPutStrLn stderr . show) warnings
+            Right (ok,warnings) -> do mapM_ (hPutStrLn stderr . show) warnings
                                       printStats file ok
     when (not $ parseOnlyFlag config) $
       print $ (if useIncludes config then prettyUsingInclude else pretty) ast
     when (debugFlag config) $ putStrLn . comment . show . pretty . mkGenericCAST $ ast
 
+comment :: String -> String
 comment str = "/*\n" ++ str ++ "\n*/"
+
+printStats :: FilePath -> GlobalDecls -> IO ()
 printStats file = putStrLn . comment . show
                   . prettyAssocsWith "global decl stats" text (text.show)
                   . globalDeclStats (== file)

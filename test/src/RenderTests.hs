@@ -24,9 +24,11 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.List
-import System
+
 import System.IO
 import System.Directory (getCurrentDirectory)
+import System.Environment (getArgs)
+import System.Exit (exitWith,ExitCode(..))
 import System.FilePath
 import Text.Printf
 import Text.XHtml

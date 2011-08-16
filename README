@@ -18,6 +18,11 @@ Provide the set of flags passing
  --flags="<flags-seperated-by-space>"
 to configure.
 
+== Compatibility ==
+
+Tested with ghc-6.12 (Ubuntu), ghc-7.0 (OSX 10.5, Linux) and ghc-7.2 (Linux).
+It is recommended to use the most recent platform release: http://hackage.haskell.org/platform/.
+
 == Sources ==
 
 see src/README

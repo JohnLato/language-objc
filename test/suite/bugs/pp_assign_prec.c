@@ -7,6 +7,7 @@ int main() {
   int z = ( (y ? 2 : 3) , 4 ) ;
   int u_ = ( (y = 2) ? 3 : 0 );
   int v = ( y = (2 ? 3 : 0));
-  int w = ( (2 ? x : y) = x);   // Warning (not really an lvalue)
+  /* no longer supported by gcc */
+  /* int w = ( (2 ? x : y) = x);   // Warning (not really an lvalue) */
   int s = ( 2 ? 3 : (y = x));
 }

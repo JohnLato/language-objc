@@ -21,7 +21,6 @@ import Text.PrettyPrint
 import Language.C
 import Language.C.Analysis
 
-import Language.C.Data.Position
 import Language.C.Test.Environment
 import Language.C.Test.Framework
 import Language.C.Test.ParseTests

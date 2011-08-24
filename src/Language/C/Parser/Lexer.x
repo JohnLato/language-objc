@@ -50,10 +50,17 @@
 
 module Language.C.Parser.Lexer (lexC, parseError) where
 
-import Data.Char (isDigit)
+import Data.Char (chr, isDigit)
+import Data.Word (Word8)
 import Control.Monad (liftM, when)
 
 import Language.C.Data.InputStream
+  (InputStream, inputStreamEmpty, takeByte, takeChar, takeChars)
+
+-- (    InputStream, readInputStream,inputStreamToString,inputStreamFromString,
+--     takeByte, takeChar, inputStreamEmpty, takeChars,
+--     countLines,
+-- )
 import Language.C.Data.Position
 import Language.C.Data.Ident    (mkIdent)
 
@@ -433,6 +440,14 @@ type AlexInput = (Position,   -- current position,
 
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar _ = error "alexInputPrevChar not used"
+
+-- for alex-3.0
+alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
+alexGetByte (p,is) | inputStreamEmpty is = Nothing
+                   | otherwise  = let (b,s) = takeByte is in
+                                  -- this is safe for latin-1, but ugly
+                                  let p' = alexMove p (chr (fromIntegral b)) in p' `seq`
+                                  Just (b, (p', s))
 
 alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
 alexGetChar (p,is) | inputStreamEmpty is = Nothing

@@ -1,14 +1,14 @@
-= Language.C sources =
+= Language.ObjC sources =
 The sources are located in /src.
 
-The Language.C source tree is structured as follows:
+The Language.ObjC source tree is structured as follows:
 - Language
- - C             ... C facade imports
- - C.Data        ... common datatypes, such as identifiers, unique names etc.
- - C.Syntax      ... The AST
- - C.Pretty      ... Pretty printing C code
- - C.InputStream ... Input stream abstraction
- - C.Parser      ... C parser and pretty printer
- - C.System      ... Executing preprocessors and compilers
- - C.Analysis    ... Analysis of C source files (alpha)
+ - ObjC             ... ObjC facade imports
+ - ObjC.Data        ... common datatypes, such as identifiers, unique names etc.
+ - ObjC.Syntax      ... The AST
+ - ObjC.Pretty      ... Pretty printing ObjC code
+ - ObjC.InputStream ... Input stream abstraction
+ - ObjC.Parser      ... ObjC parser and pretty printer
+ - ObjC.System      ... Executing preprocessors and compilers
+ - ObjC.Analysis    ... Analysis of ObjC source files (alpha)
 

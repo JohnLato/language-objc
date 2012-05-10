@@ -18,7 +18,7 @@ if [ ! -e ${DERIVE} ] ; then
 	echo "Installing ${DERIVE}"
 	cp derive-${DERIVE_PATCH_VERSION}/dist/build/derive/derive "${DERIVE}"
 fi
-TARGETS="Language/C/Syntax/AST.hs Language/C/Analysis/SemRep.hs"
+TARGETS="Language/ObjC/Syntax/AST.hs Language/ObjC/Analysis/SemRep.hs"
 for T in ${TARGETS} ; do
 	echo "Appending derived instances to ${T}"
 	$DERIVE -a "${T}"

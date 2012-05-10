@@ -1,0 +1,101 @@
+Name:           language-objc
+Version:        0.4.2.1
+Cabal-Version:  >= 1.6
+Build-Type:     Simple
+License:        BSD3
+License-File:   LICENSE
+Copyright:      LICENSE
+Author:         AUTHORS
+Maintainer:     jwlato@gmail.com
+Stability:      experimental
+Homepage:       http://www.tiresiaspress.us/haskell/language-objc
+
+Synopsis:       Analysis and generation of Objcective C code
+Description:    Language-ObjC is a haskell library for the analysis and
+                generation of Objective C code.
+                It features a complete, well tested parser and pretty printer.
+Category:       Language
+
+Extra-Source-Files: AUTHORS AUTHORS.c2hs ChangeLog README
+                    src/Language/ObjC/Parser/Lexer.x
+                    src/Language/ObjC/Parser/Parser.y
+
+Source-Repository head
+  type:     darcs
+  location: http://www.tiresiaspress.us/haskell/language-objc
+
+Flag useByteStrings
+    Description: Use ByteString as InputStream datatype
+    Default: True
+Flag separateSYB
+  description: Data.Generics available in separate package.
+
+Library
+    Extensions: CPP, DeriveDataTypeable, PatternGuards, BangPatterns, ExistentialQuantification, GeneralizedNewtypeDeriving, ScopedTypeVariables
+    Build-Depends: base >= 3 && < 5, filepath, process, directory, array, containers, pretty
+
+    If flag(separateSYB)
+      Build-Depends:
+            base >=4 && <5,
+            syb
+    Else
+      Build-Depends:
+            base <4
+
+    if flag(useByteStrings)
+        Build-Depends: bytestring >= 0.9.0
+    else
+        cpp-options: -DNO_BYTESTRING
+    Build-Tools:    happy, alex
+
+    Hs-Source-Dirs: src
+    Exposed-Modules:
+                      -- top-level
+                      Language.ObjC
+                      -- data
+                      Language.ObjC.Data
+                      Language.ObjC.Data.Position
+                      Language.ObjC.Data.Ident
+                      Language.ObjC.Data.Error
+                      Language.ObjC.Data.Name
+                      Language.ObjC.Data.Node
+                      Language.ObjC.Data.InputStream
+                      -- syntax
+                      Language.ObjC.Syntax
+                      Language.ObjC.Syntax.AST
+                      Language.ObjC.Syntax.Constants
+                      Language.ObjC.Syntax.Ops
+                      Language.ObjC.Syntax.Utils
+                      -- parser
+                      Language.ObjC.Parser
+                      -- pretty printer
+                      Language.ObjC.Pretty
+                      -- system
+                      Language.ObjC.System.Preprocess
+                      Language.ObjC.System.GCC
+                      -- analysis [experimental]
+                      Language.ObjC.Analysis
+                      Language.ObjC.Analysis.ConstEval
+                      Language.ObjC.Analysis.Builtins
+                      Language.ObjC.Analysis.SemError
+                      Language.ObjC.Analysis.SemRep
+                      Language.ObjC.Analysis.DefTable
+                      Language.ObjC.Analysis.TravMonad
+                      Language.ObjC.Analysis.AstAnalysis
+                      Language.ObjC.Analysis.DeclAnalysis
+                      Language.ObjC.Analysis.Debug
+                      Language.ObjC.Analysis.TypeCheck
+                      Language.ObjC.Analysis.TypeConversions
+                      Language.ObjC.Analysis.TypeUtils
+                      Language.ObjC.Analysis.NameSpaceMap
+                      -- semrep -> code [alpha]
+                      Language.ObjC.Analysis.Export
+    Other-Modules:
+                      Language.ObjC.Data.RList
+                      -- parser implementation
+                      Language.ObjC.Parser.Builtin
+                      Language.ObjC.Parser.Lexer
+                      Language.ObjC.Parser.ParserMonad
+                      Language.ObjC.Parser.Tokens
+                      Language.ObjC.Parser.Parser
+

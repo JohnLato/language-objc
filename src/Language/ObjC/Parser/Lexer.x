@@ -265,8 +265,6 @@ readCOctal s@('0':r) =
 -- effecient pattern matching which gives us the expected radix-style search.
 -- This change makes a significant performance difference [chak]
 --
--- To make this a little more maintainable, we autogenerate it from this list,
--- using the script GenerateKeywordMatch.hs (in /src)
 {-
 alignof @__, asm @__, auto
 break, bool _Bool,

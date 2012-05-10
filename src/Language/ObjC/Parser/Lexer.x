@@ -158,6 +158,9 @@ $white+         ;
 --
 \#$space*ident$anyButNL*$eol    ;
 
+-- objective-C compiler directives, e.g. "@class"
+@$identletter+ { \pos len str -> idkwtok (takeChars len str) pos }
+
 -- identifiers and keywords (follows K&R A2.3 and A2.4)
 --
 $identletter($identletter|$digit)*  { \pos len str -> idkwtok (takeChars len str) pos }
@@ -356,6 +359,9 @@ idkwtok ('_' : '_' : 'v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : []) = tok 1
 idkwtok ('v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : []) = tok 8 CTokVolatile
 idkwtok ('_' : '_' : 'v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : '_' : '_' : []) = tok 12 CTokVolatile
 idkwtok ('w' : 'h' : 'i' : 'l' : 'e' : []) = tok 5 CTokWhile
+idkwtok ('@' : 'i' : 'n' : 't' : 'e' : 'r' : 'f' : 'a' : 'c' : 'e' : [] ) = tok 10 (CTokObjC ObjCInterface)
+idkwtok ('@' : 'e' : 'n' : 'd' : []) = tok 4 (CTokObjC ObjCEnd)
+idkwtok ('@' : 'c' : 'l' : 'a' : 's' : 's' : []) = tok 4 (CTokObjC ObjCClass)
 
 idkwtok cs = \pos -> do
   name <- getNewName

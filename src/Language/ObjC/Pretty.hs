@@ -285,6 +285,7 @@ instance Pretty CEnum where
 --   where
 --   declrChain declr@(CVarDeclr _ _ _ _) = [declr]
 --   declrChain declr@(CPtrDeclr _ ideclr _)   = declr : declrChain ideclr
+--   declrChain declr@(CBlkDeclr _ ideclr _)   = declr : declrChain ideclr
 --   declrChain declr@(CArrDeclr ideclr _ _ _) = declr : declrChain ideclr
 --   declrChain declr@(CFunDeclr ideclr _ _ _)   = declr : declrChain ideclr
 --
@@ -293,7 +294,8 @@ instance Pretty CEnum where
 --       maybeP (\asmname -> parens (text "asm:" <+> pretty asmname)) asm <+>
 --       text "is" <+> (if null cattrs then empty else prettyList (map CAttrQual cattrs) <> comma)
 --   descrDeclr (pre,isPlural) (CPtrDeclr quals declr _) = single isPlural $ \pluralize ->
---       pre <+> indefArticle isPlural <> prettyList quals <+> pluralize "pointer to" "pointers to"
+--   descrDeclr (pre,isPlural) (CBlkDeclr quals declr _) = single isPlural $ \pluralize ->
+--       pre <+> indefArticle isPlural <> prettyList quals <+> pluralize "block of " "blocks of"
 --   descrDeclr (pre,isPlural) (CArrDeclr declr quals expr _) = plural isPlural $ \pluralize ->
 --       pre <+> indefArticle' isPlural <> prettyList quals <+> pluralize "array of" "arrays of"
 --   descrDeclr (pre,isPlural) (CFunDeclr declr params cattrs _) = single isPlural $ \pluralize ->
@@ -319,6 +321,8 @@ prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
     --'*' __attribute__? qualifiers declarator
     ppDeclr p (CPtrDeclr quals _ : declrs) =
         parenPrec p 5 $ text "*" <+> hsep (map pretty quals) <+> ppDeclr 5 declrs
+    ppDeclr p (CBlkDeclr quals _ : declrs) =
+        parenPrec p 5 $ text "^" <+> hsep (map pretty quals) <+> ppDeclr 5 declrs
 
     -- declarator[ __attribute__? qualifiers expr ]
     ppDeclr p (CArrDeclr quals size _ : declrs) =
@@ -328,13 +332,16 @@ prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
     ppDeclr _ (CFunDeclr params fun_attrs _ : declrs) =
         (if not (null fun_attrs) then parens (attrlistP fun_attrs <+> ppDeclr 5 declrs) else ppDeclr 6 declrs)
         <> parens (prettyParams params)
-    prettyParams (Right (decls, isVariadic)) =
-     sep (punctuate comma (map pretty decls))
-     <> (if isVariadic then text "," <+> text "..." else empty)
-    prettyParams (Left oldStyleIds) =
-     hsep (punctuate comma (map identP oldStyleIds))
-    prettyAsmName asm_name_opt
-        = maybe empty (\asm_name -> text "__asm__" <> parens (pretty asm_name)) asm_name_opt
+
+
+-- | pretty-print parameters (used by function declarators and code blocks)
+prettyParams (Right (decls, isVariadic)) =
+ sep (punctuate comma (map pretty decls))
+ <> (if isVariadic then text "," <+> text "..." else empty)
+prettyParams (Left oldStyleIds) =
+ hsep (punctuate comma (map identP oldStyleIds))
+prettyAsmName asm_name_opt
+    = maybe empty (\asm_name -> text "__asm__" <> parens (pretty asm_name)) asm_name_opt
 
 instance Pretty CArrSize where
   pretty (CNoArrSize completeType) = ifP completeType (text "*")
@@ -424,6 +431,10 @@ instance Pretty CExpr where
     prettyPrec _p (CLabAddrExpr ident _) = text "&&" <> identP ident
 
     prettyPrec _p (CBuiltinExpr builtin) = pretty builtin
+
+    prettyPrec _p (CBlockExpr params statement _) =
+      text "^" <+> parens (prettyParams $ Right params) <+> pretty statement
+    
 
 instance Pretty CBuiltin where
     pretty (CBuiltinVaArg expr ty_name _) =

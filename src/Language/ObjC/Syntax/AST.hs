@@ -227,6 +227,8 @@ type CDerivedDeclr = CDerivedDeclarator NodeInfo
 data CDerivedDeclarator a
   = CPtrDeclr [CTypeQualifier a] a
   -- ^ Pointer declarator @CPtrDeclr tyquals declr@
+  | CBlkDeclr [CTypeQualifier a] a
+  -- ^ Block declarator @CBlkDeclr tyquals declr@
   | CArrDeclr [CTypeQualifier a] (CArraySize a) a
   -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@
   | CFunDeclr (Either [Ident] ([CDeclaration a],Bool)) [CAttribute a] a
@@ -236,6 +238,7 @@ data CDerivedDeclarator a
 -- Derived instance relies on fmap2
 instance Functor CDerivedDeclarator where
         fmap _f (CPtrDeclr a1 a2) = CPtrDeclr (fmap (fmap _f) a1) (_f a2)
+        fmap _f (CBlkDeclr a1 a2) = CBlkDeclr (fmap (fmap _f) a1) (_f a2)
         fmap _f (CArrDeclr a1 a2 a3)
           = CArrDeclr (fmap (fmap _f) a1) (fmap _f a2) (_f a3)
         fmap _f (CFunDeclr a1 a2 a3)
@@ -586,6 +589,7 @@ data CAttribute a = CAttr Ident [CExpression a] a
 --   arbitrary, even if appearing in a constant expression
 --
 -- * GNU C extensions: @alignof@, @__real@, @__imag@, @({ stmt-expr })@, @&& label@ and built-ins
+-- * objective-C style code blocks
 --
 type CExpr = CExpression NodeInfo
 data CExpression a
@@ -640,6 +644,7 @@ data CExpression a
   | CStatExpr    (CStatement a) a        -- ^ GNU C compound statement as expr
   | CLabAddrExpr Ident a                 -- ^ GNU C address of label
   | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
+  | CBlockExpr   ([CDeclaration a],Bool) (CStatement a) a -- ^ Code block definition, new-style params, compound statement
     deriving (Data,Typeable,Show {-! ,CNode , Annotated !-})
 
 -- deriving Functor does not work (type synonyms)
@@ -723,7 +728,7 @@ class (Functor ast) => Annotated ast where
 -- Instances generated using derive-2.*
 -- GENERATED START
 
-
+ 
 instance (CNode t1) => CNode (CTranslationUnit t1) where
         nodeInfo (CTranslUnit _ n) = nodeInfo n
 

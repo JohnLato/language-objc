@@ -1352,6 +1352,18 @@ unary_identifier_declarator
   | '*' type_qualifier_list attrs identifier_declarator
   	{% withAttribute $1 $3 $ ptrDeclr $4 (reverse $2) }
 
+  | '^' identifier_declarator
+  	{% withNodeInfo $1 $ blkDeclr $2 [] }
+
+  | '^' attrs identifier_declarator
+  	{% withAttribute $1 $2 $ blkDeclr $3 [] }
+
+  | '^' type_qualifier_list identifier_declarator
+  	{% withNodeInfo $1 $ blkDeclr $3 (reverse $2) }
+
+  | '^' type_qualifier_list attrs identifier_declarator
+  	{% withAttribute $1 $3 $ blkDeclr $4 (reverse $2) }
+
 postfix_identifier_declarator :: { CDeclrR }
 postfix_identifier_declarator
   : paren_identifier_declarator postfixing_abstract_declarator
@@ -1397,6 +1409,12 @@ old_function_declarator
 
   | '*' type_qualifier_list old_function_declarator
   	{% withNodeInfo $1 $ ptrDeclr $3 (reverse $2) }
+
+  | '^' old_function_declarator
+  	{% withNodeInfo $1 $ blkDeclr $2 [] } -- FIXME: no attr possible here ???
+
+  | '^' type_qualifier_list old_function_declarator
+  	{% withNodeInfo $1 $ blkDeclr $3 (reverse $2) }
 
 postfix_old_function_declarator :: { CDeclrR }
 postfix_old_function_declarator
@@ -1585,6 +1603,23 @@ unary_abstract_declarator
   | '*' attrs abstract_declarator
   	{% withAttribute $1 $2 $ ptrDeclr $3 [] }
 
+  | '^'
+  	{% withNodeInfo $1 $ blkDeclr emptyDeclr [] }
+
+  | '^' type_qualifier_list attrs_opt
+  	{% withAttribute $1 $3 $ blkDeclr emptyDeclr (reverse $2)  }
+
+  | '^' abstract_declarator
+  	{% withNodeInfo $1 $ blkDeclr $2 [] }
+
+  | '^' type_qualifier_list abstract_declarator
+  	{% withNodeInfo $1 $ blkDeclr $3 (reverse $2) }
+
+  | '^' attrs
+  	{% withAttribute $1 $2 $ blkDeclr emptyDeclr [] }
+  | '^' attrs abstract_declarator
+  	{% withAttribute $1 $2 $ blkDeclr $3 [] }
+
 -- postfix_ad starts with '(', postfixing with '(' or '[', unary_abstract starts with '*'
 postfix_abstract_declarator :: { CDeclrR }
 postfix_abstract_declarator
@@ -1666,6 +1701,9 @@ array_designator
 --     __builtin_va_arg
 --     __builtin_offsetof
 --     __builtin_types_compatible_p
+-- 
+-- * Objective-C support:
+--    Code block definitions
 primary_expression :: { CExpr }
 primary_expression
   : ident		       {% withNodeInfo $1 $ CVar $1 }
@@ -1686,6 +1724,9 @@ primary_expression
   | "__builtin_types_compatible_p" '(' type_name ',' type_name ')'
   	{% withNodeInfo $1 $ CBuiltinExpr . CBuiltinTypesCompatible $3 $5 }
 
+  -- objective-C support
+  | '^' '(' parameter_type_list ')' compound_statement
+        {% withNodeInfo $1 $ CBlockExpr $3 $5 }
 
 offsetof_member_designator :: { Reversed [CDesignator] }
 offsetof_member_designator
@@ -2164,14 +2205,21 @@ appendDeclrAttrs :: [CAttr] -> CDeclrR -> CDeclrR
 appendDeclrAttrs newAttrs (CDeclrR ident (Reversed []) asmname cattrs at)
     = CDeclrR ident empty asmname (cattrs ++ newAttrs) at
 appendDeclrAttrs newAttrs (CDeclrR ident (Reversed (x:xs)) asmname cattrs at)
-    = CDeclrR ident (Reversed (appendAttrs x : xs)) asmname cattrs at where
+    = CDeclrR ident (Reversed (appendAttrs x : xs)) asmname cattrs at
+  where
     appendAttrs (CPtrDeclr typeQuals at)           = CPtrDeclr (typeQuals ++ map CAttrQual newAttrs) at
+    appendAttrs (CBlkDeclr typeQuals at)           = CBlkDeclr (typeQuals ++ map CAttrQual newAttrs) at
     appendAttrs (CArrDeclr typeQuals arraySize at) = CArrDeclr (typeQuals ++ map CAttrQual newAttrs) arraySize at
     appendAttrs (CFunDeclr parameters cattrs at)   = CFunDeclr parameters (cattrs ++ newAttrs) at
 
 ptrDeclr :: CDeclrR -> [CTypeQual] -> NodeInfo -> CDeclrR
 ptrDeclr (CDeclrR ident derivedDeclrs asmname cattrs dat) tyquals at
     = CDeclrR ident (derivedDeclrs `snoc` CPtrDeclr tyquals at) asmname cattrs dat
+
+blkDeclr :: CDeclrR -> [CTypeQual] -> NodeInfo -> CDeclrR
+blkDeclr (CDeclrR ident derivedDeclrs asmname cattrs dat) tyquals at
+    = CDeclrR ident (derivedDeclrs `snoc` CBlkDeclr tyquals at) asmname cattrs dat
+
 funDeclr :: CDeclrR -> (Either [Ident] ([CDecl],Bool)) -> [CAttr] -> NodeInfo -> CDeclrR
 funDeclr (CDeclrR ident derivedDeclrs asmname dcattrs dat) params cattrs at
     = CDeclrR ident (derivedDeclrs `snoc` CFunDeclr params cattrs at) asmname dcattrs dat

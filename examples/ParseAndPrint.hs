@@ -10,8 +10,8 @@ import Debug.Trace
 import Text.PrettyPrint.HughesPJ
 import Data.List
 
-import Language.C              -- simple API
-import Language.C.System.GCC   -- preprocessor used
+import Language.ObjC              -- simple API
+import Language.ObjC.System.GCC   -- preprocessor used
 
 usageMsg :: String -> String
 usageMsg prg = render $

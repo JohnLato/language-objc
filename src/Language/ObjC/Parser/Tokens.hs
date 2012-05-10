@@ -11,7 +11,12 @@
 --  C Tokens for the C lexer.
 --
 -----------------------------------------------------------------------------
-module Language.C.Parser.Tokens (CToken(..), posLenOfTok, GnuCTok(..)) where
+module Language.ObjC.Parser.Tokens (
+  CToken(..)
+ ,posLenOfTok
+ ,GnuCTok(..)
+ ,ObjCTok(..)
+)
 
 where
 
@@ -133,6 +138,7 @@ data CToken = CTokLParen   !PosLength            -- `('
               -- not generated here, but in `CParser.parseCHeader'
             | CTokTyIdent  !PosLength !Ident     -- `typedef-name' identifier
             | CTokGnuC !GnuCTok !PosLength       -- special GNU C tokens
+            | CTokObjC !ObjCTok !PosLength       -- objective-C tokens
             | CTokEof                           -- end of file
 
 -- special tokens used in GNU C extensions to ANSI C
@@ -144,6 +150,11 @@ data GnuCTok = GnuCAttrTok              -- `__attribute__'
              | GnuCTyCompat             -- `__builtin_types_compatible_p'
              | GnuCComplexReal          -- `__real__'
              | GnuCComplexImag          -- `__imag__'
+
+-- | tokens used for Objective-C
+data ObjCTok = ObjCInterface            -- `@interface'
+             | ObjCEnd                  -- `@end'
+             | ObjCClass                -- `@class'
 
 instance Pos CToken where
   posOf = fst . posLenOfTok
@@ -244,6 +255,7 @@ posLenOfTok (CTokSLit     pos _) = pos
 posLenOfTok (CTokIdent    pos _) = pos
 posLenOfTok (CTokTyIdent  pos _) = pos
 posLenOfTok (CTokGnuC   _ pos  ) = pos
+posLenOfTok (CTokObjC   _ pos  ) = pos
 posLenOfTok CTokEof = error "tokenPos: Eof"
 
 instance Show CToken where
@@ -347,4 +359,7 @@ instance Show CToken where
   showsPrec _ (CTokGnuC GnuCVaArg    _) = showString "__builtin_va_arg"
   showsPrec _ (CTokGnuC GnuCOffsetof _) = showString "__builtin_offsetof"
   showsPrec _ (CTokGnuC GnuCTyCompat _) = showString "__builtin_types_compatible_p"
+  showsPrec _ (CTokObjC ObjCInterface _) = showString "@interface"
+  showsPrec _ (CTokObjC ObjCEnd _)       = showString "@end"
+  showsPrec _ (CTokObjC ObjCClass _)     = showString "@class"
   showsPrec _ CTokEof = error "show CToken : CTokEof"

@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.ObjC.Syntax.ParserMonad
@@ -20,12 +22,16 @@
 --  enter an inner scope.
 module Language.ObjC.Parser.ParserMonad (
   P,
+  IType (..),
   execParser,
   failP,
   getNewName,        -- :: P Name
   addTypedef,        -- :: Ident -> P ()
-  shadowTypedef,     -- :: Ident -> P ()
+  shadowSymbol,      -- :: Ident -> P ()
   isTypeIdent,       -- :: Ident -> P Bool
+  addClass,          -- :: Ident -> P ()
+  isClass,           -- :: Ident -> P Bool
+  isSpecial,         -- :: Ident -> P IType
   enterScope,        -- :: P ()
   leaveScope,        -- :: P ()
   setPos,            -- :: Position -> P ()
@@ -46,13 +52,17 @@ import Language.ObjC.Data.Name    (Name)
 import Language.ObjC.Data.Ident    (Ident)
 import Language.ObjC.Parser.Tokens (CToken(CTokEof))
 
-import Data.Set  (Set)
-import qualified Data.Set as Set (fromList, insert, member, delete)
+import Data.Map  (Map)
+import qualified Data.Map as Map
 
 newtype ParseError = ParseError ([String],Position)
 instance Show ParseError where
     show (ParseError (msgs,pos)) = showErrorInfo "Syntax Error !" (ErrorInfo LevelError pos msgs)
 
+-- | For typedef'd or classname identifiers, indicate which type they are
+data IType = TyDef | CName deriving (Eq, Show, Ord, Enum)
+
+type TMap = Map Ident IType
 
 data ParseResult a
   = POk !PState a
@@ -64,8 +74,8 @@ data PState = PState {
         prevToken  ::  CToken,          -- the previous token
         savedToken ::  CToken,          -- and the token before that
         namesupply :: ![Name],          -- the name unique supply
-        tyidents   :: !(Set Ident),     -- the set of typedef'ed identifiers
-        scopes     :: ![Set Ident]      -- the tyident sets for outer scopes
+        tyidents   :: !(TMap), -- the set of typedef'ed identifiers
+        scopes     :: [TMap] -- the tyident sets for outer scopes
      }
 
 newtype P a = P { unP :: PState -> ParseResult a }
@@ -93,7 +103,7 @@ execParser (P parser) input pos builtins names =
           prevToken = internalErr "CLexer.execParser: Touched undefined token!",
           savedToken = internalErr "CLexer.execParser: Touched undefined token (safed token)!",
           namesupply = names,
-          tyidents = Set.fromList builtins,
+          tyidents = Map.fromList $ map (,TyDef) builtins,
           scopes   = []
         }
 
@@ -122,20 +132,34 @@ getPos = P $ \s@PState{curPos=pos} -> POk s pos
 
 addTypedef :: Ident -> P ()
 addTypedef ident = (P $ \s@PState{tyidents=tyids} ->
-                             POk s{tyidents = ident `Set.insert` tyids} ())
+                             POk s{tyidents = Map.insert ident TyDef tyids} ())
 
-shadowTypedef :: Ident -> P ()
-shadowTypedef ident = (P $ \s@PState{tyidents=tyids} ->
+shadowSymbol :: Ident -> P ()
+shadowSymbol ident = (P $ \s@PState{tyidents=tyids} ->
                              -- optimisation: mostly the ident will not be in
                              -- the tyident set so do a member lookup to avoid
                              --  churn induced by calling delete
-                             POk s{tyidents = if ident `Set.member` tyids
-                                                then ident `Set.delete` tyids
+                             POk s{tyidents = if ident `Map.member` tyids
+                                                then ident `Map.delete` tyids
                                                 else tyids } ())
 
 isTypeIdent :: Ident -> P Bool
 isTypeIdent ident = P $ \s@PState{tyidents=tyids} ->
-                             POk s $! Set.member ident tyids
+                             POk s $! maybe False (== TyDef)
+                             $ Map.lookup ident tyids
+
+addClass :: Ident -> P ()
+addClass ident = (P $ \s@PState{tyidents=tyids} ->
+                             POk s{tyidents = Map.insert ident CName tyids} ())
+
+isClass :: Ident -> P Bool
+isClass ident = P $ \s@PState{tyidents=tyids} ->
+                             POk s $! maybe False (== CName)
+                             $ Map.lookup ident tyids
+
+isSpecial :: Ident -> P (Maybe IType)
+isSpecial ident = P $ \s@PState{tyidents=tyids} ->
+                             POk s $! Map.lookup ident tyids
 
 enterScope :: P ()
 enterScope = P $ \s@PState{tyidents=tyids,scopes=ss} ->

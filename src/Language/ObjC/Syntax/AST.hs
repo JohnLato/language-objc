@@ -32,8 +32,8 @@ module Language.ObjC.Syntax.AST (
   CFunctionDef(..),  CDeclaration(..),
   CStructTag(..), CStructureUnion(..),  CEnumeration(..),
   -- ** Objective-C extensions
-  ObjCIface, ObjCClassDef,
-  ObjCInterface(..), ObjCClassListDef(..),
+  ObjCIface, ObjCClassDef, ObjCProtoNm,
+  ObjCInterface(..), ObjCClassListDef(..), ObjCProtocolName(..),
   -- * Declaration attributes
   CDeclSpec, partitionDeclSpecs,
   CStorageSpec, CTypeSpec, isSUEDef, CTypeQual, CAttr,
@@ -130,7 +130,7 @@ data ObjCInterface a =
   ObjCIface
     (ObjCClassDeclarator a)   -- ^ class name
     (Maybe (ObjCClassName a)) -- ^ superclass
-    [a]                       -- ^ protocol reference list
+    [ObjCProtocolName a]      -- ^ protocol reference list
     [a]                       -- ^ instance variables
     [a]                       -- ^ interface declaration list
     a
@@ -146,6 +146,12 @@ type ObjCClassNm = ObjCClassName NodeInfo
 
 data ObjCClassName a = ObjCClassNm Ident a
  deriving (Show, Data, Typeable, Functor {-! ,CNode, Annotated !-})
+
+type ObjCProtoNm = ObjCProtocolName NodeInfo
+
+data ObjCProtocolName a = ObjCProtoNm Ident a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
 
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter

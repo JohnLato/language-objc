@@ -98,6 +98,7 @@ instance Pretty CExtDecl where
     pretty (CDeclExt decl) = pretty decl <> semi
     pretty (CFDefExt fund) = pretty fund
     pretty (ObjCClassExt cls) = pretty cls
+    pretty (ObjCIfaceExt cls) = pretty cls
     pretty (CAsmExt  asmStmt _) = text "asm" <> parens (pretty asmStmt) <> semi
 
 -- TODO: Check that old-style and new-style aren't mixed
@@ -117,6 +118,23 @@ instance Pretty ObjCClassDef where
 
 instance Pretty ObjCClassDeclr where
     pretty (ObjCClassDeclr nm _) = identP nm
+
+instance Pretty ObjCIface where
+    pretty (ObjCIface cn sp protos vars decls _) =
+      text "@interface" <+> pretty cn
+      <+> maybe empty ((text ":" <+>) . pretty) sp
+      <+> pProto protos
+      $$ empty
+      $$ text "@end"
+
+pProto [] = empty
+pProto pl = braces . hsep . punctuate comma $ map pretty pl
+
+instance Pretty ObjCClassNm where
+    pretty (ObjCClassNm nm _) = identP nm
+
+instance Pretty ObjCProtoNm where
+    pretty (ObjCProtoNm nm _) = identP nm
 
 instance Pretty CStat where
     pretty (CLabel ident stat cattrs _) = identP ident <> text ":" <+> attrlistP cattrs $$ pretty stat

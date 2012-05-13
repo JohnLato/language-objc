@@ -301,8 +301,8 @@ class_declarator_list
 -- class_interface :- "@interface" identifier superclass_name? protocol_reference_list? instance_variables? interface_declaration_list? "@end@
 class_interface :: { ObjCIface }
 class_interface
-  : "@interface" class_declarator opt_superclass "@end"
-  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 [] [] []) }
+  : "@interface" class_declarator opt_superclass opt_proto_ref_list "@end"
+  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 (reverse $4) [] []) }
 
 -- an optional superclass declaration
 opt_superclass :: { Maybe ObjCClassNm }
@@ -316,6 +316,30 @@ opt_superclass
 class_name :: { ObjCClassNm }
 class_name
   : classname  {% withNodeInfo $1 (ObjCClassNm $1) }
+
+opt_proto_ref_list :: { Reversed [ObjCProtoNm] }
+opt_proto_ref_list
+  : '<' protocol_ref_list '>'     {% return $2 }
+  |                               {% return empty }
+
+-- An optional protocol reference list
+protocol_ref_list :: { Reversed [ObjCProtoNm] }
+protocol_ref_list
+  : protocol_ref                                {% return (singleton $1) }
+  | protocol_ref_list ',' protocol_ref   	{% return ($1 `snoc` $3) }
+
+-- a single protocol reference
+-- protocols live in a separate namespace from typedefs and
+-- class names, so they're all eligible for protocol names
+
+protocol_ref :: { ObjCProtoNm }
+protocol_ref
+  : ident
+       {% withNodeInfo $1 (ObjCProtoNm $1) }
+  | classname
+       {% withNodeInfo $1 (ObjCProtoNm $1) }
+  | tyident
+       {% withNodeInfo $1 (ObjCProtoNm $1) }
 
 -- parse a class declarator
 -- 

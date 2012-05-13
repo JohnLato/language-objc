@@ -367,10 +367,11 @@ idkwtok cs = \pos -> do
   name <- getNewName
   let len = case length cs of l -> l
   let ident = mkIdent pos cs name
-  tyident <- isTypeIdent ident
-  if tyident
-    then return (CTokTyIdent (pos,len) ident)
-    else return (CTokIdent   (pos,len) ident)
+  idType  <- isSpecial ident
+  return $ case idType of
+    Nothing    -> CTokIdent   (pos,len) ident
+    Just TyDef -> CTokTyIdent (pos,len) ident
+    Just CName -> CTokObjC (ObjCClassIdent ident) (pos,len)
 
 ignoreAttribute :: P ()
 ignoreAttribute = skipTokens (0::Int)

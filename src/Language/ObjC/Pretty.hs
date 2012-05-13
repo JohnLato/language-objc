@@ -97,6 +97,7 @@ prettyUsingInclude (CTranslUnit edecls _) =
 instance Pretty CExtDecl where
     pretty (CDeclExt decl) = pretty decl <> semi
     pretty (CFDefExt fund) = pretty fund
+    pretty (ObjCClassExt cls) = pretty cls
     pretty (CAsmExt  asmStmt _) = text "asm" <> parens (pretty asmStmt) <> semi
 
 -- TODO: Check that old-style and new-style aren't mixed
@@ -107,6 +108,15 @@ instance Pretty CFunDef where
         $+$ (ii . vcat . map (<> semi) . map pretty) decls   --     register long b;
         $$ prettyPrec (-1) stat                              -- {  ...
                                                              -- }
+
+instance Pretty ObjCClassDef where
+    pretty (ObjCClassDef decls _) =
+      text "@class"
+      <+> hsep (punctuate comma (map pretty decls))
+      <> semi
+
+instance Pretty ObjCClassDeclr where
+    pretty (ObjCClassDeclr nm _) = identP nm
 
 instance Pretty CStat where
     pretty (CLabel ident stat cattrs _) = identP ident <> text ":" <+> attrlistP cattrs $$ pretty stat

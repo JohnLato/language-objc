@@ -31,6 +31,9 @@ module Language.ObjC.Syntax.AST (
   CFunDef,  CDecl, CStructUnion, CEnum,
   CFunctionDef(..),  CDeclaration(..),
   CStructTag(..), CStructureUnion(..),  CEnumeration(..),
+  -- ** Objective-C extensions
+  ObjCIface, ObjCClassDef,
+  ObjCInterface(..), ObjCClassListDef(..),
   -- * Declaration attributes
   CDeclSpec, partitionDeclSpecs,
   CStorageSpec, CTypeSpec, isSUEDef, CTypeQual, CAttr,
@@ -39,6 +42,9 @@ module Language.ObjC.Syntax.AST (
   -- * Declarators
   CDeclr,CDerivedDeclr,CArrSize,
   CDeclarator(..), CDerivedDeclarator(..), CArraySize(..),
+  -- ** Objective-C Extensions
+  ObjCClassNm, ObjCClassDeclr,
+  ObjCClassName(..), ObjCClassDeclarator(..),
   -- * Initialization
   CInit, CInitList, CDesignator,
   CInitializer(..), CInitializerList, CPartDesignator(..),
@@ -73,11 +79,14 @@ data CTranslationUnit a
 
 -- | External C declaration (C99 6.9, K&R A10)
 --
--- Either a toplevel declaration, function definition or external assembler.
+-- Either a toplevel declaration, function definition, class, category,
+-- protocol, or external assembler.
 type CExtDecl = CExternalDeclaration NodeInfo
 data CExternalDeclaration a
   = CDeclExt (CDeclaration a)
   | CFDefExt (CFunctionDef a)
+  | ObjCIfaceExt (ObjCInterface a)
+  | ObjCClassExt (ObjCClassListDef a)
   | CAsmExt  (CStringLiteral a) a
     deriving (Show, Data,Typeable {-! ,CNode ,Functor, Annotated !-})
 
@@ -103,6 +112,40 @@ data CFunctionDef a
     (CStatement a)            -- compound statement
     a
     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
+
+
+type ObjCClassDef = ObjCClassListDef NodeInfo
+
+-- | Objective-C class listing
+-- 
+-- @class NSObject, NSArray;
+data ObjCClassListDef a =
+  ObjCClassDef [ObjCClassDeclarator a] a
+ deriving (Show, Data, Typeable {-! , CNode, Functor, Annotated !-})
+
+type ObjCIface = ObjCInterface NodeInfo
+
+-- | Interface declaration
+data ObjCInterface a =
+  ObjCIface
+    (ObjCClassDeclarator a)   -- ^ class name
+    (Maybe (ObjCClassName a)) -- ^ superclass
+    [a]                       -- ^ protocol reference list
+    [a]                       -- ^ instance variables
+    [a]                       -- ^ interface declaration list
+    a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+type ObjCClassDeclr = ObjCClassDeclarator NodeInfo
+
+data ObjCClassDeclarator a =
+  ObjCClassDeclr Ident a
+ deriving (Show, Data, Typeable, Functor {-! ,CNode, Annotated !-})
+
+type ObjCClassNm = ObjCClassName NodeInfo
+
+data ObjCClassName a = ObjCClassNm Ident a
+ deriving (Show, Data, Typeable, Functor {-! ,CNode, Annotated !-})
 
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
@@ -731,16 +774,16 @@ class (Functor ast) => Annotated ast where
  
 instance (CNode t1) => CNode (CTranslationUnit t1) where
         nodeInfo (CTranslUnit _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CTranslationUnit t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CTranslationUnit where
         fmap _f (CTranslUnit a1 a2)
           = CTranslUnit (fmap (fmap _f) a1) (_f a2)
 
-
+ 
 instance Annotated CTranslationUnit where
         annotation (CTranslUnit _ n) = n
         amap f (CTranslUnit a_1 a_2) = CTranslUnit a_1 (f a_2)
@@ -749,102 +792,167 @@ instance Annotated CTranslationUnit where
 instance (CNode t1) => CNode (CExternalDeclaration t1) where
         nodeInfo (CDeclExt d) = nodeInfo d
         nodeInfo (CFDefExt d) = nodeInfo d
+        nodeInfo (ObjCIfaceExt d) = nodeInfo d
+        nodeInfo (ObjCClassExt d) = nodeInfo d
         nodeInfo (CAsmExt _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CExternalDeclaration t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CExternalDeclaration where
         fmap _f (CDeclExt a1) = CDeclExt (fmap _f a1)
         fmap _f (CFDefExt a1) = CFDefExt (fmap _f a1)
+        fmap _f (ObjCIfaceExt a1) = ObjCIfaceExt (fmap _f a1)
+        fmap _f (ObjCClassExt a1) = ObjCClassExt (fmap _f a1)
         fmap _f (CAsmExt a1 a2) = CAsmExt (fmap _f a1) (_f a2)
 
-
+ 
 instance Annotated CExternalDeclaration where
         annotation (CDeclExt n) = annotation n
         annotation (CFDefExt n) = annotation n
+        annotation (ObjCIfaceExt n) = annotation n
+        annotation (ObjCClassExt n) = annotation n
         annotation (CAsmExt _ n) = n
         amap f (CDeclExt n) = CDeclExt (amap f n)
         amap f (CFDefExt n) = CFDefExt (amap f n)
+        amap f (ObjCIfaceExt n) = ObjCIfaceExt (amap f n)
+        amap f (ObjCClassExt n) = ObjCClassExt (amap f n)
         amap f (CAsmExt a_1 a_2) = CAsmExt a_1 (f a_2)
 
-
+ 
 instance (CNode t1) => CNode (CFunctionDef t1) where
         nodeInfo (CFunDef _ _ _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CFunctionDef t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CFunctionDef where
         fmap _f (CFunDef a1 a2 a3 a4 a5)
           = CFunDef (fmap (fmap _f) a1) (fmap _f a2) (fmap (fmap _f) a3)
               (fmap _f a4)
               (_f a5)
 
-
+ 
 instance Annotated CFunctionDef where
         annotation (CFunDef _ _ _ _ n) = n
         amap f (CFunDef a_1 a_2 a_3 a_4 a_5)
           = CFunDef a_1 a_2 a_3 a_4 (f a_5)
 
+ 
+instance (CNode t1) => CNode (ObjCClassListDef t1) where
+        nodeInfo (ObjCClassDef _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCClassListDef t1) where
+        posOf x = posOf (nodeInfo x)
 
+ 
+instance Functor ObjCClassListDef where
+        fmap _f (ObjCClassDef a1 a2)
+          = ObjCClassDef (fmap (fmap _f) a1) (_f a2)
+
+ 
+instance Annotated ObjCClassListDef where
+        annotation (ObjCClassDef _ n) = n
+        amap f (ObjCClassDef a_1 a_2) = ObjCClassDef a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCInterface t1) where
+        nodeInfo (ObjCIface _ _ _ _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCInterface t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCInterface where
+        annotation (ObjCIface _ _ _ _ _ n) = n
+        amap f (ObjCIface a_1 a_2 a_3 a_4 a_5 a_6)
+          = ObjCIface a_1 a_2 a_3 a_4 a_5 (f a_6)
+
+ 
+instance (CNode t1) => CNode (ObjCClassDeclarator t1) where
+        nodeInfo (ObjCClassDeclr _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCClassDeclarator t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCClassDeclarator where
+        annotation (ObjCClassDeclr _ n) = n
+        amap f (ObjCClassDeclr a_1 a_2) = ObjCClassDeclr a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCClassName t1) where
+        nodeInfo (ObjCClassNm _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCClassName t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCClassName where
+        annotation (ObjCClassNm _ n) = n
+        amap f (ObjCClassNm a_1 a_2) = ObjCClassNm a_1 (f a_2)
+
+ 
 instance (CNode t1) => CNode (CDeclaration t1) where
         nodeInfo (CDecl _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CDeclaration t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Annotated CDeclaration where
         annotation (CDecl _ _ n) = n
         amap f (CDecl a_1 a_2 a_3) = CDecl a_1 a_2 (f a_3)
 
-
+ 
 instance (CNode t1) => CNode (CDeclarator t1) where
         nodeInfo (CDeclr _ _ _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CDeclarator t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CDeclarator where
         fmap _f (CDeclr a1 a2 a3 a4 a5)
           = CDeclr a1 (fmap (fmap _f) a2) (fmap (fmap _f) a3)
               (fmap (fmap _f) a4)
               (_f a5)
 
-
+ 
 instance Annotated CDeclarator where
         annotation (CDeclr _ _ _ _ n) = n
         amap f (CDeclr a_1 a_2 a_3 a_4 a_5)
           = CDeclr a_1 a_2 a_3 a_4 (f a_5)
 
-
+ 
 instance (CNode t1) => CNode (CDerivedDeclarator t1) where
         nodeInfo (CPtrDeclr _ n) = nodeInfo n
+        nodeInfo (CBlkDeclr _ n) = nodeInfo n
         nodeInfo (CArrDeclr _ _ n) = nodeInfo n
         nodeInfo (CFunDeclr _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CDerivedDeclarator t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Annotated CDerivedDeclarator where
         annotation (CPtrDeclr _ n) = n
+        annotation (CBlkDeclr _ n) = n
         annotation (CArrDeclr _ _ n) = n
         annotation (CFunDeclr _ _ n) = n
         amap f (CPtrDeclr a_1 a_2) = CPtrDeclr a_1 (f a_2)
+        amap f (CBlkDeclr a_1 a_2) = CBlkDeclr a_1 (f a_2)
         amap f (CArrDeclr a_1 a_2 a_3) = CArrDeclr a_1 a_2 (f a_3)
         amap f (CFunDeclr a_1 a_2 a_3) = CFunDeclr a_1 a_2 (f a_3)
 
-
+ 
 instance Functor CArraySize where
         fmap _ (CNoArrSize a1) = CNoArrSize a1
         fmap _f (CArrSize a1 a2) = CArrSize a1 (fmap _f a2)
 
-
+ 
 instance (CNode t1) => CNode (CStatement t1) where
         nodeInfo (CLabel _ _ _ n) = nodeInfo n
         nodeInfo (CCase _ _ n) = nodeInfo n
@@ -862,11 +970,11 @@ instance (CNode t1) => CNode (CStatement t1) where
         nodeInfo (CBreak d) = nodeInfo d
         nodeInfo (CReturn _ n) = nodeInfo n
         nodeInfo (CAsm _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CStatement t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Annotated CStatement where
         annotation (CLabel _ _ _ n) = n
         annotation (CCase _ _ n) = n
@@ -901,14 +1009,14 @@ instance Annotated CStatement where
         amap f (CReturn a_1 a_2) = CReturn a_1 (f a_2)
         amap f (CAsm a_1 a_2) = CAsm a_1 (f a_2)
 
-
+ 
 instance (CNode t1) => CNode (CAssemblyStatement t1) where
         nodeInfo (CAsmStmt _ _ _ _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CAssemblyStatement t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CAssemblyStatement where
         fmap _f (CAsmStmt a1 a2 a3 a4 a5 a6)
           = CAsmStmt (fmap (fmap _f) a1) (fmap _f a2) (fmap (fmap _f) a3)
@@ -916,46 +1024,46 @@ instance Functor CAssemblyStatement where
               (fmap (fmap _f) a5)
               (_f a6)
 
-
+ 
 instance Annotated CAssemblyStatement where
         annotation (CAsmStmt _ _ _ _ _ n) = n
         amap f (CAsmStmt a_1 a_2 a_3 a_4 a_5 a_6)
           = CAsmStmt a_1 a_2 a_3 a_4 a_5 (f a_6)
 
-
+ 
 instance (CNode t1) => CNode (CAssemblyOperand t1) where
         nodeInfo (CAsmOperand _ _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CAssemblyOperand t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CAssemblyOperand where
         fmap _f (CAsmOperand a1 a2 a3 a4)
           = CAsmOperand a1 (fmap _f a2) (fmap _f a3) (_f a4)
 
-
+ 
 instance Annotated CAssemblyOperand where
         annotation (CAsmOperand _ _ _ n) = n
         amap f (CAsmOperand a_1 a_2 a_3 a_4)
           = CAsmOperand a_1 a_2 a_3 (f a_4)
 
-
+ 
 instance (CNode t1) => CNode (CCompoundBlockItem t1) where
         nodeInfo (CBlockStmt d) = nodeInfo d
         nodeInfo (CBlockDecl d) = nodeInfo d
         nodeInfo (CNestedFunDef d) = nodeInfo d
-
+ 
 instance (CNode t1) => Pos (CCompoundBlockItem t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CCompoundBlockItem where
         fmap _f (CBlockStmt a1) = CBlockStmt (fmap _f a1)
         fmap _f (CBlockDecl a1) = CBlockDecl (fmap _f a1)
         fmap _f (CNestedFunDef a1) = CNestedFunDef (fmap _f a1)
 
-
+ 
 instance Annotated CCompoundBlockItem where
         annotation (CBlockStmt n) = annotation n
         annotation (CBlockDecl n) = annotation n
@@ -964,22 +1072,22 @@ instance Annotated CCompoundBlockItem where
         amap f (CBlockDecl n) = CBlockDecl (amap f n)
         amap f (CNestedFunDef n) = CNestedFunDef (amap f n)
 
-
+ 
 instance (CNode t1) => CNode (CDeclarationSpecifier t1) where
         nodeInfo (CStorageSpec d) = nodeInfo d
         nodeInfo (CTypeSpec d) = nodeInfo d
         nodeInfo (CTypeQual d) = nodeInfo d
-
+ 
 instance (CNode t1) => Pos (CDeclarationSpecifier t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CDeclarationSpecifier where
         fmap _f (CStorageSpec a1) = CStorageSpec (fmap _f a1)
         fmap _f (CTypeSpec a1) = CTypeSpec (fmap _f a1)
         fmap _f (CTypeQual a1) = CTypeQual (fmap _f a1)
 
-
+ 
 instance Annotated CDeclarationSpecifier where
         annotation (CStorageSpec n) = annotation n
         annotation (CTypeSpec n) = annotation n
@@ -988,7 +1096,7 @@ instance Annotated CDeclarationSpecifier where
         amap f (CTypeSpec n) = CTypeSpec (amap f n)
         amap f (CTypeQual n) = CTypeQual (amap f n)
 
-
+ 
 instance (CNode t1) => CNode (CStorageSpecifier t1) where
         nodeInfo (CAuto d) = nodeInfo d
         nodeInfo (CRegister d) = nodeInfo d
@@ -996,11 +1104,11 @@ instance (CNode t1) => CNode (CStorageSpecifier t1) where
         nodeInfo (CExtern d) = nodeInfo d
         nodeInfo (CTypedef d) = nodeInfo d
         nodeInfo (CThread d) = nodeInfo d
-
+ 
 instance (CNode t1) => Pos (CStorageSpecifier t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CStorageSpecifier where
         fmap _f (CAuto a1) = CAuto (_f a1)
         fmap _f (CRegister a1) = CRegister (_f a1)
@@ -1009,7 +1117,7 @@ instance Functor CStorageSpecifier where
         fmap _f (CTypedef a1) = CTypedef (_f a1)
         fmap _f (CThread a1) = CThread (_f a1)
 
-
+ 
 instance Annotated CStorageSpecifier where
         annotation (CAuto n) = n
         annotation (CRegister n) = n
@@ -1024,7 +1132,7 @@ instance Annotated CStorageSpecifier where
         amap f (CTypedef a_1) = CTypedef (f a_1)
         amap f (CThread a_1) = CThread (f a_1)
 
-
+ 
 instance (CNode t1) => CNode (CTypeSpecifier t1) where
         nodeInfo (CVoidType d) = nodeInfo d
         nodeInfo (CCharType d) = nodeInfo d
@@ -1042,11 +1150,11 @@ instance (CNode t1) => CNode (CTypeSpecifier t1) where
         nodeInfo (CTypeDef _ n) = nodeInfo n
         nodeInfo (CTypeOfExpr _ n) = nodeInfo n
         nodeInfo (CTypeOfType _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CTypeSpecifier t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CTypeSpecifier where
         fmap _f (CVoidType a1) = CVoidType (_f a1)
         fmap _f (CCharType a1) = CCharType (_f a1)
@@ -1065,7 +1173,7 @@ instance Functor CTypeSpecifier where
         fmap _f (CTypeOfExpr a1 a2) = CTypeOfExpr (fmap _f a1) (_f a2)
         fmap _f (CTypeOfType a1 a2) = CTypeOfType (fmap _f a1) (_f a2)
 
-
+ 
 instance Annotated CTypeSpecifier where
         annotation (CVoidType n) = n
         annotation (CCharType n) = n
@@ -1100,18 +1208,18 @@ instance Annotated CTypeSpecifier where
         amap f (CTypeOfExpr a_1 a_2) = CTypeOfExpr a_1 (f a_2)
         amap f (CTypeOfType a_1 a_2) = CTypeOfType a_1 (f a_2)
 
-
+ 
 instance (CNode t1) => CNode (CTypeQualifier t1) where
         nodeInfo (CConstQual d) = nodeInfo d
         nodeInfo (CVolatQual d) = nodeInfo d
         nodeInfo (CRestrQual d) = nodeInfo d
         nodeInfo (CInlineQual d) = nodeInfo d
         nodeInfo (CAttrQual d) = nodeInfo d
-
+ 
 instance (CNode t1) => Pos (CTypeQualifier t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CTypeQualifier where
         fmap _f (CConstQual a1) = CConstQual (_f a1)
         fmap _f (CVolatQual a1) = CVolatQual (_f a1)
@@ -1119,7 +1227,7 @@ instance Functor CTypeQualifier where
         fmap _f (CInlineQual a1) = CInlineQual (_f a1)
         fmap _f (CAttrQual a1) = CAttrQual (fmap _f a1)
 
-
+ 
 instance Annotated CTypeQualifier where
         annotation (CConstQual n) = n
         annotation (CVolatQual n) = n
@@ -1132,76 +1240,76 @@ instance Annotated CTypeQualifier where
         amap f (CInlineQual a_1) = CInlineQual (f a_1)
         amap f (CAttrQual n) = CAttrQual (amap f n)
 
-
+ 
 instance (CNode t1) => CNode (CStructureUnion t1) where
         nodeInfo (CStruct _ _ _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CStructureUnion t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CStructureUnion where
         fmap _f (CStruct a1 a2 a3 a4 a5)
           = CStruct a1 a2 (fmap (fmap (fmap _f)) a3) (fmap (fmap _f) a4)
               (_f a5)
 
-
+ 
 instance Annotated CStructureUnion where
         annotation (CStruct _ _ _ _ n) = n
         amap f (CStruct a_1 a_2 a_3 a_4 a_5)
           = CStruct a_1 a_2 a_3 a_4 (f a_5)
 
-
+ 
 instance (CNode t1) => CNode (CEnumeration t1) where
         nodeInfo (CEnum _ _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CEnumeration t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CEnumeration where
         fmap _f (CEnum a1 a2 a3 a4)
           = CEnum a1 (fmap (fmap (fmap (fmap (fmap _f)))) a2)
               (fmap (fmap _f) a3)
               (_f a4)
 
-
+ 
 instance Annotated CEnumeration where
         annotation (CEnum _ _ _ n) = n
         amap f (CEnum a_1 a_2 a_3 a_4) = CEnum a_1 a_2 a_3 (f a_4)
 
-
+ 
 instance (CNode t1) => CNode (CInitializer t1) where
         nodeInfo (CInitExpr _ n) = nodeInfo n
         nodeInfo (CInitList _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CInitializer t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Annotated CInitializer where
         annotation (CInitExpr _ n) = n
         annotation (CInitList _ n) = n
         amap f (CInitExpr a_1 a_2) = CInitExpr a_1 (f a_2)
         amap f (CInitList a_1 a_2) = CInitList a_1 (f a_2)
 
-
+ 
 instance (CNode t1) => CNode (CPartDesignator t1) where
         nodeInfo (CArrDesig _ n) = nodeInfo n
         nodeInfo (CMemberDesig _ n) = nodeInfo n
         nodeInfo (CRangeDesig _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CPartDesignator t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CPartDesignator where
         fmap _f (CArrDesig a1 a2) = CArrDesig (fmap _f a1) (_f a2)
         fmap _f (CMemberDesig a1 a2) = CMemberDesig a1 (_f a2)
         fmap _f (CRangeDesig a1 a2 a3)
           = CRangeDesig (fmap _f a1) (fmap _f a2) (_f a3)
 
-
+ 
 instance Annotated CPartDesignator where
         annotation (CArrDesig _ n) = n
         annotation (CMemberDesig _ n) = n
@@ -1210,23 +1318,23 @@ instance Annotated CPartDesignator where
         amap f (CMemberDesig a_1 a_2) = CMemberDesig a_1 (f a_2)
         amap f (CRangeDesig a_1 a_2 a_3) = CRangeDesig a_1 a_2 (f a_3)
 
-
+ 
 instance (CNode t1) => CNode (CAttribute t1) where
         nodeInfo (CAttr _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CAttribute t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CAttribute where
         fmap _f (CAttr a1 a2 a3) = CAttr a1 (fmap (fmap _f) a2) (_f a3)
 
-
+ 
 instance Annotated CAttribute where
         annotation (CAttr _ _ n) = n
         amap f (CAttr a_1 a_2 a_3) = CAttr a_1 a_2 (f a_3)
 
-
+ 
 instance (CNode t1) => CNode (CExpression t1) where
         nodeInfo (CComma _ n) = nodeInfo n
         nodeInfo (CAssign _ _ _ n) = nodeInfo n
@@ -1249,11 +1357,12 @@ instance (CNode t1) => CNode (CExpression t1) where
         nodeInfo (CStatExpr _ n) = nodeInfo n
         nodeInfo (CLabAddrExpr _ n) = nodeInfo n
         nodeInfo (CBuiltinExpr d) = nodeInfo d
-
+        nodeInfo (CBlockExpr _ _ n) = nodeInfo n
+ 
 instance (CNode t1) => Pos (CExpression t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Annotated CExpression where
         annotation (CComma _ n) = n
         annotation (CAssign _ _ _ n) = n
@@ -1276,6 +1385,7 @@ instance Annotated CExpression where
         annotation (CStatExpr _ n) = n
         annotation (CLabAddrExpr _ n) = n
         annotation (CBuiltinExpr n) = annotation n
+        annotation (CBlockExpr _ _ n) = n
         amap f (CComma a_1 a_2) = CComma a_1 (f a_2)
         amap f (CAssign a_1 a_2 a_3 a_4) = CAssign a_1 a_2 a_3 (f a_4)
         amap f (CCond a_1 a_2 a_3 a_4) = CCond a_1 a_2 a_3 (f a_4)
@@ -1297,17 +1407,18 @@ instance Annotated CExpression where
         amap f (CStatExpr a_1 a_2) = CStatExpr a_1 (f a_2)
         amap f (CLabAddrExpr a_1 a_2) = CLabAddrExpr a_1 (f a_2)
         amap f (CBuiltinExpr n) = CBuiltinExpr (amap f n)
+        amap f (CBlockExpr a_1 a_2 a_3) = CBlockExpr a_1 a_2 (f a_3)
 
-
+ 
 instance (CNode t1) => CNode (CBuiltinThing t1) where
         nodeInfo (CBuiltinVaArg _ _ n) = nodeInfo n
         nodeInfo (CBuiltinOffsetOf _ _ n) = nodeInfo n
         nodeInfo (CBuiltinTypesCompatible _ _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CBuiltinThing t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CBuiltinThing where
         fmap _f (CBuiltinVaArg a1 a2 a3)
           = CBuiltinVaArg (fmap _f a1) (fmap _f a2) (_f a3)
@@ -1316,7 +1427,7 @@ instance Functor CBuiltinThing where
         fmap _f (CBuiltinTypesCompatible a1 a2 a3)
           = CBuiltinTypesCompatible (fmap _f a1) (fmap _f a2) (_f a3)
 
-
+ 
 instance Annotated CBuiltinThing where
         annotation (CBuiltinVaArg _ _ n) = n
         annotation (CBuiltinOffsetOf _ _ n) = n
@@ -1327,24 +1438,24 @@ instance Annotated CBuiltinThing where
         amap f (CBuiltinTypesCompatible a_1 a_2 a_3)
           = CBuiltinTypesCompatible a_1 a_2 (f a_3)
 
-
+ 
 instance (CNode t1) => CNode (CConstant t1) where
         nodeInfo (CIntConst _ n) = nodeInfo n
         nodeInfo (CCharConst _ n) = nodeInfo n
         nodeInfo (CFloatConst _ n) = nodeInfo n
         nodeInfo (CStrConst _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CConstant t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CConstant where
         fmap _f (CIntConst a1 a2) = CIntConst a1 (_f a2)
         fmap _f (CCharConst a1 a2) = CCharConst a1 (_f a2)
         fmap _f (CFloatConst a1 a2) = CFloatConst a1 (_f a2)
         fmap _f (CStrConst a1 a2) = CStrConst a1 (_f a2)
 
-
+ 
 instance Annotated CConstant where
         annotation (CIntConst _ n) = n
         annotation (CCharConst _ n) = n
@@ -1355,18 +1466,18 @@ instance Annotated CConstant where
         amap f (CFloatConst a_1 a_2) = CFloatConst a_1 (f a_2)
         amap f (CStrConst a_1 a_2) = CStrConst a_1 (f a_2)
 
-
+ 
 instance (CNode t1) => CNode (CStringLiteral t1) where
         nodeInfo (CStrLit _ n) = nodeInfo n
-
+ 
 instance (CNode t1) => Pos (CStringLiteral t1) where
         posOf x = posOf (nodeInfo x)
 
-
+ 
 instance Functor CStringLiteral where
         fmap _f (CStrLit a1 a2) = CStrLit a1 (_f a2)
 
-
+ 
 instance Annotated CStringLiteral where
         annotation (CStrLit _ n) = n
         amap f (CStrLit a_1 a_2) = CStrLit a_1 (f a_2)

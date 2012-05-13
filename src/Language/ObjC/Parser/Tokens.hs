@@ -155,6 +155,7 @@ data GnuCTok = GnuCAttrTok              -- `__attribute__'
 data ObjCTok = ObjCInterface            -- `@interface'
              | ObjCEnd                  -- `@end'
              | ObjCClass                -- `@class'
+             | ObjCClassIdent !Ident    -- `class-name' identifier
 
 instance Pos CToken where
   posOf = fst . posLenOfTok
@@ -362,4 +363,5 @@ instance Show CToken where
   showsPrec _ (CTokObjC ObjCInterface _) = showString "@interface"
   showsPrec _ (CTokObjC ObjCEnd _)       = showString "@end"
   showsPrec _ (CTokObjC ObjCClass _)     = showString "@class"
+  showsPrec _ (CTokObjC (ObjCClassIdent i) _) = showString $ identToString i
   showsPrec _ CTokEof = error "show CToken : CTokEof"

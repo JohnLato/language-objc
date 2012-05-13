@@ -108,8 +108,9 @@ import Control.Monad (mplus)
 import Language.ObjC.Parser.Builtin   (builtinTypeNames)
 import Language.ObjC.Parser.Lexer     (lexC, parseError)
 import Language.ObjC.Parser.Tokens    (CToken(..), GnuCTok(..), ObjCTok (..), posLenOfTok)
-import Language.ObjC.Parser.ParserMonad (P, failP, execParser, getNewName, addTypedef, shadowTypedef, getCurrentPosition,
-                                      enterScope, leaveScope, getLastToken, getSavedToken, ParseError(..))
+import Language.ObjC.Parser.ParserMonad (P, failP, execParser, getNewName,
+   addTypedef, shadowSymbol, getCurrentPosition, addClass,
+   enterScope, leaveScope, getLastToken, getSavedToken, ParseError(..))
 
 import Language.ObjC.Data.RList
 import Language.ObjC.Data.InputStream
@@ -236,6 +237,10 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 "__builtin_va_arg"		{ CTokGnuC GnuCVaArg    _ }
 "__builtin_offsetof"		{ CTokGnuC GnuCOffsetof _ }
 "__builtin_types_compatible_p"	{ CTokGnuC GnuCTyCompat _ }
+"@class"        { CTokObjC ObjCClass        	_ }
+"@interface"    { CTokObjC ObjCInterface	_ }
+"@end"          { CTokObjC ObjCEnd          	_ }
+classname       { CTokObjC (ObjCClassIdent $$)  _ } -- `class' identifier
 
 %%
 
@@ -271,10 +276,57 @@ ext_decl_list
 external_declaration :: { CExtDecl }
 external_declaration
   : function_definition		              { CFDefExt $1 }
-  | declaration			                  { CDeclExt $1 }
+  | declaration			              { CDeclExt $1 }
+  | class_list			              { ObjCClassExt $1 }
+  | class_interface                           { ObjCIfaceExt $1 }
   | "__extension__" external_declaration  { $2 }
   | asm '(' string_literal ')' ';'		  {% withNodeInfo $1 $ CAsmExt $3 }
 
+-- parse an Objective-C class list (ObjC)
+-- 
+-- class_list :- "@class" identifier_list ";"
+class_list :: { ObjCClassDef }
+class_list
+  : "@class" class_declarator_list ';'
+        {% withNodeInfo $1 $ ObjCClassDef (reverse $2) }
+
+-- parse a comma-separated list of class declarators
+class_declarator_list :: { Reversed [ObjCClassDeclr] }
+class_declarator_list
+  : class_declarator                            { singleton $1 }
+  | class_declarator_list ',' class_declarator	{ $1 `snoc` $3 }
+
+-- parse an interface declaration (ObjC)
+-- 
+-- class_interface :- "@interface" identifier superclass_name? protocol_reference_list? instance_variables? interface_declaration_list? "@end@
+class_interface :: { ObjCIface }
+class_interface
+  : "@interface" class_declarator opt_superclass "@end"
+  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 [] [] []) }
+
+-- an optional superclass declaration
+opt_superclass :: { Maybe ObjCClassNm }
+opt_superclass
+  : ':' class_name {% let cn = $2 in return (Just cn) }
+  |                {% return Nothing }
+
+-- parse a class name, as specified via @class or @interface
+-- 
+-- class_name :- classname
+class_name :: { ObjCClassNm }
+class_name
+  : classname  {% withNodeInfo $1 (ObjCClassNm $1) }
+
+-- parse a class declarator
+-- 
+-- class_declarator :- ident | classname
+--
+class_declarator :: { ObjCClassDeclr }
+class_declarator
+  : ident
+  	{% let cn = $1 in addClass cn >> withNodeInfo $1 (ObjCClassDeclr cn) }
+  | classname
+        {% withNodeInfo $1 (ObjCClassDeclr $1) }
 
 -- parse C function definition (C99 6.9.1)
 --
@@ -2266,14 +2318,14 @@ mkVarDeclr ident = CDeclrR (Just ident) empty Nothing []
 
 -- Take the identifiers and use them to update the typedef'ed identifier set
 -- if the decl is defining a typedef then we add it to the set,
--- if it's a var decl then that shadows typedefed identifiers
+-- if it's a var decl then that shadows typedefed (classnam) identifiers
 --
 doDeclIdent :: [CDeclSpec] -> CDeclrR -> P ()
 doDeclIdent declspecs (CDeclrR mIdent _ _ _ _) =
   case mIdent of
     Nothing -> return ()
     Just ident | any iypedef declspecs -> addTypedef ident
-               | otherwise             -> shadowTypedef ident
+               | otherwise             -> shadowSymbol ident
 
   where iypedef (CStorageSpec (CTypedef _)) = True
         iypedef _                           = False
@@ -2283,7 +2335,7 @@ doFuncParamDeclIdent (CDeclr _ (CFunDeclr params _ _ : _) _ _ _) =
   sequence_
     [ case getCDeclrIdent declr of
         Nothing -> return ()
-        Just ident -> shadowTypedef ident
+        Just ident -> shadowSymbol ident
     | CDecl _ dle _  <- either (const []) fst params
     , (Just declr, _, _) <- dle ]
 doFuncParamDeclIdent _ = return ()

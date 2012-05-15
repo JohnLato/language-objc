@@ -37,8 +37,6 @@ import Language.ObjC.Data
 import Language.ObjC.Analysis.NameSpaceMap
 import Language.ObjC.Analysis.SemRep
 
-import Control.Applicative ((<|>))
-import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.IntMap (IntMap, union)
 import qualified Data.IntMap as IntMap
@@ -280,8 +278,9 @@ defineTag sueref def deftbl =
     (decls',olddecl) = defLocal (tagDecls deftbl) sueref (Right def)
     redeclStatus =
       case olddecl of
-        Just fwd_decl@(Left decl) | tagKind fwd_decl == tagKind (Right def) -> NewDecl -- should be NewDef
-                                  | otherwise -> KindMismatch fwd_decl
+        Just fwd_decl@(Left _)
+          | tagKind fwd_decl == tagKind (Right def) -> NewDecl -- should be NewDef
+          | otherwise -> KindMismatch fwd_decl
         _ -> defRedeclStatusLocal compatTagEntry sueref (Right def) olddecl (tagDecls deftbl)
 
 -- | define a label

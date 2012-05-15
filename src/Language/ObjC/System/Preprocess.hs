@@ -13,6 +13,7 @@ module Language.ObjC.System.Preprocess (
     Preprocessor(..),
     CppOption(..),
     CppArgs(..),rawCppArgs,addCppOption,addExtraOption,
+    cppFile,
     runPreprocessor,
     isPreprocessed,
 )
@@ -21,7 +22,6 @@ import Language.ObjC.Data.InputStream
 import System.Exit
 import System.Directory
 import System.FilePath
-import System.Environment
 import System.IO
 import Control.Exception
 import Control.Monad

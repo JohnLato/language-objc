@@ -25,7 +25,6 @@ import Language.ObjC.Analysis.NameSpaceMap
 
 import Language.ObjC.Data
 import Language.ObjC.Pretty
-import Language.ObjC.Syntax
 
 import Text.PrettyPrint.HughesPJ
 import Data.Map (Map) ; import qualified Data.Map as Map
@@ -135,7 +134,7 @@ instance Pretty TypeQuals where
                                     | otherwise      = empty
 
 instance Pretty CompType where
-    pretty (CompType sue_ref tag members attrs node) =
+    pretty (CompType sue_ref tag members attrs _node) =
         (text.show) tag <+> pretty sue_ref <+>
         braces (terminateSemi members) <+>
         pretty attrs
@@ -150,7 +149,7 @@ instance Pretty EnumType where
     pretty (EnumType sue_ref enumerators attrs _) =
       text "enum" <+> pretty sue_ref <+> braces (terminateSemi_ $ map prettyEnr enumerators) <+> pretty attrs
       where
-      prettyEnr (Enumerator ident expr enumty _) = pretty ident <+> text " = " <+> pretty expr
+      prettyEnr (Enumerator ident expr _enumty _) = pretty ident <+> text " = " <+> pretty expr
 
 instance Pretty Enumerator where
     pretty (Enumerator ident expr enumty _) = text "<" <> text "econst" <+> pretty (sueRef enumty) <> text ">" <+>

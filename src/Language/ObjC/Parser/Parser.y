@@ -828,6 +828,7 @@ declaration_specifier
   : basic_declaration_specifier		{ reverse $1 }	-- Arithmetic or void
   | sue_declaration_specifier		{ reverse $1 }	  -- Struct/Union/Enum
   | typedef_declaration_specifier	{ reverse $1 }	-- Typedef
+  | classname_declaration_specifier	{ reverse $1 }	-- class name
 
 
 -- A mixture of type qualifiers (const, volatile, restrict, inline) and storage class specifiers
@@ -1036,6 +1037,9 @@ typedef_declaration_specifier
   | declaration_qualifier_list tyident
   	{% withNodeInfo $2 $ \at -> $1 `snoc` CTypeSpec (CTypeDef $2 at) }
 
+  | declaration_qualifier_list tyident '<' protocol_ref_list '>'
+  	{% withNodeInfo $2 $ \at -> $1 `snoc` CTypeSpec (ObjCTypeProto $2 (reverse $4) at) }
+
   | declaration_qualifier_list typeof '(' expression ')'
   	{% withNodeInfo $2 $ \at -> $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
 
@@ -1048,6 +1052,22 @@ typedef_declaration_specifier
   | typedef_declaration_specifier attr
   	{ addTrailingAttrs $1 $2 }
 
+-- A class type identifier with at least one storage qualifier and any
+-- number of type qualifiers
+--
+classname_declaration_specifier :: { Reversed [CDeclSpec] }
+classname_declaration_specifier
+  : classname_type_specifier storage_class
+  	{ $1 `snoc` CStorageSpec $2 }
+  	
+  | declaration_qualifier_list classname opt_proto_ref_list
+  	{% withNodeInfo $2 $ \at -> $1 `snoc` CTypeSpec (ObjCClassProto $2 (reverse $3) at) }
+
+  | classname_declaration_specifier declaration_qualifier
+  	{ $1 `snoc` $2 }
+
+  | classname_declaration_specifier attr
+  	{ addTrailingAttrs $1 $2 }
 
 -- typedef'ed type identifier with optional leading and trailing type qualifiers
 --
@@ -1059,6 +1079,9 @@ typedef_type_specifier
   : tyident
   	{% withNodeInfo $1 $ \at -> singleton (CTypeSpec (CTypeDef $1 at)) }
 
+  | tyident '<' protocol_ref_list '>'
+  	{% withNodeInfo $1 $ \at -> singleton (CTypeSpec (ObjCTypeProto $1 (reverse $3) at)) }
+
   | typeof '(' expression ')'
   	{% withNodeInfo $1 $ \at -> singleton (CTypeSpec (CTypeOfExpr $3 at)) }
 
@@ -1067,6 +1090,9 @@ typedef_type_specifier
 
   | type_qualifier_list tyident
   	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeDef $2 at) }
+
+  | type_qualifier_list tyident '<' protocol_ref_list '>'
+  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (ObjCTypeProto $2 (reverse $4) at) }
 
   | type_qualifier_list typeof '(' expression ')'
   	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (CTypeOfExpr $4 at) }
@@ -1078,6 +1104,9 @@ typedef_type_specifier
   | attrs tyident
   	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc` (CTypeSpec (CTypeDef $2 at)) }
 
+  | attrs tyident '<' protocol_ref_list '>'
+  	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc` (CTypeSpec (ObjCTypeProto $2 (reverse $4) at)) }
+
   | attrs typeof '(' expression ')'
   	{% withNodeInfo $1 $ \at -> reverseList (liftCAttrs $1) `snoc`  (CTypeSpec (CTypeOfExpr $4 at)) }
 
@@ -1086,6 +1115,9 @@ typedef_type_specifier
 
   | type_qualifier_list attrs tyident
   	{% withNodeInfo $3 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeDef $3 at) }
+
+  | type_qualifier_list attrs tyident '<' protocol_ref_list '>'
+  	{% withNodeInfo $3 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (ObjCTypeProto $3 (reverse $5) at) }
 
   | type_qualifier_list attrs typeof '(' expression ')'
   	{% withNodeInfo $3 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (CTypeOfExpr $5 at) }
@@ -1097,6 +1129,33 @@ typedef_type_specifier
   	{ $1 `snoc` CTypeQual $2 }
 
   | typedef_type_specifier attr
+  	{ addTrailingAttrs $1 $2 }
+
+
+-- class name type identifier with optional leading and trailing type qualifiers
+--
+-- * Summary:
+--   type_qualifier* ( classname ) type_qualifier*
+--
+classname_type_specifier :: { Reversed [CDeclSpec] }
+classname_type_specifier
+  : classname opt_proto_ref_list
+  	{% withNodeInfo $1 $ \at -> singleton (CTypeSpec (ObjCClassProto $1 (reverse $2) at)) }
+
+  | type_qualifier_list classname opt_proto_ref_list
+  	{% withNodeInfo $2 $ \at -> rmap CTypeQual  $1 `snoc` CTypeSpec (ObjCClassProto $2 (reverse $3) at) }
+
+  -- repeat with attrs (this could be easier if type qualifier list wouldn't allow leading attributes)
+  | attrs classname opt_proto_ref_list
+  	{% withNodeInfo $2 $ \at -> reverseList (liftCAttrs $1) `snoc` (CTypeSpec (ObjCClassProto $2 (reverse $3) at)) }
+
+  | type_qualifier_list attrs classname opt_proto_ref_list
+  	{% withNodeInfo $3 $ \at -> rmap CTypeQual  $1 `rappend` (liftCAttrs $2) `snoc` CTypeSpec (ObjCClassProto $3 (reverse $4) at) }
+
+  | classname_type_specifier type_qualifier
+  	{ $1 `snoc` CTypeQual $2 }
+
+  | classname_type_specifier attr
   	{ addTrailingAttrs $1 $2 }
 
 

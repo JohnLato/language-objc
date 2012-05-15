@@ -467,6 +467,9 @@ data CStorageSpecifier a
 -- @struct@, @union@ or @enum@ specifiers or typedef names.
 --
 -- As a GNU extension, a @typeof@ expression also is a type specifier.
+-- 
+-- Objective-C class names and specifiers of the form 'typdefname <Protocols>'
+-- are also allowed.
 type CTypeSpec = CTypeSpecifier NodeInfo
 data CTypeSpecifier a
   = CVoidType    a
@@ -485,6 +488,8 @@ data CTypeSpecifier a
   | CTypeDef     Ident        a      -- ^ Typedef name
   | CTypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
   | CTypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
+  | ObjCClassProto Ident [ObjCProtocolName a] a      -- ^ class name with protocol list
+  | ObjCTypeProto  Ident [ObjCProtocolName a] a      -- ^ Typedef name with protocol list
     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
 
 
@@ -901,6 +906,18 @@ instance Annotated ObjCClassName where
         amap f (ObjCClassNm a_1 a_2) = ObjCClassNm a_1 (f a_2)
 
  
+instance (CNode t1) => CNode (ObjCProtocolName t1) where
+        nodeInfo (ObjCProtoNm _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCProtocolName t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCProtocolName where
+        annotation (ObjCProtoNm _ n) = n
+        amap f (ObjCProtoNm a_1 a_2) = ObjCProtoNm a_1 (f a_2)
+
+ 
 instance (CNode t1) => CNode (CDeclaration t1) where
         nodeInfo (CDecl _ _ n) = nodeInfo n
  
@@ -1156,6 +1173,8 @@ instance (CNode t1) => CNode (CTypeSpecifier t1) where
         nodeInfo (CTypeDef _ n) = nodeInfo n
         nodeInfo (CTypeOfExpr _ n) = nodeInfo n
         nodeInfo (CTypeOfType _ n) = nodeInfo n
+        nodeInfo (ObjCClassProto _ _ n) = nodeInfo n
+        nodeInfo (ObjCTypeProto _ _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (CTypeSpecifier t1) where
         posOf x = posOf (nodeInfo x)
@@ -1178,6 +1197,10 @@ instance Functor CTypeSpecifier where
         fmap _f (CTypeDef a1 a2) = CTypeDef a1 (_f a2)
         fmap _f (CTypeOfExpr a1 a2) = CTypeOfExpr (fmap _f a1) (_f a2)
         fmap _f (CTypeOfType a1 a2) = CTypeOfType (fmap _f a1) (_f a2)
+        fmap _f (ObjCClassProto a1 a2 a3)
+          = ObjCClassProto a1 (fmap (fmap _f) a2) (_f a3)
+        fmap _f (ObjCTypeProto a1 a2 a3)
+          = ObjCTypeProto a1 (fmap (fmap _f) a2) (_f a3)
 
  
 instance Annotated CTypeSpecifier where
@@ -1197,6 +1220,8 @@ instance Annotated CTypeSpecifier where
         annotation (CTypeDef _ n) = n
         annotation (CTypeOfExpr _ n) = n
         annotation (CTypeOfType _ n) = n
+        annotation (ObjCClassProto _ _ n) = n
+        annotation (ObjCTypeProto _ _ n) = n
         amap f (CVoidType a_1) = CVoidType (f a_1)
         amap f (CCharType a_1) = CCharType (f a_1)
         amap f (CShortType a_1) = CShortType (f a_1)
@@ -1213,6 +1238,9 @@ instance Annotated CTypeSpecifier where
         amap f (CTypeDef a_1 a_2) = CTypeDef a_1 (f a_2)
         amap f (CTypeOfExpr a_1 a_2) = CTypeOfExpr a_1 (f a_2)
         amap f (CTypeOfType a_1 a_2) = CTypeOfType a_1 (f a_2)
+        amap f (ObjCClassProto a_1 a_2 a_3)
+          = ObjCClassProto a_1 a_2 (f a_3)
+        amap f (ObjCTypeProto a_1 a_2 a_3) = ObjCTypeProto a_1 a_2 (f a_3)
 
  
 instance (CNode t1) => CNode (CTypeQualifier t1) where

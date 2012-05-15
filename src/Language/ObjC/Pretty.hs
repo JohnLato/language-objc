@@ -274,6 +274,10 @@ instance Pretty CTypeSpec where
         text "typeof" <> text "(" <> pretty expr <> text ")"
     pretty (CTypeOfType decl _) =
         text "typeof" <> text "(" <> pretty decl <> text ")"
+    pretty (ObjCClassProto ident protos _)   =
+        identP ident <+> braces (hsep . punctuate comma $ map pretty protos)
+    pretty (ObjCTypeProto  ident protos _)   =
+        identP ident <+> braces (hsep . punctuate comma $ map pretty protos)
 
 instance Pretty CTypeQual where
     pretty (CConstQual _) = text "const"

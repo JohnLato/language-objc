@@ -13,8 +13,6 @@ module Language.ObjC.Data.Name (
 Name(..),newNameSupply, namesStartingFrom
 ) where
 import Data.Ix
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
 import Data.Generics
 
 -- | Name is a unique identifier

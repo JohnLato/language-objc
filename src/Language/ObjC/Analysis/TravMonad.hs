@@ -58,9 +58,7 @@ module Language.ObjC.Analysis.TravMonad (
 )
 where
 import Language.ObjC.Data
-import Language.ObjC.Data.Ident
 import Language.ObjC.Data.RList as RList
-import Language.ObjC.Syntax
 
 import Language.ObjC.Analysis.Builtins
 import Language.ObjC.Analysis.SemError
@@ -69,7 +67,7 @@ import Language.ObjC.Analysis.DefTable hiding (enterBlockScope,leaveBlockScope,
                                             enterFunctionScope,leaveFunctionScope)
 import qualified Language.ObjC.Analysis.DefTable as ST
 
-import Data.IntMap (insert, lookup)
+import Data.IntMap (insert)
 import Data.Maybe
 import Control.Monad(liftM)
 import Prelude hiding (lookup)
@@ -168,7 +166,7 @@ checkIdentTyRedef (Left _tydef) _ = return ()
 
 -- Check whether it is ok to declare a variable already in scope
 checkVarRedef :: (MonadCError m) => IdentDecl -> (DeclarationStatus IdentEntry) -> m ()
-checkVarRedef def redecl =
+checkVarRedef odef redecl =
     case redecl of
         -- always an error
         KindMismatch old_def -> redefVarErr old_def DiffKindRedecl
@@ -176,25 +174,25 @@ checkVarRedef def redecl =
         --   * new entry has to be a declaration
         --   * old entry and new entry have to have linkage and agree on linkage
         --   * types have to match
-        KeepDef (Right old_def) | not (agreeOnLinkage def old_def) -> linkageErr def old_def
+        KeepDef (Right old_def) | not (agreeOnLinkage odef old_def) -> linkageErr odef old_def
                                 | otherwise -> throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
         -- redefinition:
         --   * old entry has to be a declaration or tentative definition
         --   * old entry and new entry have to have linkage and agree on linkage
         --   * types have to match
-        Redeclared (Right old_def) | not (agreeOnLinkage def old_def) -> linkageErr def old_def
+        Redeclared (Right old_def) | not (agreeOnLinkage odef old_def) -> linkageErr odef old_def
                                    | not(canBeOverwritten old_def) -> redefVarErr old_def DuplicateDef
                                    | otherwise -> throwOnLeft $ checkCompatibleTypes new_ty (declType old_def)
         -- NewDecl/Shadowed is ok
         _ -> return ()
     where
-    redefVarErr old_def kind = redefErr (declIdent def) LevelError def old_def kind
+    redefVarErr old_def kind = redefErr (declIdent odef) LevelError odef old_def kind
     linkageErr def old_def =
         case (declLinkage def, declLinkage old_def) of
             (NoLinkage, _) -> redefErr (declIdent def) LevelError  def old_def NoLinkageOld
-            otherwise      -> redefErr (declIdent def) LevelError  def old_def DisagreeLinkage
+            _otherwise     -> redefErr (declIdent def) LevelError  def old_def DisagreeLinkage
 
-    new_ty = declType def
+    new_ty = declType odef
     canBeOverwritten (Declaration _) = True
     canBeOverwritten (ObjectDef od)  = isTentative od
     canBeOverwritten _               = False

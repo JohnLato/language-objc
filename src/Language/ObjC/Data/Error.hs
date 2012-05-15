@@ -29,7 +29,6 @@ module Language.ObjC.Data.Error (
 )
 where
 import Data.Typeable
-import Data.Generics
 import Language.ObjC.Data.Node
 import Language.ObjC.Data.Position
 

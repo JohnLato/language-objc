@@ -54,12 +54,10 @@ Stmt,Expr,Initializer,AsmBlock,
 where
 import Language.ObjC.Data
 import Language.ObjC.Syntax
-import Language.ObjC.Syntax.Constants
 
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Generics
-import Text.PrettyPrint.HughesPJ
 
 -- | accessor class : struct\/union\/enum names
 class HasSUERef a where
@@ -476,6 +474,14 @@ instance Declaration Enumerator where
 -- | Type qualifiers: constant, volatile and restrict
 data TypeQuals = TypeQuals { constant :: Bool, volatile :: Bool, restrict :: Bool }
     deriving (Typeable, Data)
+
+instance Eq TypeQuals where
+ (==) (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) =
+    c1 == c2 && v1 == v2 && r1 == r2
+
+instance Ord TypeQuals where
+  (<=) (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) =
+    c1 <= c2 && v1 <= v2 && r1 <= r2
 
 -- | no type qualifiers
 noTypeQuals :: TypeQuals

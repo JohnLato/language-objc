@@ -34,7 +34,6 @@ import qualified Prelude
 import qualified Data.Map as Map (empty, insert, lookup, toList, union)
 import qualified Data.List as List (unionBy)
 import Data.Map   (Map)
-import Language.ObjC.Data.Ident     (Ident)
 
 {-
 C Namespaces and scopes:

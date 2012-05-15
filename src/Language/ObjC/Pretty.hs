@@ -18,7 +18,7 @@ module Language.ObjC.Pretty (
     -- * Testing
     prettyUsingInclude
 ) where
-import Data.List (partition,nub,isSuffixOf)
+import Data.List (isSuffixOf)
 import qualified Data.Set as Set
 import Text.PrettyPrint.HughesPJ
 import Debug.Trace {- for warnings -}
@@ -367,11 +367,14 @@ prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
 
 
 -- | pretty-print parameters (used by function declarators and code blocks)
+prettyParams :: Either [Ident] ([CDecl], Bool) -> Doc
 prettyParams (Right (decls, isVariadic)) =
  sep (punctuate comma (map pretty decls))
  <> (if isVariadic then text "," <+> text "..." else empty)
 prettyParams (Left oldStyleIds) =
  hsep (punctuate comma (map identP oldStyleIds))
+
+prettyAsmName :: Maybe CStrLit -> Doc
 prettyAsmName asm_name_opt
     = maybe empty (\asm_name -> text "__asm__" <> parens (pretty asm_name)) asm_name_opt
 

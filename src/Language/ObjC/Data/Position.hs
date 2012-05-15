@@ -121,4 +121,4 @@ adjustPos _ _ p                           = p
 -- | advance just the offset
 incOffset :: Position -> Int -> Position
 incOffset (Position o f r c) n = Position (o + n) f r c
-incOffset p n                  = p
+incOffset p _n                 = p

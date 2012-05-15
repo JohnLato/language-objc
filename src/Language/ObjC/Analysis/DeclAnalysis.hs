@@ -30,17 +30,15 @@ import Language.ObjC.Data.Ident
 import Language.ObjC.Pretty
 import Language.ObjC.Syntax
 import {-# SOURCE #-} Language.ObjC.Analysis.AstAnalysis (tExpr, ExprSide(..))
-import Language.ObjC.Analysis.DefTable (TagFwdDecl(..), insertType, lookupType)
+import Language.ObjC.Analysis.DefTable (TagFwdDecl(..), insertType)
 import Language.ObjC.Analysis.Export
 import Language.ObjC.Analysis.SemError
 import Language.ObjC.Analysis.SemRep
 import Language.ObjC.Analysis.TravMonad
 
 import Data.Foldable as F (foldrM)
-import qualified Data.Traversable as T
 import Control.Monad (liftM,when,ap)
 import Data.List (intersperse, mapAccumL)
-import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.PrettyPrint.HughesPJ
 
@@ -82,7 +80,7 @@ computeParamStorage node spec       = Left . badSpecifierError node $ "Bad stora
 tMemberDecls :: (MonadTrav m) => CDecl -> m [MemberDecl]
 -- Anonymous struct or union members
 tMemberDecls (CDecl declspecs [] node) =
-  do let (storage_specs, _attrs, typequals, typespecs, is_inline) =
+  do let (_storage_specs, _attrs, typequals, typespecs, is_inline) =
            partitionDeclSpecs declspecs
      when is_inline $ astError node "member declaration with inline specifier"
      canonTySpecs <- canonicalTypeSpec typespecs
@@ -100,12 +98,12 @@ tMemberDecls (CDecl declspecs declrs node) = mapM (uncurry tMemberDecl) (zip (Tr
     tMemberDecl handle_sue_def (Just member_declr,Nothing,bit_field_size_opt) =
         -- TODO: use analyseVarDecl here, not analyseVarDecl'
         do var_decl <- analyseVarDecl' handle_sue_def declspecs member_declr [] Nothing
-           let (VarDeclInfo name is_inline storage_spec attrs ty declr_node) = var_decl
+           let (VarDeclInfo name is_inline storage_spec attrs ty _declr_node) = var_decl
            --
            checkValidMemberSpec is_inline storage_spec
            return $ MemberDecl (VarDecl name (DeclAttrs False NoStorage attrs) ty) bit_field_size_opt node
     tMemberDecl handle_sue_def (Nothing,Nothing,Just bit_field_size) =
-        do let (storage_specs, _attrs, typequals, typespecs, is_inline) = partitionDeclSpecs declspecs
+        do let (storage_specs, _attrs, typequals, typespecs, _is_inline) = partitionDeclSpecs declspecs
            storage_spec  <- canonicalStorageSpec storage_specs
            canonTySpecs  <- canonicalTypeSpec typespecs
            typ           <- tType handle_sue_def node typequals canonTySpecs [] []
@@ -139,13 +137,21 @@ analyseVarDecl' handle_sue_def declspecs declr oldstyle init_opt =
                     declr oldstyle init_opt
 
 -- | analyse declarators
-analyseVarDecl :: (MonadTrav m) =>
-                  Bool -> [CStorageSpec] -> [CAttr] -> [CTypeQual] ->
-                  TypeSpecAnalysis -> Bool ->
-                  CDeclr -> [CDecl] -> (Maybe CInit) -> m VarDeclInfo
+analyseVarDecl
+  :: (MonadTrav m)
+  => Bool
+  -> [CStorageSpec]
+  -> [CAttr]
+  -> [CTypeQual]
+  -> TypeSpecAnalysis
+  -> Bool
+  -> CDeclr
+  -> [CDecl]
+  -> (Maybe CInit)   -- ^ currently unused
+  -> m VarDeclInfo
 analyseVarDecl handle_sue_def storage_specs decl_attrs typequals canonTySpecs inline
                (CDeclr name_opt derived_declrs asmname_opt declr_attrs node)
-               oldstyle_params init_opt
+               oldstyle_params _init_opt
     = do -- analyse the storage specifiers
          storage_spec  <- canonicalStorageSpec storage_specs
          -- translate the type into semantic representation

@@ -362,6 +362,10 @@ idkwtok ('w' : 'h' : 'i' : 'l' : 'e' : []) = tok 5 CTokWhile
 idkwtok ('@' : 'i' : 'n' : 't' : 'e' : 'r' : 'f' : 'a' : 'c' : 'e' : [] ) = tok 10 (CTokObjC ObjCInterface)
 idkwtok ('@' : 'e' : 'n' : 'd' : []) = tok 4 (CTokObjC ObjCEnd)
 idkwtok ('@' : 'c' : 'l' : 'a' : 's' : 's' : []) = tok 4 (CTokObjC ObjCClass)
+idkwtok ('@' : 'p' : 'r' : 'i' : 'v' : 'a' : 't' : 'e' : []) = tok 4 (CTokObjC ObjCPriv)
+idkwtok ("@protected") = tok 4 (CTokObjC ObjCProt)
+idkwtok ("@public") = tok 4 (CTokObjC ObjCPub)
+idkwtok ("@package") = tok 4 (CTokObjC ObjCPackage)
 
 idkwtok cs = \pos -> do
   name <- getNewName

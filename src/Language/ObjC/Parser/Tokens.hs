@@ -156,6 +156,10 @@ data ObjCTok = ObjCInterface            -- `@interface'
              | ObjCEnd                  -- `@end'
              | ObjCClass                -- `@class'
              | ObjCClassIdent !Ident    -- `class-name' identifier
+             | ObjCPriv                 -- `@private'
+             | ObjCProt                 -- `@protected'
+             | ObjCPub                  -- `@public'
+             | ObjCPackage              -- `@package'
 
 instance Pos CToken where
   posOf = fst . posLenOfTok
@@ -364,4 +368,8 @@ instance Show CToken where
   showsPrec _ (CTokObjC ObjCEnd _)       = showString "@end"
   showsPrec _ (CTokObjC ObjCClass _)     = showString "@class"
   showsPrec _ (CTokObjC (ObjCClassIdent i) _) = showString $ identToString i
+  showsPrec _ (CTokObjC ObjCPriv _)      = showString "@private"
+  showsPrec _ (CTokObjC ObjCProt _)      = showString "@protected"
+  showsPrec _ (CTokObjC ObjCPub _)       = showString "@public"
+  showsPrec _ (CTokObjC ObjCPackage _)   = showString "@package"
   showsPrec _ CTokEof = error "show CToken : CTokEof"

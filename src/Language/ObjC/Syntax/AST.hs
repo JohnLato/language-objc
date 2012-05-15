@@ -699,37 +699,7 @@ data CExpression a
   | CLabAddrExpr Ident a                 -- ^ GNU C address of label
   | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
   | CBlockExpr   ([CDeclaration a],Bool) (CStatement a) a -- ^ Code block definition, new-style params, compound statement
-    deriving (Data,Typeable,Show {-! ,CNode , Annotated !-})
-
--- deriving Functor does not work (type synonyms)
-instance Functor CExpression where
-        fmap _f (CComma a1 a2) = CComma (fmap (fmap _f) a1) (_f a2)
-        fmap _f (CAssign a1 a2 a3 a4)
-          = CAssign a1 (fmap _f a2) (fmap _f a3) (_f a4)
-        fmap _f (CCond a1 a2 a3 a4)
-          = CCond (fmap _f a1) (fmap (fmap _f) a2) (fmap _f a3) (_f a4)
-        fmap _f (CBinary a1 a2 a3 a4)
-          = CBinary a1 (fmap _f a2) (fmap _f a3) (_f a4)
-        fmap _f (CCast a1 a2 a3) = CCast (fmap _f a1) (fmap _f a2) (_f a3)
-        fmap _f (CUnary a1 a2 a3) = CUnary a1 (fmap _f a2) (_f a3)
-        fmap _f (CSizeofExpr a1 a2) = CSizeofExpr (fmap _f a1) (_f a2)
-        fmap _f (CSizeofType a1 a2) = CSizeofType (fmap _f a1) (_f a2)
-        fmap _f (CAlignofExpr a1 a2) = CAlignofExpr (fmap _f a1) (_f a2)
-        fmap _f (CAlignofType a1 a2) = CAlignofType (fmap _f a1) (_f a2)
-        fmap _f (CComplexReal a1 a2) = CComplexReal (fmap _f a1) (_f a2)
-        fmap _f (CComplexImag a1 a2) = CComplexImag (fmap _f a1) (_f a2)
-        fmap _f (CIndex a1 a2 a3)
-          = CIndex (fmap _f a1) (fmap _f a2) (_f a3)
-        fmap _f (CCall a1 a2 a3)
-          = CCall (fmap _f a1) (fmap (fmap _f) a2) (_f a3)
-        fmap _f (CMember a1 a2 a3 a4) = CMember (fmap _f a1) a2 a3 (_f a4)
-        fmap _f (CVar a1 a2) = CVar a1 (_f a2)
-        fmap _f (CConst a1) = CConst (fmap _f a1)
-        fmap _f (CCompoundLit a1 a2 a3)
-          = CCompoundLit (fmap _f a1) (fmapInitList _f a2) (_f a3)
-        fmap _f (CStatExpr a1 a2) = CStatExpr (fmap _f a1) (_f a2)
-        fmap _f (CLabAddrExpr a1 a2) = CLabAddrExpr a1 (_f a2)
-        fmap _f (CBuiltinExpr a1) = CBuiltinExpr (fmap _f a1)
+    deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
 
 -- | GNU Builtins, which cannot be typed in C99

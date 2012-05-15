@@ -124,11 +124,29 @@ instance Pretty ObjCIface where
       text "@interface" <+> pretty cn
       <+> maybe empty ((text ":" <+>) . pretty) sp
       <+> pProto protos
-      $$ empty
+      $$ pVars vars
       $$ text "@end"
 
+pVars :: [ObjCInstanceVarBlock] -> Doc
+pVars [] = empty
+pVars blks = brackets . sep . punctuate semi $ map pretty blks
+
+pProto :: [ObjCProtoNm] -> Doc
 pProto [] = empty
 pProto pl = braces . hsep . punctuate comma $ map pretty pl
+
+instance Pretty ObjCInstanceVarBlock where
+    pretty (ObjCInstanceVarBlock mvis decls _) =
+      maybe empty pretty mvis <+> hsep (map pretty decls)
+
+instance Pretty ObjCVisSpec where
+    pretty (ObjCVisSpec vt _) = pretty vt
+
+instance Pretty ObjCVisType where
+    pretty ObjCPrivVis    = text "@private"
+    pretty ObjCProtVis    = text "@protected"
+    pretty ObjCPubVis     = text "@public"
+    pretty ObjCPackageVis = text "@package"
 
 instance Pretty ObjCClassNm where
     pretty (ObjCClassNm nm _) = identP nm

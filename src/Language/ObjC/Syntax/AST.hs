@@ -32,8 +32,9 @@ module Language.ObjC.Syntax.AST (
   CFunctionDef(..),  CDeclaration(..),
   CStructTag(..), CStructureUnion(..),  CEnumeration(..),
   -- ** Objective-C extensions
-  ObjCIface, ObjCClassDef, ObjCProtoNm,
+  ObjCIface, ObjCClassDef, ObjCProtoNm, ObjCInstanceVarBlock, ObjCVisSpec,
   ObjCInterface(..), ObjCClassListDef(..), ObjCProtocolName(..),
+  ObjCInstanceVariableBlock(..),ObjCVisibilitySpec(..),ObjCVisType(..),
   -- * Declaration attributes
   CDeclSpec, partitionDeclSpecs,
   CStorageSpec, CTypeSpec, isSUEDef, CTypeQual, CAttr,
@@ -60,7 +61,6 @@ module Language.ObjC.Syntax.AST (
   CConst, CStrLit, cstringOfLit, liftStrLit,
   CConstant(..), CStringLiteral(..)
 ) where
-import Data.List
 import Language.ObjC.Syntax.Constants
 import Language.ObjC.Syntax.Ops
 import Language.ObjC.Data.Ident
@@ -131,7 +131,7 @@ data ObjCInterface a =
     (ObjCClassDeclarator a)   -- ^ class name
     (Maybe (ObjCClassName a)) -- ^ superclass
     [ObjCProtocolName a]      -- ^ protocol reference list
-    [a]                       -- ^ instance variables
+    [ObjCInstanceVariableBlock a] -- ^ instance variables
     [a]                       -- ^ interface declaration list
     a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
@@ -152,6 +152,29 @@ type ObjCProtoNm = ObjCProtocolName NodeInfo
 data ObjCProtocolName a = ObjCProtoNm Ident a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
+type ObjCInstanceVarBlock = ObjCInstanceVariableBlock NodeInfo
+
+data ObjCInstanceVariableBlock a =
+  ObjCInstanceVarBlock
+  (Maybe (ObjCVisibilitySpec a))
+  [CDeclaration a]
+  a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+type ObjCVisSpec = ObjCVisibilitySpec NodeInfo
+
+data ObjCVisibilitySpec a =
+  ObjCVisSpec ObjCVisType a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+-- | Available visibility specifications.
+data ObjCVisType =
+    ObjCPrivVis
+  | ObjCProtVis
+  | ObjCPubVis
+  | ObjCPackageVis
+  deriving (Show, Data, Typeable, Enum)
+ 
 
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
@@ -886,6 +909,31 @@ instance (CNode t1) => Pos (ObjCProtocolName t1) where
 instance Annotated ObjCProtocolName where
         annotation (ObjCProtoNm _ n) = n
         amap f (ObjCProtoNm a_1 a_2) = ObjCProtoNm a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCInstanceVariableBlock t1) where
+        nodeInfo (ObjCInstanceVarBlock _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCInstanceVariableBlock t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCInstanceVariableBlock where
+        annotation (ObjCInstanceVarBlock _ _ n) = n
+        amap f (ObjCInstanceVarBlock a_1 a_2 a_3)
+          = ObjCInstanceVarBlock a_1 a_2 (f a_3)
+
+ 
+instance (CNode t1) => CNode (ObjCVisibilitySpec t1) where
+        nodeInfo (ObjCVisSpec _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCVisibilitySpec t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCVisibilitySpec where
+        annotation (ObjCVisSpec _ n) = n
+        amap f (ObjCVisSpec a_1 a_2) = ObjCVisSpec a_1 (f a_2)
 
  
 instance (CNode t1) => CNode (CDeclaration t1) where

@@ -241,6 +241,10 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 "@interface"    { CTokObjC ObjCInterface	_ }
 "@end"          { CTokObjC ObjCEnd          	_ }
 classname       { CTokObjC (ObjCClassIdent $$)  _ } -- `class' identifier
+"@private"      { CTokObjC ObjCPriv          	_ }
+"@protected"    { CTokObjC ObjCProt          	_ }
+"@public"       { CTokObjC ObjCPub          	_ }
+"@package"      { CTokObjC ObjCPackage          _ }
 
 %%
 
@@ -301,14 +305,14 @@ class_declarator_list
 -- class_interface :- "@interface" identifier superclass_name? protocol_reference_list? instance_variables? interface_declaration_list? "@end@
 class_interface :: { ObjCIface }
 class_interface
-  : "@interface" class_declarator opt_superclass opt_proto_ref_list "@end"
-  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 (reverse $4) [] []) }
+  : "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables "@end"
+  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 (reverse $4) (reverse $5) []) }
 
 -- an optional superclass declaration
 opt_superclass :: { Maybe ObjCClassNm }
 opt_superclass
-  : ':' class_name {% let cn = $2 in return (Just cn) }
-  |                {% return Nothing }
+  : ':' class_name {% enterScope >> return (Just $2) }
+  |                {% enterScope >> return Nothing }
 
 -- parse a class name, as specified via @class or @interface
 -- 
@@ -317,16 +321,46 @@ class_name :: { ObjCClassNm }
 class_name
   : classname  {% withNodeInfo $1 (ObjCClassNm $1) }
 
+-- parse a set of instance variable declarations
+instance_variables :: { Reversed [ObjCInstanceVarBlock] }
+instance_variables
+  : '{' instance_var_block_list '}'  { $2 }
+  |                                  { empty }
+
+instance_var_block_list :: { Reversed [ObjCInstanceVarBlock] }
+instance_var_block_list
+  : instance_var_block                               { singleton $1 }
+  | instance_var_block_list qual_instance_var_block  { ($1 `snoc` $2) }
+  
+instance_var_block :: { ObjCInstanceVarBlock }
+instance_var_block
+  : nonempty_struct_declaration_list
+      {% withNodeInfo $1 (ObjCInstanceVarBlock Nothing (reverse $1)) }
+  | qual_instance_var_block    {% return $1 }
+
+qual_instance_var_block :: { ObjCInstanceVarBlock }
+qual_instance_var_block
+  : block_vis nonempty_struct_declaration_list
+      {% withNodeInfo $1 (ObjCInstanceVarBlock (Just $1) (reverse $2)) }
+
+block_vis :: { ObjCVisSpec }
+block_vis
+  : "@private"    {% withNodeInfo $1 (ObjCVisSpec ObjCPrivVis)    }
+  | "@protected"  {% withNodeInfo $1 (ObjCVisSpec ObjCProtVis)    }
+  | "@public"     {% withNodeInfo $1 (ObjCVisSpec ObjCPubVis)     }
+  | "@package"    {% withNodeInfo $1 (ObjCVisSpec ObjCPackageVis) }
+  | block_vis ';' {% return $1 }
+
 opt_proto_ref_list :: { Reversed [ObjCProtoNm] }
 opt_proto_ref_list
-  : '<' protocol_ref_list '>'     {% return $2 }
-  |                               {% return empty }
+  : '<' protocol_ref_list '>'     { $2 }
+  |                               { empty }
 
 -- An optional protocol reference list
 protocol_ref_list :: { Reversed [ObjCProtoNm] }
 protocol_ref_list
-  : protocol_ref                                {% return (singleton $1) }
-  | protocol_ref_list ',' protocol_ref   	{% return ($1 `snoc` $3) }
+  : protocol_ref                                { singleton $1 }
+  | protocol_ref_list ',' protocol_ref   	{ ($1 `snoc` $3) }
 
 -- a single protocol reference
 -- protocols live in a separate namespace from typedefs and
@@ -1198,6 +1232,12 @@ struct_declaration_list
   : {- empty -}						{ empty }
   | struct_declaration_list ';'				{ $1 }
   | struct_declaration_list struct_declaration		{ $1 `snoc` $2 }
+
+nonempty_struct_declaration_list :: { Reversed [CDecl] }
+nonempty_struct_declaration_list
+  : struct_declaration                                  { singleton $1 }
+  | nonempty_struct_declaration_list ';'                { $1 }
+  | nonempty_struct_declaration_list struct_declaration { $1 `snoc` $2 }
 
 
 -- parse C structure declaration (C99 6.7.2.1)

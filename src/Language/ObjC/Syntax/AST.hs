@@ -33,19 +33,26 @@ module Language.ObjC.Syntax.AST (
   CStructTag(..), CStructureUnion(..),  CEnumeration(..),
   -- ** Objective-C extensions
   ObjCIface, ObjCClassDef, ObjCProtoNm, ObjCInstanceVarBlock, ObjCVisSpec,
+  ObjCPropDecl, ObjCSel, ObjCMethodSel, ObjCMethodDecl,
   ObjCInterface(..), ObjCClassListDef(..), ObjCProtocolName(..),
   ObjCInstanceVariableBlock(..),ObjCVisibilitySpec(..),ObjCVisType(..),
+  ObjCPropertyDeclaration(..), ObjCSelector(..), ObjCMethodSelector(..),
+  ObjCMethodType(..), ObjCMethodDeclaration(..),
   -- * Declaration attributes
   CDeclSpec, partitionDeclSpecs,
   CStorageSpec, CTypeSpec, isSUEDef, CTypeQual, CAttr,
   CDeclarationSpecifier(..), CStorageSpecifier(..), CTypeSpecifier(..),
   CTypeQualifier(..), CAttribute(..),
+  -- * Objective-C extensions
+  ObjCPropMod, ObjCProtoQual,
+  ObjCPropertyModifier(..), ObjCProtoQualifier(..),
   -- * Declarators
   CDeclr,CDerivedDeclr,CArrSize,
   CDeclarator(..), CDerivedDeclarator(..), CArraySize(..),
   -- ** Objective-C Extensions
-  ObjCClassNm, ObjCClassDeclr,
-  ObjCClassName(..), ObjCClassDeclarator(..),
+  ObjCClassNm, ObjCClassDeclr, ObjCIfaceDecl, ObjCKeywordDecl,
+  ObjCClassName(..), ObjCClassDeclarator(..), ObjCInterfaceDeclaration(..),
+  ObjCKeywordDeclarator(..),
   -- * Initialization
   CInit, CInitList, CDesignator,
   CInitializer(..), CInitializerList, CPartDesignator(..),
@@ -132,7 +139,7 @@ data ObjCInterface a =
     (Maybe (ObjCClassName a)) -- ^ superclass
     [ObjCProtocolName a]      -- ^ protocol reference list
     [ObjCInstanceVariableBlock a] -- ^ instance variables
-    [a]                       -- ^ interface declaration list
+    [ObjCInterfaceDeclaration a]  -- ^ interface declaration list
     a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
@@ -175,6 +182,59 @@ data ObjCVisType =
   | ObjCPackageVis
   deriving (Show, Data, Typeable, Enum)
  
+type ObjCIfaceDecl = ObjCInterfaceDeclaration NodeInfo
+
+data ObjCInterfaceDeclaration a =
+    ObjCIfaceDecl (CDeclaration a) a
+  | ObjCIfaceMethodDecl (ObjCMethodDeclaration a) a
+  | ObjCIfacePropDecl   (ObjCPropertyDeclaration a) a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+type ObjCMethodDecl = ObjCMethodDeclaration NodeInfo
+
+data ObjCMethodDeclaration a =
+    ObjCMethodDecl
+    ObjCMethodType
+    (Maybe (CDeclaration a))   -- ^ type_name (as with CCast)
+    (ObjCMethodSelector a)
+    a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+data ObjCMethodType = ObjCClassMethod | ObjCInstanceMethod
+  deriving (Show, Data, Typeable, Enum)
+
+type ObjCMethodSel = ObjCMethodSelector NodeInfo
+
+data ObjCMethodSelector a =
+    ObjCUnaryMethod (ObjCSelector a) a
+  | ObjCMethod [ObjCKeywordDeclarator a] (Maybe ([CDeclaration a],Bool)) a
+  | ObjCEllipseMethod [ObjCKeywordDeclarator a] a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+type ObjCKeywordDecl = ObjCKeywordDeclarator NodeInfo
+
+data ObjCKeywordDeclarator a =
+   ObjCKeywordDecl
+   (Maybe (ObjCSelector a)) -- ^ selector
+   (Maybe (CDeclaration a)) -- ^ type name
+   Ident
+   a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+type ObjCPropDecl = ObjCPropertyDeclaration NodeInfo
+
+data ObjCPropertyDeclaration a =
+   ObjCPropDecl
+   [ObjCPropertyModifier a]
+   (CDeclaration a)
+   a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
+
+type ObjCPropMod = ObjCPropertyModifier NodeInfo
+
+data ObjCPropertyModifier a =
+    ObjCPropMod Ident (Maybe Ident) a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
 
 -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
@@ -533,8 +593,18 @@ data CTypeQualifier a
   | CRestrQual a
   | CInlineQual a
   | CAttrQual  (CAttribute a)
+  | ObjCProtoQual (ObjCProtoQualifier a)
     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
 
+type ObjCProtoQual = ObjCProtoQualifier NodeInfo
+
+data ObjCProtoQualifier a =
+    ObjCInQual a
+  | ObjCOutQual a
+  | ObjCInOutQual a
+  | ObjCBycopyQual a
+  | ObjCOnewayQual a
+    deriving (Show, Data, Typeable, Functor {-! , CNode, Annotated !-})
 
 -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
 --
@@ -721,9 +791,43 @@ data CExpression a
   | CStatExpr    (CStatement a) a        -- ^ GNU C compound statement as expr
   | CLabAddrExpr Ident a                 -- ^ GNU C address of label
   | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
+  -- objective-c additions
   | CBlockExpr   ([CDeclaration a],Bool) (CStatement a) a -- ^ Code block definition, new-style params, compound statement
+  | ObjCMessageExpr  (ObjCMessageExpression a) a -- ^ Obj-c message
+  | ObjCSelectorExpr (ObjCSelectorName a) a      -- ^ selector name
+  | ObjCProtoExpr Ident a                -- ^ @protocol expression
+  | ObjCEncodeExpr (CDeclaration a) a       -- ^ @encode expression (parse cdecls as CCastExpr)
     deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
+type ObjCSelName = ObjCSelectorName NodeInfo
+
+data ObjCSelectorName a =
+    ObjCSelPlain (ObjCSelector a) a
+  | ObjCSelKeys [Maybe (ObjCSelector a)] a
+    deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
+
+type ObjCSel = ObjCSelector NodeInfo
+
+data ObjCSelector a =
+    ObjCSel Ident a
+  | ObjCInSel a
+  | ObjCOutSel a
+    deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
+
+type ObjCMsgExpr = ObjCMessageExpression NodeInfo
+
+data ObjCMessageExpression a =
+    ObjCMsgExpr (CExpression a)    (ObjCMessageSelector a) a
+  | ObjCMsgClass (ObjCClassName a) (ObjCMessageSelector a) a
+  | ObjCMsgSup                     (ObjCMessageSelector a) a
+    deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
+
+type ObjCMsgSel = ObjCMessageSelector NodeInfo
+
+data ObjCMessageSelector a =
+   ObjCMsgSel (ObjCSelector a) a
+ | ObjCKeyArgs [(Maybe (ObjCSelector a), CExpression a)] a
+    deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
 -- | GNU Builtins, which cannot be typed in C99
 type CBuiltin = CBuiltinThing NodeInfo
@@ -934,6 +1038,93 @@ instance (CNode t1) => Pos (ObjCVisibilitySpec t1) where
 instance Annotated ObjCVisibilitySpec where
         annotation (ObjCVisSpec _ n) = n
         amap f (ObjCVisSpec a_1 a_2) = ObjCVisSpec a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCInterfaceDeclaration t1) where
+        nodeInfo (ObjCIfaceDecl _ n) = nodeInfo n
+        nodeInfo (ObjCIfaceMethodDecl _ n) = nodeInfo n
+        nodeInfo (ObjCIfacePropDecl _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCInterfaceDeclaration t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCInterfaceDeclaration where
+        annotation (ObjCIfaceDecl _ n) = n
+        annotation (ObjCIfaceMethodDecl _ n) = n
+        annotation (ObjCIfacePropDecl _ n) = n
+        amap f (ObjCIfaceDecl a_1 a_2) = ObjCIfaceDecl a_1 (f a_2)
+        amap f (ObjCIfaceMethodDecl a_1 a_2)
+          = ObjCIfaceMethodDecl a_1 (f a_2)
+        amap f (ObjCIfacePropDecl a_1 a_2) = ObjCIfacePropDecl a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCMethodDeclaration t1) where
+        nodeInfo (ObjCMethodDecl _ _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCMethodDeclaration t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCMethodDeclaration where
+        annotation (ObjCMethodDecl _ _ _ n) = n
+        amap f (ObjCMethodDecl a_1 a_2 a_3 a_4)
+          = ObjCMethodDecl a_1 a_2 a_3 (f a_4)
+
+ 
+instance (CNode t1) => CNode (ObjCMethodSelector t1) where
+        nodeInfo (ObjCUnaryMethod _ n) = nodeInfo n
+        nodeInfo (ObjCMethod _ _ n) = nodeInfo n
+        nodeInfo (ObjCEllipseMethod _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCMethodSelector t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCMethodSelector where
+        annotation (ObjCUnaryMethod _ n) = n
+        annotation (ObjCMethod _ _ n) = n
+        annotation (ObjCEllipseMethod _ n) = n
+        amap f (ObjCUnaryMethod a_1 a_2) = ObjCUnaryMethod a_1 (f a_2)
+        amap f (ObjCMethod a_1 a_2 a_3) = ObjCMethod a_1 a_2 (f a_3)
+        amap f (ObjCEllipseMethod a_1 a_2) = ObjCEllipseMethod a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCKeywordDeclarator t1) where
+        nodeInfo (ObjCKeywordDecl _ _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCKeywordDeclarator t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCKeywordDeclarator where
+        annotation (ObjCKeywordDecl _ _ _ n) = n
+        amap f (ObjCKeywordDecl a_1 a_2 a_3 a_4)
+          = ObjCKeywordDecl a_1 a_2 a_3 (f a_4)
+
+ 
+instance (CNode t1) => CNode (ObjCPropertyDeclaration t1) where
+        nodeInfo (ObjCPropDecl _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCPropertyDeclaration t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCPropertyDeclaration where
+        annotation (ObjCPropDecl _ _ n) = n
+        amap f (ObjCPropDecl a_1 a_2 a_3) = ObjCPropDecl a_1 a_2 (f a_3)
+
+ 
+instance (CNode t1) => CNode (ObjCPropertyModifier t1) where
+        nodeInfo (ObjCPropMod _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCPropertyModifier t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCPropertyModifier where
+        annotation (ObjCPropMod _ _ n) = n
+        amap f (ObjCPropMod a_1 a_2 a_3) = ObjCPropMod a_1 a_2 (f a_3)
 
  
 instance (CNode t1) => CNode (CDeclaration t1) where
@@ -1267,6 +1458,7 @@ instance (CNode t1) => CNode (CTypeQualifier t1) where
         nodeInfo (CRestrQual d) = nodeInfo d
         nodeInfo (CInlineQual d) = nodeInfo d
         nodeInfo (CAttrQual d) = nodeInfo d
+        nodeInfo (ObjCProtoQual d) = nodeInfo d
  
 instance (CNode t1) => Pos (CTypeQualifier t1) where
         posOf x = posOf (nodeInfo x)
@@ -1278,6 +1470,7 @@ instance Functor CTypeQualifier where
         fmap _f (CRestrQual a1) = CRestrQual (_f a1)
         fmap _f (CInlineQual a1) = CInlineQual (_f a1)
         fmap _f (CAttrQual a1) = CAttrQual (fmap _f a1)
+        fmap _f (ObjCProtoQual a1) = ObjCProtoQual (fmap _f a1)
 
  
 instance Annotated CTypeQualifier where
@@ -1286,11 +1479,37 @@ instance Annotated CTypeQualifier where
         annotation (CRestrQual n) = n
         annotation (CInlineQual n) = n
         annotation (CAttrQual n) = annotation n
+        annotation (ObjCProtoQual n) = annotation n
         amap f (CConstQual a_1) = CConstQual (f a_1)
         amap f (CVolatQual a_1) = CVolatQual (f a_1)
         amap f (CRestrQual a_1) = CRestrQual (f a_1)
         amap f (CInlineQual a_1) = CInlineQual (f a_1)
         amap f (CAttrQual n) = CAttrQual (amap f n)
+        amap f (ObjCProtoQual n) = ObjCProtoQual (amap f n)
+
+ 
+instance (CNode t1) => CNode (ObjCProtoQualifier t1) where
+        nodeInfo (ObjCInQual d) = nodeInfo d
+        nodeInfo (ObjCOutQual d) = nodeInfo d
+        nodeInfo (ObjCInOutQual d) = nodeInfo d
+        nodeInfo (ObjCBycopyQual d) = nodeInfo d
+        nodeInfo (ObjCOnewayQual d) = nodeInfo d
+ 
+instance (CNode t1) => Pos (ObjCProtoQualifier t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCProtoQualifier where
+        annotation (ObjCInQual n) = n
+        annotation (ObjCOutQual n) = n
+        annotation (ObjCInOutQual n) = n
+        annotation (ObjCBycopyQual n) = n
+        annotation (ObjCOnewayQual n) = n
+        amap f (ObjCInQual a_1) = ObjCInQual (f a_1)
+        amap f (ObjCOutQual a_1) = ObjCOutQual (f a_1)
+        amap f (ObjCInOutQual a_1) = ObjCInOutQual (f a_1)
+        amap f (ObjCBycopyQual a_1) = ObjCBycopyQual (f a_1)
+        amap f (ObjCOnewayQual a_1) = ObjCOnewayQual (f a_1)
 
  
 instance (CNode t1) => CNode (CStructureUnion t1) where
@@ -1410,6 +1629,10 @@ instance (CNode t1) => CNode (CExpression t1) where
         nodeInfo (CLabAddrExpr _ n) = nodeInfo n
         nodeInfo (CBuiltinExpr d) = nodeInfo d
         nodeInfo (CBlockExpr _ _ n) = nodeInfo n
+        nodeInfo (ObjCMessageExpr _ n) = nodeInfo n
+        nodeInfo (ObjCSelectorExpr _ n) = nodeInfo n
+        nodeInfo (ObjCProtoExpr _ n) = nodeInfo n
+        nodeInfo (ObjCEncodeExpr _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (CExpression t1) where
         posOf x = posOf (nodeInfo x)
@@ -1438,6 +1661,10 @@ instance Annotated CExpression where
         annotation (CLabAddrExpr _ n) = n
         annotation (CBuiltinExpr n) = annotation n
         annotation (CBlockExpr _ _ n) = n
+        annotation (ObjCMessageExpr _ n) = n
+        annotation (ObjCSelectorExpr _ n) = n
+        annotation (ObjCProtoExpr _ n) = n
+        annotation (ObjCEncodeExpr _ n) = n
         amap f (CComma a_1 a_2) = CComma a_1 (f a_2)
         amap f (CAssign a_1 a_2 a_3 a_4) = CAssign a_1 a_2 a_3 (f a_4)
         amap f (CCond a_1 a_2 a_3 a_4) = CCond a_1 a_2 a_3 (f a_4)
@@ -1460,6 +1687,76 @@ instance Annotated CExpression where
         amap f (CLabAddrExpr a_1 a_2) = CLabAddrExpr a_1 (f a_2)
         amap f (CBuiltinExpr n) = CBuiltinExpr (amap f n)
         amap f (CBlockExpr a_1 a_2 a_3) = CBlockExpr a_1 a_2 (f a_3)
+        amap f (ObjCMessageExpr a_1 a_2) = ObjCMessageExpr a_1 (f a_2)
+        amap f (ObjCSelectorExpr a_1 a_2) = ObjCSelectorExpr a_1 (f a_2)
+        amap f (ObjCProtoExpr a_1 a_2) = ObjCProtoExpr a_1 (f a_2)
+        amap f (ObjCEncodeExpr a_1 a_2) = ObjCEncodeExpr a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCSelectorName t1) where
+        nodeInfo (ObjCSelPlain _ n) = nodeInfo n
+        nodeInfo (ObjCSelKeys _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCSelectorName t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCSelectorName where
+        annotation (ObjCSelPlain _ n) = n
+        annotation (ObjCSelKeys _ n) = n
+        amap f (ObjCSelPlain a_1 a_2) = ObjCSelPlain a_1 (f a_2)
+        amap f (ObjCSelKeys a_1 a_2) = ObjCSelKeys a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCSelector t1) where
+        nodeInfo (ObjCSel _ n) = nodeInfo n
+        nodeInfo (ObjCInSel d) = nodeInfo d
+        nodeInfo (ObjCOutSel d) = nodeInfo d
+ 
+instance (CNode t1) => Pos (ObjCSelector t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCSelector where
+        annotation (ObjCSel _ n) = n
+        annotation (ObjCInSel n) = n
+        annotation (ObjCOutSel n) = n
+        amap f (ObjCSel a_1 a_2) = ObjCSel a_1 (f a_2)
+        amap f (ObjCInSel a_1) = ObjCInSel (f a_1)
+        amap f (ObjCOutSel a_1) = ObjCOutSel (f a_1)
+
+ 
+instance (CNode t1) => CNode (ObjCMessageExpression t1) where
+        nodeInfo (ObjCMsgExpr _ _ n) = nodeInfo n
+        nodeInfo (ObjCMsgClass _ _ n) = nodeInfo n
+        nodeInfo (ObjCMsgSup _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCMessageExpression t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCMessageExpression where
+        annotation (ObjCMsgExpr _ _ n) = n
+        annotation (ObjCMsgClass _ _ n) = n
+        annotation (ObjCMsgSup _ n) = n
+        amap f (ObjCMsgExpr a_1 a_2 a_3) = ObjCMsgExpr a_1 a_2 (f a_3)
+        amap f (ObjCMsgClass a_1 a_2 a_3) = ObjCMsgClass a_1 a_2 (f a_3)
+        amap f (ObjCMsgSup a_1 a_2) = ObjCMsgSup a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCMessageSelector t1) where
+        nodeInfo (ObjCMsgSel _ n) = nodeInfo n
+        nodeInfo (ObjCKeyArgs _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCMessageSelector t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCMessageSelector where
+        annotation (ObjCMsgSel _ n) = n
+        annotation (ObjCKeyArgs _ n) = n
+        amap f (ObjCMsgSel a_1 a_2) = ObjCMsgSel a_1 (f a_2)
+        amap f (ObjCKeyArgs a_1 a_2) = ObjCKeyArgs a_1 (f a_2)
 
  
 instance (CNode t1) => CNode (CBuiltinThing t1) where

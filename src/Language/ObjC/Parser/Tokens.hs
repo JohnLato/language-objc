@@ -155,11 +155,17 @@ data GnuCTok = GnuCAttrTok              -- `__attribute__'
 data ObjCTok = ObjCInterface            -- `@interface'
              | ObjCEnd                  -- `@end'
              | ObjCClass                -- `@class'
+             | ObjCProperty             -- `@property'
              | ObjCClassIdent !Ident    -- `class-name' identifier
              | ObjCPriv                 -- `@private'
              | ObjCProt                 -- `@protected'
              | ObjCPub                  -- `@public'
              | ObjCPackage              -- `@package'
+             | ObjCIn                   -- `in'
+             | ObjCOut                  -- `out'
+             | ObjCInOut                -- `inout'
+             | ObjCBycopy               -- `bycopy'
+             | ObjCOneway               -- `oneway'
 
 instance Pos CToken where
   posOf = fst . posLenOfTok
@@ -367,6 +373,12 @@ instance Show CToken where
   showsPrec _ (CTokObjC ObjCInterface _) = showString "@interface"
   showsPrec _ (CTokObjC ObjCEnd _)       = showString "@end"
   showsPrec _ (CTokObjC ObjCClass _)     = showString "@class"
+  showsPrec _ (CTokObjC ObjCIn _)        = showString "in"
+  showsPrec _ (CTokObjC ObjCOut _)       = showString "out"
+  showsPrec _ (CTokObjC ObjCInOut _)     = showString "inout"
+  showsPrec _ (CTokObjC ObjCOneway _)    = showString "oneway"
+  showsPrec _ (CTokObjC ObjCBycopy _)    = showString "bycopy"
+  showsPrec _ (CTokObjC ObjCProperty _)  = showString "@property"
   showsPrec _ (CTokObjC (ObjCClassIdent i) _) = showString $ identToString i
   showsPrec _ (CTokObjC ObjCPriv _)      = showString "@private"
   showsPrec _ (CTokObjC ObjCProt _)      = showString "@protected"

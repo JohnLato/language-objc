@@ -239,12 +239,18 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 "__builtin_types_compatible_p"	{ CTokGnuC GnuCTyCompat _ }
 "@class"        { CTokObjC ObjCClass        	_ }
 "@interface"    { CTokObjC ObjCInterface	_ }
+"@property"     { CTokObjC ObjCProperty 	_ }
 "@end"          { CTokObjC ObjCEnd          	_ }
 classname       { CTokObjC (ObjCClassIdent $$)  _ } -- `class' identifier
 "@private"      { CTokObjC ObjCPriv          	_ }
 "@protected"    { CTokObjC ObjCProt          	_ }
 "@public"       { CTokObjC ObjCPub          	_ }
 "@package"      { CTokObjC ObjCPackage          _ }
+"in"            { CTokObjC ObjCIn               _ }
+"out"           { CTokObjC ObjCOut              _ }
+"inout"         { CTokObjC ObjCInOut            _ }
+"oneway"        { CTokObjC ObjCOneway           _ }
+"bycopy"        { CTokObjC ObjCBycopy           _ }
 
 %%
 
@@ -305,8 +311,8 @@ class_declarator_list
 -- class_interface :- "@interface" identifier superclass_name? protocol_reference_list? instance_variables? interface_declaration_list? "@end@
 class_interface :: { ObjCIface }
 class_interface
-  : "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables "@end"
-  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 (reverse $4) (reverse $5) []) }
+  : "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
+  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 (reverse $4) (reverse $5) (reverse $6) ) }
 
 -- an optional superclass declaration
 opt_superclass :: { Maybe ObjCClassNm }
@@ -321,10 +327,92 @@ class_name :: { ObjCClassNm }
 class_name
   : classname  {% withNodeInfo $1 (ObjCClassNm $1) }
 
+interface_declaration_list :: { Reversed [ObjCIfaceDecl] }
+interface_declaration_list
+  : interface_declaration_list interface_declaration { ($1 `snoc` $2) }
+  |                                                  { empty }
+
+interface_declaration :: { ObjCIfaceDecl }
+interface_declaration
+  : "@property" '(' property_modifiers ')' declaration
+      {% withNodeInfo $3 (\at -> ObjCPropDecl (reverse $3) $5 at) >>= \pdecl -> withNodeInfo $1 (ObjCIfacePropDecl pdecl) }
+  | "@property" declaration
+      {% withNodeInfo $2 (\at -> ObjCPropDecl [] $2 at) >>= \pdecl -> withNodeInfo $1 (ObjCIfacePropDecl pdecl) }
+  | declaration
+      {% withNodeInfo $1 (ObjCIfaceDecl $1) }
+  | method_declaration
+      {% withNodeInfo $1 (ObjCIfaceMethodDecl $1) }
+
+method_declaration :: { ObjCMethodDecl }
+method_declaration
+  : '+' method_selector ';'
+      {% withNodeInfo $1 (ObjCMethodDecl ObjCClassMethod Nothing $2) }
+  | '-' method_selector ';'
+      {% withNodeInfo $1 (ObjCMethodDecl ObjCInstanceMethod Nothing $2) }
+  | '+' '(' type_name ')' method_selector ';'
+      {% withNodeInfo $1 (ObjCMethodDecl ObjCClassMethod (Just $3) $5) }
+  | '-' '(' type_name ')' method_selector ';'
+      {% withNodeInfo $1 (ObjCMethodDecl ObjCInstanceMethod (Just $3) $5) }
+
+keyword_declarator_list :: { Reversed [ObjCKeywordDecl] }
+keyword_declarator_list
+  : keyword_declarator                           { singleton $1 }
+  | keyword_declarator_list keyword_declarator   { $1 `snoc` $2 }
+
+keyword_declarator :: { ObjCKeywordDecl }
+keyword_declarator
+  : ':' ident
+         {% withNodeInfo $1 (ObjCKeywordDecl Nothing Nothing $2) }
+  | ':' '(' type_name ')' ident
+         {% withNodeInfo $1 (ObjCKeywordDecl Nothing (Just $3) $5) }
+  | selector ':' ident
+         {% withNodeInfo $1 (ObjCKeywordDecl (Just $1) Nothing $3) }
+  | selector ':' '(' type_name ')' ident
+         {% withNodeInfo $1 (ObjCKeywordDecl (Just $1) (Just $4) $6) }
+
+selector :: { ObjCSel }
+selector
+  : ident      {% withNodeInfo $1 (ObjCSel $1) }
+  | tyident    {% withNodeInfo $1 (ObjCSel $1) }
+  | classname  {% withNodeInfo $1 (ObjCSel $1) }
+  | "in"       {% withNodeInfo $1 ObjCInSel    }
+  | "out"      {% withNodeInfo $1 ObjCOutSel   }
+
+
+method_selector :: { ObjCMethodSel }
+method_selector
+  : selector  {% withNodeInfo $1 (ObjCUnaryMethod $1) }
+  | keyword_declarator_list
+              {% withNodeInfo $1 (ObjCMethod (reverse $1) Nothing) }
+  | keyword_declarator_list ',' parameter_type_list
+              {% withNodeInfo $1 (ObjCMethod (reverse $1) (Just $3)) }
+  | keyword_declarator_list ',' "..."
+              {% withNodeInfo $1 (ObjCEllipseMethod (reverse $1)) }
+
+
+property_modifiers :: { Reversed [ObjCPropMod] }
+property_modifiers
+  : property_modifier                        { singleton $1 }
+  | property_modifiers ',' property_modifier { $1 `snoc` $3 }
+
+property_modifier :: { ObjCPropMod }
+property_modifier
+  : ident '=' ident
+      {% withNodeInfo $1 $ ObjCPropMod $1 (Just $3) }
+  | ident
+      {% withNodeInfo $1 $ ObjCPropMod $1 Nothing }
+
+bare_ident_declr :: { [(CDeclr, Maybe CInit)] }
+  : unary_identifier_declarator asm_attrs_opt {-{}-} initializer_opt
+    {% do{ declr <- withAsmNameAttrs $2 $1
+           ; doDeclIdent [] declr
+           ; return [(reverseDeclr declr, $3)] }}
+
 -- parse a set of instance variable declarations
 instance_variables :: { Reversed [ObjCInstanceVarBlock] }
 instance_variables
   : '{' instance_var_block_list '}'  { $2 }
+  | '{'                         '}'  { empty }
   |                                  { empty }
 
 instance_var_block_list :: { Reversed [ObjCInstanceVarBlock] }
@@ -928,6 +1016,7 @@ type_specifier
   : basic_type_specifier		{ reverse $1 }	-- Arithmetic or void
   | sue_type_specifier			{ reverse $1 }	-- Struct/Union/Enum
   | typedef_type_specifier		{ reverse $1 }	-- Typedef
+  | classname_type_specifier            { reverse $1 }  -- class name
 
 basic_type_name :: { CTypeSpec }
 basic_type_name
@@ -1357,12 +1446,22 @@ enumerator
 
 -- parse C type qualifier (C99 6.7.3)
 --
+-- Objective-C protocol qualifiers are also acceptable
 type_qualifier :: { CTypeQual }
 type_qualifier
   : const		{% withNodeInfo $1 $ CConstQual }
   | volatile		{% withNodeInfo $1 $ CVolatQual }
   | restrict		{% withNodeInfo $1 $ CRestrQual }
   | inline		{% withNodeInfo $1 $ CInlineQual }
+  | proto_qualifier     { ObjCProtoQual $1 }
+
+proto_qualifier :: { ObjCProtoQual }
+proto_qualifier
+  : "in"        {% withNodeInfo $1 ObjCInQual }
+  | "out"       {% withNodeInfo $1 ObjCOutQual }
+  | "inout"     {% withNodeInfo $1 ObjCInOutQual }
+  | "oneway"    {% withNodeInfo $1 ObjCOnewayQual }
+  | "bycopy"    {% withNodeInfo $1 ObjCBycopyQual }
 
 -- a list containing at least one type_qualifier (const, volatile, restrict, inline)
 --    and additionally CAttrs

@@ -360,12 +360,18 @@ idkwtok ('v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : []) = tok 8 CTokVolatil
 idkwtok ('_' : '_' : 'v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : '_' : '_' : []) = tok 12 CTokVolatile
 idkwtok ('w' : 'h' : 'i' : 'l' : 'e' : []) = tok 5 CTokWhile
 idkwtok ('@' : 'i' : 'n' : 't' : 'e' : 'r' : 'f' : 'a' : 'c' : 'e' : [] ) = tok 10 (CTokObjC ObjCInterface)
-idkwtok ('@' : 'e' : 'n' : 'd' : []) = tok 4 (CTokObjC ObjCEnd)
-idkwtok ('@' : 'c' : 'l' : 'a' : 's' : 's' : []) = tok 4 (CTokObjC ObjCClass)
-idkwtok ('@' : 'p' : 'r' : 'i' : 'v' : 'a' : 't' : 'e' : []) = tok 4 (CTokObjC ObjCPriv)
-idkwtok ("@protected") = tok 4 (CTokObjC ObjCProt)
-idkwtok ("@public") = tok 4 (CTokObjC ObjCPub)
-idkwtok ("@package") = tok 4 (CTokObjC ObjCPackage)
+idkwtok ("@end")       = tok 4  (CTokObjC ObjCEnd)
+idkwtok ("@class")     = tok 6  (CTokObjC ObjCClass)
+idkwtok ("@private")   = tok 8  (CTokObjC ObjCPriv)
+idkwtok ("@property")  = tok 9  (CTokObjC ObjCProperty)
+idkwtok ("@protected") = tok 10 (CTokObjC ObjCProt)
+idkwtok ("@public")    = tok 7  (CTokObjC ObjCPub)
+idkwtok ("@package")   = tok 8  (CTokObjC ObjCPackage)
+idkwtok ("in")         = tok 2  (CTokObjC ObjCIn)
+idkwtok ("out")        = tok 3  (CTokObjC ObjCOut)
+idkwtok ("inout")      = tok 5  (CTokObjC ObjCInOut)
+idkwtok ("oneway")     = tok 6  (CTokObjC ObjCOneway)
+idkwtok ("bycopy")     = tok 6  (CTokObjC ObjCBycopy)
 
 idkwtok cs = \pos -> do
   name <- getNewName

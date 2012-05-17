@@ -125,15 +125,60 @@ instance Pretty ObjCIface where
       <+> maybe empty ((text ":" <+>) . pretty) sp
       <+> pProto protos
       $$ pVars vars
+      $$ sep (map pretty decls)
       $$ text "@end"
 
+instance Pretty ObjCIfaceDecl where
+    pretty (ObjCIfaceDecl decl _)       = pretty decl
+    pretty (ObjCIfaceMethodDecl decl _) = pretty decl
+    pretty (ObjCIfacePropDecl decl _)   = pretty decl
+
+instance Pretty ObjCMethodDecl where
+    pretty (ObjCMethodDecl typ typName sel _) =
+      hsep [pretty typ, pName typName, pretty sel, semi]
+      where pName = maybe empty (parens . pretty)
+
+instance Pretty ObjCMethodType where
+    pretty ObjCClassMethod    = text "+"
+    pretty ObjCInstanceMethod = text "-"
+
+instance Pretty ObjCMethodSel where
+    pretty (ObjCUnaryMethod sel _)      = pretty sel
+    pretty (ObjCMethod keys Nothing _)  = hsep $ map pretty keys
+    pretty (ObjCMethod keys (Just p) _) =
+      hsep (map pretty keys) <+> comma <+> prettyParams (Right p)
+    pretty (ObjCEllipseMethod keys _)   =
+      hsep (map pretty keys) <+> comma <+> text "..."
+
+instance Pretty ObjCSel where
+    pretty (ObjCSel nm _) = identP nm
+    pretty (ObjCInSel _)  = text "in"
+    pretty (ObjCOutSel _) = text "out"
+
+instance Pretty ObjCKeywordDecl where
+    pretty (ObjCKeywordDecl mSel mT nm _) =
+      p1 mSel <+> colon <+> p2 mT <+> identP nm
+      where p1 = maybe empty pretty
+            p2 = maybe empty (parens . pretty)
+
+instance Pretty ObjCPropDecl where
+    pretty (ObjCPropDecl pmods decl _) =
+      text "@property" <+> p1 pmods <+> pretty decl <+> semi
+      where p1 [] = empty
+            p1 ts = parens (hsep $ punctuate comma $ map pretty ts)
+
+instance Pretty ObjCPropMod where
+    pretty (ObjCPropMod nm mval _) =
+      identP nm <+> maybe empty ((text "=" <+>) . identP) mval
+
 pVars :: [ObjCInstanceVarBlock] -> Doc
-pVars [] = empty
-pVars blks = brackets . sep . punctuate semi $ map pretty blks
+pVars = braces . sep . punctuate semi . map pretty
 
 pProto :: [ObjCProtoNm] -> Doc
 pProto [] = empty
-pProto pl = braces . hsep . punctuate comma $ map pretty pl
+pProto pl = angles . hsep . punctuate comma $ map pretty pl
+
+angles doc = text "<" <> doc <> text ">"
 
 instance Pretty ObjCInstanceVarBlock where
     pretty (ObjCInstanceVarBlock mvis decls _) =
@@ -293,9 +338,9 @@ instance Pretty CTypeSpec where
     pretty (CTypeOfType decl _) =
         text "typeof" <> text "(" <> pretty decl <> text ")"
     pretty (ObjCClassProto ident protos _)   =
-        identP ident <+> braces (hsep . punctuate comma $ map pretty protos)
+        identP ident <+> pProto protos
     pretty (ObjCTypeProto  ident protos _)   =
-        identP ident <+> braces (hsep . punctuate comma $ map pretty protos)
+        identP ident <+> pProto protos
 
 instance Pretty CTypeQual where
     pretty (CConstQual _) = text "const"
@@ -303,6 +348,14 @@ instance Pretty CTypeQual where
     pretty (CRestrQual _) = text "__restrict"
     pretty (CInlineQual _) = text "inline"
     pretty (CAttrQual a)  = attrlistP [a]
+    pretty (ObjCProtoQual pq)  = pretty pq
+
+instance Pretty ObjCProtoQual where
+    pretty (ObjCInQual     _) = text "in"
+    pretty (ObjCOutQual    _) = text "out"
+    pretty (ObjCInOutQual  _) = text "inout"
+    pretty (ObjCOnewayQual _) = text "oneway"
+    pretty (ObjCBycopyQual _) = text "bycopy"
 
 instance Pretty CStructUnion where
     pretty (CStruct tag ident Nothing cattrs _) = pretty tag <+> attrlistP cattrs <+> maybeP identP ident

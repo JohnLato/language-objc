@@ -33,11 +33,13 @@ module Language.ObjC.Syntax.AST (
   CStructTag(..), CStructureUnion(..),  CEnumeration(..),
   -- ** Objective-C extensions
   ObjCIface, ObjCClassDef, ObjCProtoNm, ObjCInstanceVarBlock, ObjCVisSpec,
-  ObjCPropDecl, ObjCSel, ObjCMethodSel, ObjCMethodDecl,
+  ObjCPropDecl, ObjCSel, ObjCMethodSel, ObjCMethodDecl, ObjCProtoDec,
+  ObjCProtoDeclBlock,
   ObjCInterface(..), ObjCClassListDef(..), ObjCProtocolName(..),
   ObjCInstanceVariableBlock(..),ObjCVisibilitySpec(..),ObjCVisType(..),
   ObjCPropertyDeclaration(..), ObjCSelector(..), ObjCMethodSelector(..),
-  ObjCMethodType(..), ObjCMethodDeclaration(..),
+  ObjCMethodType(..), ObjCMethodDeclaration(..), ObjCProtocolDec(..),
+  ObjCProtocolDeclBlock(..),
   -- * Declaration attributes
   CDeclSpec, partitionDeclSpecs,
   CStorageSpec, CTypeSpec, isSUEDef, CTypeQual, CAttr,
@@ -64,6 +66,10 @@ module Language.ObjC.Syntax.AST (
   CExpr, CExpression(..),
   CAssignOp(..), CBinaryOp(..), CUnaryOp(..),
   CBuiltin, CBuiltinThing(..),
+  -- ** Objective-C Extensions
+  ObjCMsgExpr, ObjCMsgSel, ObjCKeyArg, ObjCSelName, ObjCSelKeyName,
+  ObjCMessageExpression(..), ObjCMessageSelector(..), ObjCKeywordArg(..),
+  ObjCSelectorName(..), ObjCSelectorKeyName(..),
   -- * Constants
   CConst, CStrLit, cstringOfLit, liftStrLit,
   CConstant(..), CStringLiteral(..)
@@ -94,6 +100,7 @@ data CExternalDeclaration a
   | CFDefExt (CFunctionDef a)
   | ObjCIfaceExt (ObjCInterface a)
   | ObjCClassExt (ObjCClassListDef a)
+  | ObjCProtoExt (ObjCProtocolDec a)
   | CAsmExt  (CStringLiteral a) a
     deriving (Show, Data,Typeable {-! ,CNode ,Functor, Annotated !-})
 
@@ -128,7 +135,26 @@ type ObjCClassDef = ObjCClassListDef NodeInfo
 -- @class NSObject, NSArray;
 data ObjCClassListDef a =
   ObjCClassDef [ObjCClassDeclarator a] a
- deriving (Show, Data, Typeable {-! , CNode, Functor, Annotated !-})
+  deriving (Show, Data, Typeable {-! , CNode, Functor, Annotated !-})
+
+type ObjCProtoDec = ObjCProtocolDec NodeInfo
+
+-- | Objective-C protocol declaration
+data ObjCProtocolDec a =
+    ObjCForwardProtoDec [Ident] a
+  | ObjCProtoDec Ident
+                 [ObjCProtocolName a]
+                 [ObjCProtocolDeclBlock a]
+                 a
+  deriving (Show, Data, Typeable {-! , CNode, Functor, Annotated !-})
+
+type ObjCProtoDeclBlock = ObjCProtocolDeclBlock NodeInfo
+
+data ObjCProtocolDeclBlock a =
+    ObjCProtoDeclBlock [ObjCInterfaceDeclaration a] a
+  | ObjCReqProtoBlock  [ObjCInterfaceDeclaration a] a
+  | ObjCOptProtoBlock  [ObjCInterfaceDeclaration a] a
+  deriving (Show, Data, Typeable {-! , CNode, Functor, Annotated !-})
 
 type ObjCIface = ObjCInterface NodeInfo
 
@@ -795,7 +821,7 @@ data CExpression a
   | CBlockExpr   ([CDeclaration a],Bool) (CStatement a) a -- ^ Code block definition, new-style params, compound statement
   | ObjCMessageExpr  (ObjCMessageExpression a) a -- ^ Obj-c message
   | ObjCSelectorExpr (ObjCSelectorName a) a      -- ^ selector name
-  | ObjCProtoExpr Ident a                -- ^ @protocol expression
+  | ObjCProtoExpr Ident a                        -- ^ @protocol expression
   | ObjCEncodeExpr (CDeclaration a) a       -- ^ @encode expression (parse cdecls as CCastExpr)
     deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
@@ -803,7 +829,13 @@ type ObjCSelName = ObjCSelectorName NodeInfo
 
 data ObjCSelectorName a =
     ObjCSelPlain (ObjCSelector a) a
-  | ObjCSelKeys [Maybe (ObjCSelector a)] a
+  | ObjCSelKeys [ObjCSelectorKeyName a] a
+    deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
+
+type ObjCSelKeyName = ObjCSelectorKeyName NodeInfo
+
+data ObjCSelectorKeyName a =
+    ObjCSelKeyName (Maybe (ObjCSelector a)) a
     deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
 type ObjCSel = ObjCSelector NodeInfo
@@ -826,7 +858,13 @@ type ObjCMsgSel = ObjCMessageSelector NodeInfo
 
 data ObjCMessageSelector a =
    ObjCMsgSel (ObjCSelector a) a
- | ObjCKeyArgs [(Maybe (ObjCSelector a), CExpression a)] a
+ | ObjCKeyArgs [ObjCKeywordArg a] a
+    deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
+
+type ObjCKeyArg = ObjCKeywordArg NodeInfo
+
+data ObjCKeywordArg a =
+    ObjCKeyArg (ObjCSelectorKeyName a) (CExpression a) a
     deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
 -- | GNU Builtins, which cannot be typed in C99
@@ -902,6 +940,7 @@ instance (CNode t1) => CNode (CExternalDeclaration t1) where
         nodeInfo (CFDefExt d) = nodeInfo d
         nodeInfo (ObjCIfaceExt d) = nodeInfo d
         nodeInfo (ObjCClassExt d) = nodeInfo d
+        nodeInfo (ObjCProtoExt d) = nodeInfo d
         nodeInfo (CAsmExt _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (CExternalDeclaration t1) where
@@ -913,6 +952,7 @@ instance Functor CExternalDeclaration where
         fmap _f (CFDefExt a1) = CFDefExt (fmap _f a1)
         fmap _f (ObjCIfaceExt a1) = ObjCIfaceExt (fmap _f a1)
         fmap _f (ObjCClassExt a1) = ObjCClassExt (fmap _f a1)
+        fmap _f (ObjCProtoExt a1) = ObjCProtoExt (fmap _f a1)
         fmap _f (CAsmExt a1 a2) = CAsmExt (fmap _f a1) (_f a2)
 
  
@@ -921,11 +961,13 @@ instance Annotated CExternalDeclaration where
         annotation (CFDefExt n) = annotation n
         annotation (ObjCIfaceExt n) = annotation n
         annotation (ObjCClassExt n) = annotation n
+        annotation (ObjCProtoExt n) = annotation n
         annotation (CAsmExt _ n) = n
         amap f (CDeclExt n) = CDeclExt (amap f n)
         amap f (CFDefExt n) = CFDefExt (amap f n)
         amap f (ObjCIfaceExt n) = ObjCIfaceExt (amap f n)
         amap f (ObjCClassExt n) = ObjCClassExt (amap f n)
+        amap f (ObjCProtoExt n) = ObjCProtoExt (amap f n)
         amap f (CAsmExt a_1 a_2) = CAsmExt a_1 (f a_2)
 
  
@@ -964,6 +1006,58 @@ instance Functor ObjCClassListDef where
 instance Annotated ObjCClassListDef where
         annotation (ObjCClassDef _ n) = n
         amap f (ObjCClassDef a_1 a_2) = ObjCClassDef a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCProtocolDec t1) where
+        nodeInfo (ObjCForwardProtoDec _ n) = nodeInfo n
+        nodeInfo (ObjCProtoDec _ _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCProtocolDec t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Functor ObjCProtocolDec where
+        fmap _f (ObjCForwardProtoDec a1 a2)
+          = ObjCForwardProtoDec a1 (_f a2)
+        fmap _f (ObjCProtoDec a1 a2 a3 a4)
+          = ObjCProtoDec a1 (fmap (fmap _f) a2) (fmap (fmap _f) a3) (_f a4)
+
+ 
+instance Annotated ObjCProtocolDec where
+        annotation (ObjCForwardProtoDec _ n) = n
+        annotation (ObjCProtoDec _ _ _ n) = n
+        amap f (ObjCForwardProtoDec a_1 a_2)
+          = ObjCForwardProtoDec a_1 (f a_2)
+        amap f (ObjCProtoDec a_1 a_2 a_3 a_4)
+          = ObjCProtoDec a_1 a_2 a_3 (f a_4)
+
+ 
+instance (CNode t1) => CNode (ObjCProtocolDeclBlock t1) where
+        nodeInfo (ObjCProtoDeclBlock _ n) = nodeInfo n
+        nodeInfo (ObjCReqProtoBlock _ n) = nodeInfo n
+        nodeInfo (ObjCOptProtoBlock _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCProtocolDeclBlock t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Functor ObjCProtocolDeclBlock where
+        fmap _f (ObjCProtoDeclBlock a1 a2)
+          = ObjCProtoDeclBlock (fmap (fmap _f) a1) (_f a2)
+        fmap _f (ObjCReqProtoBlock a1 a2)
+          = ObjCReqProtoBlock (fmap (fmap _f) a1) (_f a2)
+        fmap _f (ObjCOptProtoBlock a1 a2)
+          = ObjCOptProtoBlock (fmap (fmap _f) a1) (_f a2)
+
+ 
+instance Annotated ObjCProtocolDeclBlock where
+        annotation (ObjCProtoDeclBlock _ n) = n
+        annotation (ObjCReqProtoBlock _ n) = n
+        annotation (ObjCOptProtoBlock _ n) = n
+        amap f (ObjCProtoDeclBlock a_1 a_2)
+          = ObjCProtoDeclBlock a_1 (f a_2)
+        amap f (ObjCReqProtoBlock a_1 a_2) = ObjCReqProtoBlock a_1 (f a_2)
+        amap f (ObjCOptProtoBlock a_1 a_2) = ObjCOptProtoBlock a_1 (f a_2)
 
  
 instance (CNode t1) => CNode (ObjCInterface t1) where
@@ -1708,6 +1802,18 @@ instance Annotated ObjCSelectorName where
         amap f (ObjCSelKeys a_1 a_2) = ObjCSelKeys a_1 (f a_2)
 
  
+instance (CNode t1) => CNode (ObjCSelectorKeyName t1) where
+        nodeInfo (ObjCSelKeyName _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCSelectorKeyName t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCSelectorKeyName where
+        annotation (ObjCSelKeyName _ n) = n
+        amap f (ObjCSelKeyName a_1 a_2) = ObjCSelKeyName a_1 (f a_2)
+
+ 
 instance (CNode t1) => CNode (ObjCSelector t1) where
         nodeInfo (ObjCSel _ n) = nodeInfo n
         nodeInfo (ObjCInSel d) = nodeInfo d
@@ -1757,6 +1863,18 @@ instance Annotated ObjCMessageSelector where
         annotation (ObjCKeyArgs _ n) = n
         amap f (ObjCMsgSel a_1 a_2) = ObjCMsgSel a_1 (f a_2)
         amap f (ObjCKeyArgs a_1 a_2) = ObjCKeyArgs a_1 (f a_2)
+
+ 
+instance (CNode t1) => CNode (ObjCKeywordArg t1) where
+        nodeInfo (ObjCKeyArg _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCKeywordArg t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCKeywordArg where
+        annotation (ObjCKeyArg _ _ n) = n
+        amap f (ObjCKeyArg a_1 a_2 a_3) = ObjCKeyArg a_1 a_2 (f a_3)
 
  
 instance (CNode t1) => CNode (CBuiltinThing t1) where

@@ -99,6 +99,7 @@ instance Pretty CExtDecl where
     pretty (CFDefExt fund) = pretty fund
     pretty (ObjCClassExt cls) = pretty cls
     pretty (ObjCIfaceExt cls) = pretty cls
+    pretty (ObjCProtoExt pr) = pretty pr
     pretty (CAsmExt  asmStmt _) = text "asm" <> parens (pretty asmStmt) <> semi
 
 -- TODO: Check that old-style and new-style aren't mixed
@@ -127,6 +128,21 @@ instance Pretty ObjCIface where
       $$ pVars vars
       $$ sep (map pretty decls)
       $$ text "@end"
+
+instance Pretty ObjCProtoDec where
+    pretty (ObjCForwardProtoDec ids _) =
+      text "@protocol" <+> hsep (punctuate comma $ map identP ids) <+> semi
+    pretty (ObjCProtoDec p refs decls _) =
+      text "@protocol" <+> identP p <+> pProto refs
+      $$ sep (map pretty decls)
+      $$ text "@end"
+
+instance Pretty ObjCProtoDeclBlock where
+    pretty (ObjCProtoDeclBlock decs _) = sep $ map pretty decs
+    pretty (ObjCReqProtoBlock decs _)  =
+      text "@required" $$ sep (map pretty decs)
+    pretty (ObjCOptProtoBlock decs _)  =
+      text "@optional" $$ sep (map pretty decs)
 
 instance Pretty ObjCIfaceDecl where
     pretty (ObjCIfaceDecl decl _)       = pretty decl
@@ -178,6 +194,7 @@ pProto :: [ObjCProtoNm] -> Doc
 pProto [] = empty
 pProto pl = angles . hsep . punctuate comma $ map pretty pl
 
+angles :: Doc -> Doc
 angles doc = text "<" <> doc <> text ">"
 
 instance Pretty ObjCInstanceVarBlock where
@@ -540,7 +557,33 @@ instance Pretty CExpr where
 
     prettyPrec _p (CBlockExpr params statement _) =
       text "^" <+> parens (prettyParams $ Right params) <+> pretty statement
-    
+
+    prettyPrec _p (ObjCMessageExpr msg _) = pretty msg
+    prettyPrec _p (ObjCSelectorExpr sn _) =
+      text "@selector" <+> parens (pretty sn)
+    prettyPrec _p (ObjCProtoExpr i _) = text "@protocol" <+> parens (identP i)
+    prettyPrec _p (ObjCEncodeExpr decls _) =
+      text "@encode" <+> parens (pretty decls)
+
+instance Pretty ObjCSelName where
+    pretty (ObjCSelPlain sn _) = pretty sn
+    pretty (ObjCSelKeys skns _) = hsep (map pretty skns)
+
+instance Pretty ObjCSelKeyName where
+    pretty (ObjCSelKeyName Nothing  _) = colon
+    pretty (ObjCSelKeyName (Just s) _) = pretty s <> colon
+
+instance Pretty ObjCMsgExpr where
+    pretty (ObjCMsgExpr expr sel _) = brackets $ pretty expr  <+> pretty sel
+    pretty (ObjCMsgClass cn  sel _) = brackets $ pretty cn    <+> pretty sel
+    pretty (ObjCMsgSup       sel _) = brackets $ text "super" <+> pretty sel
+
+instance Pretty ObjCMsgSel where
+    pretty (ObjCMsgSel sel _) = pretty sel
+    pretty (ObjCKeyArgs args _) = hsep $ map pretty args
+
+instance Pretty ObjCKeyArg where
+    pretty (ObjCKeyArg selname expr _) = pretty selname <> pretty expr
 
 instance Pretty CBuiltin where
     pretty (CBuiltinVaArg expr ty_name _) =

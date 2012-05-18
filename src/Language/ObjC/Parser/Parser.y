@@ -241,6 +241,11 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 "@interface"    { CTokObjC ObjCInterface	_ }
 "@property"     { CTokObjC ObjCProperty 	_ }
 "@end"          { CTokObjC ObjCEnd          	_ }
+"@required"     { CTokObjC ObjCRequired         _ }
+"@optional"     { CTokObjC ObjCOptional         _ }
+"@selector"     { CTokObjC ObjCSelector         _ }
+"@protocol"     { CTokObjC ObjCProtocol         _ }
+"@encode"       { CTokObjC ObjCEncode          	_ }
 classname       { CTokObjC (ObjCClassIdent $$)  _ } -- `class' identifier
 "@private"      { CTokObjC ObjCPriv          	_ }
 "@protected"    { CTokObjC ObjCProt          	_ }
@@ -251,6 +256,7 @@ classname       { CTokObjC (ObjCClassIdent $$)  _ } -- `class' identifier
 "inout"         { CTokObjC ObjCInOut            _ }
 "oneway"        { CTokObjC ObjCOneway           _ }
 "bycopy"        { CTokObjC ObjCBycopy           _ }
+"super"         { CTokObjC ObjCSuper            _ }
 
 %%
 
@@ -289,12 +295,53 @@ external_declaration
   | declaration			              { CDeclExt $1 }
   | class_list			              { ObjCClassExt $1 }
   | class_interface                           { ObjCIfaceExt $1 }
+  | proto_dec                                 { ObjCProtoExt $1 }
   | "__extension__" external_declaration  { $2 }
   | asm '(' string_literal ')' ';'		  {% withNodeInfo $1 $ CAsmExt $3 }
 
+proto_dec :: { ObjCProtoDec }
+proto_dec
+  : "@protocol" plist ';'
+      {% withNodeInfo $1 $ ObjCForwardProtoDec (reverse $2)}
+  | "@protocol" ident opt_proto_ref_list proto_decs "@end"
+      {% withNodeInfo $1 $ ObjCProtoDec $2 (reverse $3) ( reverse $4) }
+  | "@protocol" classname opt_proto_ref_list proto_decs "@end"
+      {% withNodeInfo $1 $ ObjCProtoDec $2 (reverse $3) ( reverse $4) }
+
+proto_decs :: { Reversed [ObjCProtoDeclBlock] }
+proto_decs
+  : proto_decs  preq    { $1 `snoc` $2 }
+  | proto_decs  popt    { $1 `snoc` $2 }
+  | preq                { singleton $1 }
+  | popt                { singleton $1 }
+  | pdef                { singleton $1 }
+
+
+preq :: { ObjCProtoDeclBlock }
+  : "@required" nonempty_interface_declaration_list
+       {% withNodeInfo $1 $ ObjCReqProtoBlock (reverse $2) }
+
+popt :: { ObjCProtoDeclBlock }
+  : "@optional" nonempty_interface_declaration_list
+       {% withNodeInfo $1 $ ObjCOptProtoBlock (reverse $2) }
+
+pdef :: { ObjCProtoDeclBlock }
+  : nonempty_interface_declaration_list
+       {% withNodeInfo $1 $ ObjCProtoDeclBlock (reverse $1) }
+
+plist :: { Reversed [Ident] }
+plist
+  :                             { empty }
+  | '<' plist2 '>'              { $2 }
+
+plist2 :: { Reversed [Ident] }
+plist2
+  : identifier                  { singleton $1 }
+  | classname                   { singleton $1 }
+  | plist2 ',' identifier       { $1 `snoc` $3 }
+  | plist2 ',' classname        { $1 `snoc` $3 }
+
 -- parse an Objective-C class list (ObjC)
--- 
--- class_list :- "@class" identifier_list ";"
 class_list :: { ObjCClassDef }
 class_list
   : "@class" class_declarator_list ';'
@@ -326,6 +373,11 @@ opt_superclass
 class_name :: { ObjCClassNm }
 class_name
   : classname  {% withNodeInfo $1 (ObjCClassNm $1) }
+
+nonempty_interface_declaration_list :: { Reversed [ObjCIfaceDecl] }
+nonempty_interface_declaration_list
+  : nonempty_interface_declaration_list interface_declaration { ($1 `snoc` $2) }
+  | interface_declaration                                     { singleton $1 }
 
 interface_declaration_list :: { Reversed [ObjCIfaceDecl] }
 interface_declaration_list
@@ -378,6 +430,20 @@ selector
   | "in"       {% withNodeInfo $1 ObjCInSel    }
   | "out"      {% withNodeInfo $1 ObjCOutSel   }
 
+selector_name   :: { ObjCSelName }
+selector_name
+  : selector  {% withNodeInfo $1 $ ObjCSelPlain $1 }
+  | keyword_name_list {% withNodeInfo $1 $ ObjCSelKeys (reverse $1) }
+
+keyword_name_list :: { Reversed [ObjCSelKeyName] }
+keyword_name_list
+  : keyword_name                      { singleton $1 }
+  | keyword_name_list keyword_name    { $1 `snoc` $2 }
+
+keyword_name :: { ObjCSelKeyName }
+keyword_name
+  : selector ':'    {% withNodeInfo $1 $ ObjCSelKeyName (Just $1) }
+  | ':'             {% withNodeInfo $1 $ ObjCSelKeyName Nothing   }
 
 method_selector :: { ObjCMethodSel }
 method_selector
@@ -401,12 +467,6 @@ property_modifier
       {% withNodeInfo $1 $ ObjCPropMod $1 (Just $3) }
   | ident
       {% withNodeInfo $1 $ ObjCPropMod $1 Nothing }
-
-bare_ident_declr :: { [(CDeclr, Maybe CInit)] }
-  : unary_identifier_declarator asm_attrs_opt {-{}-} initializer_opt
-    {% do{ declr <- withAsmNameAttrs $2 $1
-           ; doDeclIdent [] declr
-           ; return [(reverseDeclr declr, $3)] }}
 
 -- parse a set of instance variable declarations
 instance_variables :: { Reversed [ObjCInstanceVarBlock] }
@@ -1938,13 +1998,13 @@ initializer_list
 --
 -- * GNU extensions:
 --     old style member designation: 'ident :'
---     array range designation
+--
+-- array designations are not allowed here due to a conflict with ObjC messages
 --
 designation :: { [CDesignator] }
 designation
   : designator_list '='		{ reverse $1 }
   | identifier ':'		{% withNodeInfo $1 $ \at -> [CMemberDesig $1 at] }
-  | array_designator		{ [$1] }
 
 
 designator_list :: { Reversed [CDesignator] }
@@ -2001,6 +2061,37 @@ primary_expression
   -- objective-C support
   | '^' '(' parameter_type_list ')' compound_statement
         {% withNodeInfo $1 $ CBlockExpr $3 $5 }
+  |  message_expression
+        {% withNodeInfo $1 $ ObjCMessageExpr $1 }
+  | "@selector" '(' selector_name ')'
+        {% withNodeInfo $1 $ ObjCSelectorExpr $3 }
+  | "@protocol" '(' ident ')'
+        {% withNodeInfo $1 $ ObjCProtoExpr $3 }
+  | "@encode" '(' type_name ')'
+        {% withNodeInfo $1 $ ObjCEncodeExpr $3 }
+
+message_expression :: { ObjCMsgExpr }
+message_expression
+  : '[' class_name message_selector ']'
+        {% withNodeInfo $1 $ ObjCMsgClass $2 $3 }
+  | '[' expression message_selector ']'
+        {% withNodeInfo $1 $ ObjCMsgExpr $2 $3 }
+  | '[' "super" message_selector ']'
+        {% withNodeInfo $1 $ ObjCMsgSup $3 }
+
+message_selector :: { ObjCMsgSel }
+message_selector
+  : selector {% withNodeInfo $1 $ ObjCMsgSel $1 }
+  | keyword_argument_list {% withNodeInfo $1 $ ObjCKeyArgs (reverse $1) }
+
+keyword_argument_list :: { Reversed [ObjCKeyArg] }
+keyword_argument_list
+  : keyword_argument                       { singleton $1 }
+  | keyword_argument_list keyword_argument { $1 `snoc` $2 }
+
+keyword_argument :: { ObjCKeyArg }
+keyword_argument
+  : keyword_name expression {% withNodeInfo $1 $ ObjCKeyArg $1 $2 }
 
 offsetof_member_designator :: { Reversed [CDesignator] }
 offsetof_member_designator

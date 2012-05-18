@@ -361,6 +361,11 @@ idkwtok ('_' : '_' : 'v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : '_' : '_' :
 idkwtok ('w' : 'h' : 'i' : 'l' : 'e' : []) = tok 5 CTokWhile
 idkwtok ('@' : 'i' : 'n' : 't' : 'e' : 'r' : 'f' : 'a' : 'c' : 'e' : [] ) = tok 10 (CTokObjC ObjCInterface)
 idkwtok ("@end")       = tok 4  (CTokObjC ObjCEnd)
+idkwtok ("@required")  = tok 9  (CTokObjC ObjCRequired)
+idkwtok ("@optional")  = tok 9  (CTokObjC ObjCOptional)
+idkwtok ("@selector")  = tok 9  (CTokObjC ObjCSelector)
+idkwtok ("@protocol")  = tok 9  (CTokObjC ObjCProtocol)
+idkwtok ("@encode")    = tok 7  (CTokObjC ObjCEncode)
 idkwtok ("@class")     = tok 6  (CTokObjC ObjCClass)
 idkwtok ("@private")   = tok 8  (CTokObjC ObjCPriv)
 idkwtok ("@property")  = tok 9  (CTokObjC ObjCProperty)
@@ -372,6 +377,7 @@ idkwtok ("out")        = tok 3  (CTokObjC ObjCOut)
 idkwtok ("inout")      = tok 5  (CTokObjC ObjCInOut)
 idkwtok ("oneway")     = tok 6  (CTokObjC ObjCOneway)
 idkwtok ("bycopy")     = tok 6  (CTokObjC ObjCBycopy)
+idkwtok ("super")      = tok 5  (CTokObjC ObjCSuper)
 
 idkwtok cs = \pos -> do
   name <- getNewName

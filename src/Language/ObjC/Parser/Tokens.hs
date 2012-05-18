@@ -154,8 +154,13 @@ data GnuCTok = GnuCAttrTok              -- `__attribute__'
 -- | tokens used for Objective-C
 data ObjCTok = ObjCInterface            -- `@interface'
              | ObjCEnd                  -- `@end'
+             | ObjCRequired             -- `@required'
+             | ObjCOptional             -- `@optional'
              | ObjCClass                -- `@class'
              | ObjCProperty             -- `@property'
+             | ObjCSelector             -- `@selector'
+             | ObjCProtocol             -- `@protocol'
+             | ObjCEncode               -- `@encode'
              | ObjCClassIdent !Ident    -- `class-name' identifier
              | ObjCPriv                 -- `@private'
              | ObjCProt                 -- `@protected'
@@ -164,8 +169,9 @@ data ObjCTok = ObjCInterface            -- `@interface'
              | ObjCIn                   -- `in'
              | ObjCOut                  -- `out'
              | ObjCInOut                -- `inout'
-             | ObjCBycopy               -- `bycopy'
              | ObjCOneway               -- `oneway'
+             | ObjCBycopy               -- `bycopy'
+             | ObjCSuper                -- `super'
 
 instance Pos CToken where
   posOf = fst . posLenOfTok
@@ -372,12 +378,18 @@ instance Show CToken where
   showsPrec _ (CTokGnuC GnuCTyCompat _) = showString "__builtin_types_compatible_p"
   showsPrec _ (CTokObjC ObjCInterface _) = showString "@interface"
   showsPrec _ (CTokObjC ObjCEnd _)       = showString "@end"
+  showsPrec _ (CTokObjC ObjCRequired _)  = showString "@required"
+  showsPrec _ (CTokObjC ObjCOptional _)  = showString "@optional"
   showsPrec _ (CTokObjC ObjCClass _)     = showString "@class"
+  showsPrec _ (CTokObjC ObjCSelector _)  = showString "@selector"
+  showsPrec _ (CTokObjC ObjCProtocol _)  = showString "@protocol"
+  showsPrec _ (CTokObjC ObjCEncode _)    = showString "@encode"
   showsPrec _ (CTokObjC ObjCIn _)        = showString "in"
   showsPrec _ (CTokObjC ObjCOut _)       = showString "out"
   showsPrec _ (CTokObjC ObjCInOut _)     = showString "inout"
   showsPrec _ (CTokObjC ObjCOneway _)    = showString "oneway"
   showsPrec _ (CTokObjC ObjCBycopy _)    = showString "bycopy"
+  showsPrec _ (CTokObjC ObjCSuper  _)    = showString "super"
   showsPrec _ (CTokObjC ObjCProperty _)  = showString "@property"
   showsPrec _ (CTokObjC (ObjCClassIdent i) _) = showString $ identToString i
   showsPrec _ (CTokObjC ObjCPriv _)      = showString "@private"

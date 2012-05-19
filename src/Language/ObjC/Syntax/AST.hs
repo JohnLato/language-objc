@@ -223,6 +223,7 @@ data ObjCMethodDeclaration a =
     ObjCMethodType
     (Maybe (CDeclaration a))   -- ^ type_name (as with CCast)
     (ObjCMethodSelector a)
+    [CAttribute a]
     a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
@@ -1154,16 +1155,16 @@ instance Annotated ObjCInterfaceDeclaration where
 
  
 instance (CNode t1) => CNode (ObjCMethodDeclaration t1) where
-        nodeInfo (ObjCMethodDecl _ _ _ n) = nodeInfo n
+        nodeInfo (ObjCMethodDecl _ _ _ _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (ObjCMethodDeclaration t1) where
         posOf x = posOf (nodeInfo x)
 
  
 instance Annotated ObjCMethodDeclaration where
-        annotation (ObjCMethodDecl _ _ _ n) = n
-        amap f (ObjCMethodDecl a_1 a_2 a_3 a_4)
-          = ObjCMethodDecl a_1 a_2 a_3 (f a_4)
+        annotation (ObjCMethodDecl _ _ _ _ n) = n
+        amap f (ObjCMethodDecl a_1 a_2 a_3 a_4 a_5)
+          = ObjCMethodDecl a_1 a_2 a_3 a_4 (f a_5)
 
  
 instance (CNode t1) => CNode (ObjCMethodSelector t1) where

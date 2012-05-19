@@ -398,13 +398,13 @@ interface_declaration
 method_declaration :: { ObjCMethodDecl }
 method_declaration
   : '+' method_selector ';'
-      {% withNodeInfo $1 (ObjCMethodDecl ObjCClassMethod Nothing $2) }
+      {% let (sel,attrs) = $2 in withNodeInfo $1 (ObjCMethodDecl ObjCClassMethod Nothing sel attrs) }
   | '-' method_selector ';'
-      {% withNodeInfo $1 (ObjCMethodDecl ObjCInstanceMethod Nothing $2) }
+      {% let (sel,attrs) = $2 in withNodeInfo $1 (ObjCMethodDecl ObjCInstanceMethod Nothing sel attrs) }
   | '+' '(' type_name ')' method_selector ';'
-      {% withNodeInfo $1 (ObjCMethodDecl ObjCClassMethod (Just $3) $5) }
+      {% let (sel,attrs) = $5 in  withNodeInfo $1 (ObjCMethodDecl ObjCClassMethod (Just $3) sel attrs) }
   | '-' '(' type_name ')' method_selector ';'
-      {% withNodeInfo $1 (ObjCMethodDecl ObjCInstanceMethod (Just $3) $5) }
+      {% let (sel,attrs) = $5 in withNodeInfo $1 (ObjCMethodDecl ObjCInstanceMethod (Just $3) sel attrs) }
 
 keyword_declarator_list :: { Reversed [ObjCKeywordDecl] }
 keyword_declarator_list
@@ -445,15 +445,16 @@ keyword_name
   : selector ':'    {% withNodeInfo $1 $ ObjCSelKeyName (Just $1) }
   | ':'             {% withNodeInfo $1 $ ObjCSelKeyName Nothing   }
 
-method_selector :: { ObjCMethodSel }
+method_selector :: { (ObjCMethodSel,[CAttr]) }
 method_selector
-  : selector  {% withNodeInfo $1 (ObjCUnaryMethod $1) }
-  | keyword_declarator_list
-              {% withNodeInfo $1 (ObjCMethod (reverse $1) Nothing) }
+  : selector  attrs_opt
+        {% withNodeInfo $1 $ \at -> (ObjCUnaryMethod $1 at, $2) }
+  | keyword_declarator_list attrs_opt
+        {% withNodeInfo $1 $ \at -> (ObjCMethod (reverse $1) Nothing at, $2) }
   | keyword_declarator_list ',' parameter_type_list
-              {% withNodeInfo $1 (ObjCMethod (reverse $1) (Just $3)) }
-  | keyword_declarator_list ',' "..."
-              {% withNodeInfo $1 (ObjCEllipseMethod (reverse $1)) }
+              {% withNodeInfo $1 $ \at -> (ObjCMethod (reverse $1) (Just $3) at, []) }
+  | keyword_declarator_list ',' "..." attrs_opt
+        {% withNodeInfo $1 $ \at -> (ObjCEllipseMethod (reverse $1) at, $4) }
 
 
 property_modifiers :: { Reversed [ObjCPropMod] }

@@ -150,8 +150,8 @@ instance Pretty ObjCIfaceDecl where
     pretty (ObjCIfacePropDecl decl _)   = pretty decl
 
 instance Pretty ObjCMethodDecl where
-    pretty (ObjCMethodDecl typ typName sel _) =
-      hsep [pretty typ, pName typName, pretty sel, semi]
+    pretty (ObjCMethodDecl typ typName sel attrs _) =
+      hsep [pretty typ,pName typName,pretty sel,hsep (map pretty attrs), semi]
       where pName = maybe empty (parens . pretty)
 
 instance Pretty ObjCMethodType where

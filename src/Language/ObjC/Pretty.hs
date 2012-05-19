@@ -99,6 +99,7 @@ instance Pretty CExtDecl where
     pretty (CFDefExt fund) = pretty fund
     pretty (ObjCClassExt cls) = pretty cls
     pretty (ObjCIfaceExt cls) = pretty cls
+    pretty (ObjCCatExt   ct) = pretty ct
     pretty (ObjCProtoExt pr) = pretty pr
     pretty (CAsmExt  asmStmt _) = text "asm" <> parens (pretty asmStmt) <> semi
 
@@ -120,9 +121,17 @@ instance Pretty ObjCClassDef where
 instance Pretty ObjCClassDeclr where
     pretty (ObjCClassDeclr nm _) = identP nm
 
+instance Pretty (ObjCCatDec) where
+    pretty (ObjCCatDec i1 i2 protos decls attrs _) =
+      hsep (map pretty attrs)
+      $$ text "@interface" <+> identP i1 <+> parens (identP i2)
+      $$ pProto protos
+      $$ sep (map pretty decls)
+
 instance Pretty ObjCIface where
-    pretty (ObjCIface cn sp protos vars decls _) =
-      text "@interface" <+> pretty cn
+    pretty (ObjCIface cn sp protos vars decls attrs _) =
+      hsep (map pretty attrs)
+      $$ text "@interface" <+> pretty cn
       <+> maybe empty ((text ":" <+>) . pretty) sp
       <+> pProto protos
       $$ pVars vars

@@ -34,12 +34,12 @@ module Language.ObjC.Syntax.AST (
   -- ** Objective-C extensions
   ObjCIface, ObjCClassDef, ObjCProtoNm, ObjCInstanceVarBlock, ObjCVisSpec,
   ObjCPropDecl, ObjCSel, ObjCMethodSel, ObjCMethodDecl, ObjCProtoDec,
-  ObjCProtoDeclBlock,
+  ObjCProtoDeclBlock, ObjCCatDec,
   ObjCInterface(..), ObjCClassListDef(..), ObjCProtocolName(..),
   ObjCInstanceVariableBlock(..),ObjCVisibilitySpec(..),ObjCVisType(..),
   ObjCPropertyDeclaration(..), ObjCSelector(..), ObjCMethodSelector(..),
   ObjCMethodType(..), ObjCMethodDeclaration(..), ObjCProtocolDec(..),
-  ObjCProtocolDeclBlock(..),
+  ObjCProtocolDeclBlock(..), ObjCCategoryDec(..),
   -- * Declaration attributes
   CDeclSpec, partitionDeclSpecs,
   CStorageSpec, CTypeSpec, isSUEDef, CTypeQual, CAttr,
@@ -101,6 +101,7 @@ data CExternalDeclaration a
   | ObjCIfaceExt (ObjCInterface a)
   | ObjCClassExt (ObjCClassListDef a)
   | ObjCProtoExt (ObjCProtocolDec a)
+  | ObjCCatExt (ObjCCategoryDec a)
   | CAsmExt  (CStringLiteral a) a
     deriving (Show, Data,Typeable {-! ,CNode ,Functor, Annotated !-})
 
@@ -127,6 +128,18 @@ data CFunctionDef a
     a
     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
 
+type ObjCCatDec = ObjCCategoryDec NodeInfo
+
+-- | Objective-C Category definition (declaration)
+data ObjCCategoryDec a =
+  ObjCCatDec
+    Ident
+    Ident
+    [ObjCProtocolName a]      -- protocol reference list
+    [ObjCInterfaceDeclaration a]  -- interface declaration list
+    [CAttribute a]
+    a
+  deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
 type ObjCClassDef = ObjCClassListDef NodeInfo
 
@@ -166,6 +179,7 @@ data ObjCInterface a =
     [ObjCProtocolName a]      -- ^ protocol reference list
     [ObjCInstanceVariableBlock a] -- ^ instance variables
     [ObjCInterfaceDeclaration a]  -- ^ interface declaration list
+    [CAttribute a]                -- optional attributes
     a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
@@ -942,6 +956,7 @@ instance (CNode t1) => CNode (CExternalDeclaration t1) where
         nodeInfo (ObjCIfaceExt d) = nodeInfo d
         nodeInfo (ObjCClassExt d) = nodeInfo d
         nodeInfo (ObjCProtoExt d) = nodeInfo d
+        nodeInfo (ObjCCatExt d) = nodeInfo d
         nodeInfo (CAsmExt _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (CExternalDeclaration t1) where
@@ -954,6 +969,7 @@ instance Functor CExternalDeclaration where
         fmap _f (ObjCIfaceExt a1) = ObjCIfaceExt (fmap _f a1)
         fmap _f (ObjCClassExt a1) = ObjCClassExt (fmap _f a1)
         fmap _f (ObjCProtoExt a1) = ObjCProtoExt (fmap _f a1)
+        fmap _f (ObjCCatExt a1) = ObjCCatExt (fmap _f a1)
         fmap _f (CAsmExt a1 a2) = CAsmExt (fmap _f a1) (_f a2)
 
  
@@ -963,12 +979,14 @@ instance Annotated CExternalDeclaration where
         annotation (ObjCIfaceExt n) = annotation n
         annotation (ObjCClassExt n) = annotation n
         annotation (ObjCProtoExt n) = annotation n
+        annotation (ObjCCatExt n) = annotation n
         annotation (CAsmExt _ n) = n
         amap f (CDeclExt n) = CDeclExt (amap f n)
         amap f (CFDefExt n) = CFDefExt (amap f n)
         amap f (ObjCIfaceExt n) = ObjCIfaceExt (amap f n)
         amap f (ObjCClassExt n) = ObjCClassExt (amap f n)
         amap f (ObjCProtoExt n) = ObjCProtoExt (amap f n)
+        amap f (ObjCCatExt n) = ObjCCatExt (amap f n)
         amap f (CAsmExt a_1 a_2) = CAsmExt a_1 (f a_2)
 
  
@@ -990,6 +1008,19 @@ instance Annotated CFunctionDef where
         annotation (CFunDef _ _ _ _ n) = n
         amap f (CFunDef a_1 a_2 a_3 a_4 a_5)
           = CFunDef a_1 a_2 a_3 a_4 (f a_5)
+
+ 
+instance (CNode t1) => CNode (ObjCCategoryDec t1) where
+        nodeInfo (ObjCCatDec _ _ _ _ _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCCategoryDec t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCCategoryDec where
+        annotation (ObjCCatDec _ _ _ _ _ n) = n
+        amap f (ObjCCatDec a_1 a_2 a_3 a_4 a_5 a_6)
+          = ObjCCatDec a_1 a_2 a_3 a_4 a_5 (f a_6)
 
  
 instance (CNode t1) => CNode (ObjCClassListDef t1) where
@@ -1062,16 +1093,16 @@ instance Annotated ObjCProtocolDeclBlock where
 
  
 instance (CNode t1) => CNode (ObjCInterface t1) where
-        nodeInfo (ObjCIface _ _ _ _ _ n) = nodeInfo n
+        nodeInfo (ObjCIface _ _ _ _ _ _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (ObjCInterface t1) where
         posOf x = posOf (nodeInfo x)
 
  
 instance Annotated ObjCInterface where
-        annotation (ObjCIface _ _ _ _ _ n) = n
-        amap f (ObjCIface a_1 a_2 a_3 a_4 a_5 a_6)
-          = ObjCIface a_1 a_2 a_3 a_4 a_5 (f a_6)
+        annotation (ObjCIface _ _ _ _ _ _ n) = n
+        amap f (ObjCIface a_1 a_2 a_3 a_4 a_5 a_6 a_7)
+          = ObjCIface a_1 a_2 a_3 a_4 a_5 a_6 (f a_7)
 
  
 instance (CNode t1) => CNode (ObjCClassDeclarator t1) where

@@ -236,7 +236,7 @@ type ObjCMethodDecl = ObjCMethodDeclaration NodeInfo
 data ObjCMethodDeclaration a =
     ObjCMethodDecl
     ObjCMethodType
-    (Maybe (CDeclaration a))   -- ^ type_name (as with CCast)
+    (Maybe (CDeclaration a))   -- type_name (as with CCast)
     (ObjCMethodSelector a)
     [CAttribute a]
     a
@@ -257,8 +257,8 @@ type ObjCKeywordDecl = ObjCKeywordDeclarator NodeInfo
 
 data ObjCKeywordDeclarator a =
    ObjCKeywordDecl
-   (Maybe (ObjCSelector a)) -- ^ selector
-   (Maybe (CDeclaration a)) -- ^ type name
+   (Maybe (ObjCSelector a)) -- selector
+   (Maybe (CDeclaration a)) -- type name
    Ident
    a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})

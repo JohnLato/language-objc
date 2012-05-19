@@ -838,7 +838,7 @@ data CExpression a
   | ObjCMessageExpr  (ObjCMessageExpression a) a -- ^ Obj-c message
   | ObjCSelectorExpr (ObjCSelectorName a) a      -- ^ selector name
   | ObjCProtoExpr Ident a                        -- ^ @protocol expression
-  | ObjCEncodeExpr (CDeclaration a) a       -- ^ @encode expression (parse cdecls as CCastExpr)
+  | ObjCEncodeExpr (CDeclaration a) a            -- ^ @encode expression
     deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
 type ObjCSelName = ObjCSelectorName NodeInfo

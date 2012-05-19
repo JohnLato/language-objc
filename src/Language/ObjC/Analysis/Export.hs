@@ -58,6 +58,9 @@ exportType ty = exportTy [] ty
     exportTy dd (PtrType ity tyquals attrs) =
         let ptr_declr = CPtrDeclr (exportTypeQualsAttrs tyquals attrs) ni
         in  exportTy (ptr_declr : dd) ity
+    exportTy dd (BlockType ity tyquals attrs) =
+        let blk_declr = CBlkDeclr (exportTypeQualsAttrs tyquals attrs) ni
+        in  exportTy (blk_declr : dd) ity
     exportTy dd (ArrayType ity array_sz tyquals attrs) =
         let arr_declr = CArrDeclr (exportTypeQualsAttrs tyquals attrs) (exportArraySize array_sz) ni
         in  exportTy (arr_declr : dd) ity

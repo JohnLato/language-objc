@@ -43,7 +43,8 @@ HasSUERef(..),HasCompTyKind(..),
 CompTypeRef(..),CompType(..),typeOfCompDef,CompTyKind(..),
 EnumTypeRef(..),EnumType(..),typeOfEnumDef,
 Enumerator(..),
-TypeQuals(..),noTypeQuals,mergeTypeQuals,
+TypeQuals(..),noTypeQuals, mergeTypeQuals,
+ProtoQuals(..),noProtoQuals,mergeProtoQuals,protoFromAST,
 -- * Variable names
 VarName(..),identOfVarName,isNoName,AsmName,
 -- * Attributes (STUB, not yet analyzed)
@@ -56,6 +57,7 @@ import Language.ObjC.Data
 import Language.ObjC.Syntax
 
 import Data.Map (Map)
+import Data.Monoid
 import qualified Data.Map as Map
 import Data.Generics
 
@@ -333,6 +335,8 @@ data Type =
      -- ^ a non-derived type
      | PtrType Type TypeQuals Attributes
      -- ^ pointer type
+     | BlockType Type TypeQuals Attributes
+     -- ^ block type
      | ArrayType Type ArraySize TypeQuals Attributes
      -- ^ array type
      | FunctionType FunType Attributes
@@ -471,25 +475,54 @@ instance Declaration Enumerator where
       (DeclAttrs False NoStorage [])
       (DirectType (typeOfEnumDef enumty) noTypeQuals noAttributes)
 
--- | Type qualifiers: constant, volatile and restrict
-data TypeQuals = TypeQuals { constant :: Bool, volatile :: Bool, restrict :: Bool }
-    deriving (Typeable, Data)
+-- | Type qualifiers: constant, volatile, proto, and restrict
+data TypeQuals = TypeQuals { constant :: Bool, volatile :: Bool, restrict :: Bool, protocol :: ProtoQuals }
+    deriving (Typeable, Data, Eq, Ord)
 
-instance Eq TypeQuals where
- (==) (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) =
-    c1 == c2 && v1 == v2 && r1 == r2
-
-instance Ord TypeQuals where
-  (<=) (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) =
-    c1 <= c2 && v1 <= v2 && r1 <= r2
+data ProtoQuals = ProtoQuals {
+   inQ     :: Bool
+  ,outQ    :: Bool
+  ,inoutQ  :: Bool
+  ,bycopyQ :: Bool
+  ,onewayQ :: Bool
+ } deriving (Typeable, Data, Eq, Ord)
 
 -- | no type qualifiers
 noTypeQuals :: TypeQuals
-noTypeQuals = TypeQuals False False False
+noTypeQuals = TypeQuals False False False noProtoQuals
+
+noProtoQuals :: ProtoQuals
+noProtoQuals = ProtoQuals False False False False False
+
+-- | Convert protocol qualifier from AST representation
+protoFromAST :: ObjCProtoQualifier a -> ProtoQuals
+protoFromAST (ObjCInQual     _) = noProtoQuals{ inQ     = True }
+protoFromAST (ObjCOutQual    _) = noProtoQuals{ outQ    = True }
+protoFromAST (ObjCInOutQual  _) = noProtoQuals{ inoutQ  = True }
+protoFromAST (ObjCBycopyQual _) = noProtoQuals{ bycopyQ = True }
+protoFromAST (ObjCOnewayQual _) = noProtoQuals{ onewayQ = True }
 
 -- | merge (/&&/) two type qualifier sets
 mergeTypeQuals :: TypeQuals -> TypeQuals -> TypeQuals
-mergeTypeQuals (TypeQuals c1 v1 r1) (TypeQuals c2 v2 r2) = TypeQuals (c1 && c2) (v1 && v2) (r1 && r2)
+mergeTypeQuals (TypeQuals c1 v1 r1 p1) (TypeQuals c2 v2 r2 p2) =
+  TypeQuals (c1 && c2) (v1 && v2) (r1 && r2) (mergeProtoQuals p1 p2)
+
+-- | merge (/&&/) two protocol qualifier sets
+mergeProtoQuals :: ProtoQuals -> ProtoQuals -> ProtoQuals
+mergeProtoQuals (ProtoQuals i1 o1 io1 b1 ow1) (ProtoQuals i2 o2 io2 b2 ow2) =
+  ProtoQuals (i1 && i2) (o1 && o2) (io1 && io2) (b1 && b2) (ow1 && ow2)
+
+instance Monoid TypeQuals where
+  mempty = noTypeQuals
+  mappend (TypeQuals c1 v1 r1 p1) (TypeQuals c2 v2 r2 p2) =
+    TypeQuals (c1 || c2) (v1 || v2) (r1 || r2) (mappend p1 p2)
+
+instance Monoid ProtoQuals where
+  mempty  = noProtoQuals
+  mappend (ProtoQuals i1 o1 io1 b1 ow1) (ProtoQuals i2 o2 io2 b2 ow2) =
+    ProtoQuals (i1 || i2) (o1 || o2) (io1 || io2) (b1 || b2) (ow1 || ow2)
+
+
 
 -- * initializers
 

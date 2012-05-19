@@ -61,7 +61,6 @@ where
 import Language.ObjC.Analysis.SemError
 import Language.ObjC.Analysis.SemRep
 
-import Language.ObjC.Analysis.DefTable
 import Language.ObjC.Analysis.TravMonad
 
 import Language.ObjC.Analysis.AstAnalysis

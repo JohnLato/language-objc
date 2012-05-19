@@ -1,6 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses
             ,TypeSynonymInstances
+            ,StandaloneDeriving
             ,FlexibleContexts
+            ,DeriveFunctor
             ,FlexibleInstances
             ,PatternGuards
             ,RankNTypes
@@ -96,7 +98,7 @@ class (Monad m) => MonadCError m where
     getErrors      :: m [CError]
 
 -- | Traversal monad
-class (MonadName m, MonadSymtab m, MonadCError m) => MonadTrav m where
+class (Functor m, MonadName m, MonadSymtab m, MonadCError m) => MonadTrav m where
     -- | handling declarations and definitions
     handleDecl :: DeclEvent -> m ()
 
@@ -384,6 +386,8 @@ get ::  Trav s (TravState s)
 get      = Trav (\s -> Right (s,s))
 put :: TravState s -> Trav s ()
 put s    = Trav (\_ -> Right ((),s))
+
+deriving instance Functor (Trav s)
 
 
 runTrav :: forall s a. s -> Trav s a -> Either [CError] (a, TravState s)

@@ -423,7 +423,8 @@ deepTypeAttrs (DirectType (TyComp (CompTypeRef sue _ ni)) _ attrs) =
 deepTypeAttrs (DirectType (TyEnum (EnumTypeRef sue ni)) _ attrs) =
   (attrs ++) `liftM` sueAttrs ni sue
 deepTypeAttrs (DirectType _ _ attrs) = return attrs
-deepTypeAttrs (PtrType t _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
+deepTypeAttrs (PtrType   t _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
+deepTypeAttrs (BlockType t _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
 deepTypeAttrs (ArrayType t _ _ attrs) = (attrs ++) `liftM` deepTypeAttrs t
 deepTypeAttrs (FunctionType (FunType t _ _) attrs) =
   (attrs ++) `liftM` deepTypeAttrs t

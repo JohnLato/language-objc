@@ -51,7 +51,7 @@ simplePtr t = PtrType t noTypeQuals []
 
 -- | A pointer with the @const@ qualifier.
 constPtr :: Type -> Type
-constPtr t = PtrType t (TypeQuals True False False) []
+constPtr t = PtrType t (TypeQuals True False False noProtoQuals) []
 
 -- | The type returned by sizeof (size_t). For now, this is just @int@.
 size_tType :: Type
@@ -88,7 +88,7 @@ constCharPtr = constPtr (integral TyChar)
 -- | The type of a constant string.
 stringType :: Type
 stringType  = ArrayType
-              (DirectType (TyIntegral TyChar) (TypeQuals True False False) noAttributes)
+              (DirectType (TyIntegral TyChar) (TypeQuals True False False noProtoQuals) noAttributes)
               (UnknownArraySize False)
               noTypeQuals
               []
@@ -136,6 +136,7 @@ isFunctionType ty =
 typeQuals :: Type -> TypeQuals
 typeQuals (DirectType _ q _) = q
 typeQuals (PtrType _ q _) = q
+typeQuals (BlockType _ q _) = q
 typeQuals (ArrayType _ _ q _) = q
 typeQuals (FunctionType _ _) = noTypeQuals
 typeQuals (TypeDefType (TypeDefRef _ Nothing _)  q _) = q
@@ -148,6 +149,7 @@ typeQualsUpd :: (TypeQuals -> TypeQuals) -> Type -> Type
 typeQualsUpd f ty =
     case ty of DirectType ty_name ty_quals ty_attrs -> DirectType ty_name (f ty_quals) ty_attrs
                PtrType ty_inner ty_quals ty_attrs         -> PtrType ty_inner (f ty_quals) ty_attrs
+               BlockType ty_inner ty_quals ty_attrs       -> PtrType ty_inner (f ty_quals) ty_attrs
                ArrayType ty_inner sz ty_quals ty_attrs    -> ArrayType ty_inner sz (f ty_quals) ty_attrs
                FunctionType ty_inner ty_attrs             -> FunctionType ty_inner ty_attrs
                TypeDefType ty_ref ty_quals ty_attrs -> TypeDefType ty_ref (f ty_quals) ty_attrs
@@ -156,6 +158,7 @@ typeQualsUpd f ty =
 typeAttrs :: Type -> Attributes
 typeAttrs (DirectType _ _ a) = a
 typeAttrs (PtrType _ _ a) = a
+typeAttrs (BlockType _ _ a) = a
 typeAttrs (ArrayType _ _ _ a) = a
 typeAttrs (FunctionType _ a) = a
 typeAttrs (TypeDefType (TypeDefRef _ Nothing _) _ a) = a
@@ -166,6 +169,7 @@ typeAttrsUpd :: (Attributes -> Attributes) -> Type -> Type
 typeAttrsUpd f ty =
     case ty of DirectType ty_name ty_quals ty_attrs -> DirectType ty_name ty_quals (f ty_attrs)
                PtrType ty_inner ty_quals ty_attrs         -> PtrType ty_inner ty_quals (f ty_attrs)
+               BlockType ty_inner ty_quals ty_attrs       -> BlockType ty_inner ty_quals (f ty_attrs)
                ArrayType ty_inner sz ty_quals ty_attrs    -> ArrayType ty_inner sz ty_quals (f ty_attrs)
                FunctionType ty_inner ty_attrs             -> FunctionType ty_inner (f ty_attrs)
                TypeDefType ty_ref ty_quals ty_attrs -> TypeDefType ty_ref ty_quals (f ty_attrs)

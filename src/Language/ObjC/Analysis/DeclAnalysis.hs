@@ -40,6 +40,7 @@ import Data.Foldable as F (foldrM)
 import Control.Monad (liftM,when,ap)
 import Data.List (intersperse, mapAccumL)
 import qualified Data.Map as Map
+import Data.Monoid
 import Text.PrettyPrint.HughesPJ
 
 
@@ -214,6 +215,8 @@ tType handle_sue_def top_node typequals canonTySpecs derived_declrs oldstyle_par
         tDirectType handle_sue_def top_node typequals canonTySpecs
     buildType (CPtrDeclr ptrquals node : dds) =
         buildType dds >>= buildPointerType ptrquals node
+    buildType (CBlkDeclr blkquals node : dds) =
+        buildType dds >>= buildBlockType blkquals node
     buildType (CArrDeclr arrquals size node : dds)
         = buildType dds >>= buildArrayType arrquals size node
     buildType (CFunDeclr (Right (params, isVariadic)) attrs node : dds)
@@ -223,6 +226,8 @@ tType handle_sue_def top_node typequals canonTySpecs derived_declrs oldstyle_par
         = astError top_node "old-style parameters remaining after mergeOldStyle"
     buildPointerType ptrquals _node inner_ty
         = liftM (\(quals,attrs) -> PtrType inner_ty quals attrs) (tTypeQuals ptrquals)
+    buildBlockType blkquals _node inner_ty
+        = liftM (\(quals,attrs) -> BlockType inner_ty quals attrs) (tTypeQuals blkquals)
     buildArrayType arr_quals size _node inner_ty
         = do (quals,attrs) <- tTypeQuals arr_quals
              arr_sz        <- tArraySize size
@@ -274,7 +279,8 @@ mergeTypeAttributes :: (MonadCError m) => NodeInfo -> TypeQuals -> [Attr] -> Typ
 mergeTypeAttributes node_info quals attrs typ =
     case typ of
         DirectType ty_name quals' attrs' -> merge quals' attrs' $ mkDirect ty_name
-        PtrType ty quals' attrs'  -> merge quals' attrs' $ PtrType ty
+        PtrType   ty quals' attrs' -> merge quals' attrs' $ PtrType ty
+        BlockType ty quals' attrs' -> merge quals' attrs' $ BlockType ty
         ArrayType ty array_sz quals' attrs' -> merge quals' attrs' $ ArrayType ty array_sz
         FunctionType (FunType return_ty params inline) attrs'
 -- /FIXME/: This needs review, but checking (null attrs) seems strange here
@@ -404,7 +410,9 @@ tTypeQuals = foldrM go (noTypeQuals,[]) where
     go (CConstQual _) (tq,attrs) = return$ (tq { constant = True },attrs)
     go (CVolatQual _) (tq,attrs) = return$ (tq { volatile = True },attrs)
     go (CRestrQual _) (tq,attrs) = return$ (tq { restrict = True },attrs)
+    go (ObjCProtoQual proto) (tq,attrs) = let p1 = protocol tq in return$ (tq { protocol = mappend p1 $ protoFromAST proto },attrs)
     go (CAttrQual attr) (tq,attrs) = liftM (\attr' -> (tq,attr':attrs)) (tAttr attr)
+    -- go (ObjCProtoQual proto) (tq,attrs,protos) = liftM (\attr' -> (tq,attr':attrs)) (tAttr attr)
     go (CInlineQual node) (_tq,_attrs) = astError node "unexpected inline qualifier"
 
 

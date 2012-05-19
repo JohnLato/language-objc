@@ -37,7 +37,6 @@ import Language.ObjC.Analysis.DefTable (DefTable, globalDefs, defineScopedIdent,
 import Language.ObjC.Analysis.DeclAnalysis
 import Language.ObjC.Analysis.TypeUtils
 import Language.ObjC.Analysis.TypeCheck
-import Language.ObjC.Analysis.TypeConversions
 
 import Language.ObjC.Data
 import Language.ObjC.Pretty
@@ -50,9 +49,6 @@ import Text.PrettyPrint.HughesPJ
 
 import Control.Monad
 import Prelude hiding (reverse)
-import Data.Either (rights)
-import Data.Foldable (foldrM)
-import Data.List hiding (reverse)
 import qualified Data.Map as Map
 import Data.Maybe
 
@@ -528,7 +524,7 @@ tExpr' c side (CCond e1 me2 e3 ni)     =
          do t2 <- tExpr c side e2
             conditionalType' ni t2 t3
        Nothing -> conditionalType' ni t1 t3
-tExpr' c side (CMember e m deref ni)   =
+tExpr' c _side (CMember e m deref ni)   =
   do t <- tExpr c RValue e
      bt <- if deref then typeErrorOnLeft ni (derefType t) else return t
      fieldType ni m bt
@@ -541,11 +537,11 @@ tExpr' c side (CCast d e ni)           =
      return dt
 tExpr' c side (CSizeofExpr e ni)       =
   do when (side == LValue) $ typeError ni "sizeof as lvalue"
-     tExpr c RValue e
+     void $ tExpr c RValue e
      return size_tType
 tExpr' c side (CAlignofExpr e ni)      =
   do when (side == LValue) $ typeError ni "alignof as lvalue"
-     tExpr c RValue e
+     void $ tExpr c RValue e
      return size_tType
 tExpr' c side (CComplexReal e ni)      = complexBaseType ni c side e
 tExpr' c side (CComplexImag e ni)      = complexBaseType ni c side e
@@ -563,7 +559,7 @@ tExpr' _ LValue (CAlignofType _ ni)    =
   typeError ni "alignoftype as lvalue"
 tExpr' _ LValue (CSizeofType _ ni)     =
   typeError ni "sizeoftype as lvalue"
-tExpr' _ side (CVar i ni)              =
+tExpr' _ _    (CVar i ni)              =
   lookupObject i >>=
   maybe (typeErrorOnLeft ni $ notFound i) (return . declType)
 tExpr' _ _ (CConst c)                  = constType c
@@ -648,9 +644,17 @@ tExpr' c _ (CStatExpr s _)             =
      t <- tStmt c s
      leaveBlockScope
      return t
+tExpr' _ _ (CBlockExpr _ _ ni) =
+  typeError ni $ "tExpr': don't know how to type block expressions"
+tExpr' _ _ (ObjCMessageExpr _ ni) =
+  typeError ni $ "tExpr': don't know how to type message expressions"
+tExpr' _ _ (ObjCSelectorExpr _ ni) =
+  typeError ni $ "tExpr': don't know how to type selector expressions"
+tExpr' _ _ (ObjCProtoExpr _ ni) =
+  typeError ni $ "tExpr': don't know how to type protocol expressions"
 
 tInitList :: MonadTrav m => NodeInfo -> Type -> CInitList -> m ()
-tInitList ni t@(ArrayType (DirectType (TyIntegral TyChar) _ _) _ _ _)
+tInitList _ (ArrayType (DirectType (TyIntegral TyChar) _ _) _ _ _)
              [([], CInitExpr e@(CConst (CStrConst _ _)) _)] =
   tExpr [] RValue e >> return ()
 tInitList ni t@(ArrayType _ _ _ _) initList =
@@ -662,7 +666,7 @@ tInitList ni t@(DirectType (TyComp ctr) _ _) initList =
      ms <- tagMembers ni td
      let default_ds = map (\m -> CMemberDesig (fst m) ni) ms
      checkInits t default_ds initList
-tInitList ni (PtrType (DirectType TyVoid _ _) _ _ ) _ =
+tInitList _ (PtrType (DirectType TyVoid _ _) _ _ ) _ =
           return () -- XXX: more checking
 tInitList _ t [([], i)] = tInit t i >> return ()
 tInitList ni t _ = typeError ni $ "initializer list for type: " ++ pType t
@@ -676,7 +680,7 @@ checkInits t dds ((ds, i) : is) =
                       (dd' : rest, []) -> return (rest, [dd'])
                       (_, d : _) -> return (advanceDesigList dds d, ds)
      t' <- tDesignator t ds'
-     tInit t' i
+     void $ tInit t' i
      checkInits t dds' is
 
 advanceDesigList :: [CDesignator] -> CDesignator -> [CDesignator]
@@ -695,12 +699,12 @@ tDesignator (ArrayType bt _ _ _) (CRangeDesig e1 e2 ni : ds) =
   do tExpr [] RValue e1 >>= checkIntegral' ni
      tExpr [] RValue e2 >>= checkIntegral' ni
      tDesignator bt ds
-tDesignator (ArrayType _ _ _ _) (d : ds) =
+tDesignator (ArrayType _ _ _ _) (d : _) =
   typeError (nodeInfo d) "member designator in array initializer"
 tDesignator t@(DirectType (TyComp _) _ _) (CMemberDesig m ni : ds) =
   do mt <- fieldType ni m t
      tDesignator (canonicalType mt) ds
-tDesignator t@(DirectType (TyComp _) _ _) (d : _) =
+tDesignator (DirectType (TyComp _) _ _) (d : _) =
   typeError (nodeInfo d) "array designator in compound initializer"
 tDesignator t [] = return t
 
@@ -734,5 +738,5 @@ hasTypeDef declspecs =
         (True,specs') -> Just specs'
         (False,_)     -> Nothing
     where
-    hasTypeDefSpec (CStorageSpec (CTypedef n)) (_,specs) = (True, specs)
+    hasTypeDefSpec (CStorageSpec (CTypedef _n)) (_,specs) = (True, specs)
     hasTypeDefSpec spec (b,specs) = (b,spec:specs)

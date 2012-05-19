@@ -295,6 +295,7 @@ external_declaration
   | declaration			              { CDeclExt $1 }
   | class_list			              { ObjCClassExt $1 }
   | class_interface                           { ObjCIfaceExt $1 }
+  | category_dec                              { ObjCCatExt $1 }
   | proto_dec                                 { ObjCProtoExt $1 }
   | "__extension__" external_declaration  { $2 }
   | asm '(' string_literal ')' ';'		  {% withNodeInfo $1 $ CAsmExt $3 }
@@ -353,13 +354,24 @@ class_declarator_list
   : class_declarator                            { singleton $1 }
   | class_declarator_list ',' class_declarator	{ $1 `snoc` $3 }
 
+-- an Objective-C category defintion
+category_dec :: { ObjCCatDec }
+category_dec
+  : attrs_opt "@interface" ident_or_class_or_typedef '(' ident_or_class_or_typedef ')' opt_proto_ref_list interface_declaration_list "@end"
+      {% withNodeInfo $1 $ ObjCCatDec $3 $5 (reverse $7) (reverse $8) $1 }
+
+ident_or_class_or_typedef :: { Ident }
+  : ident      { $1 }
+  | tyident    { $1 }
+  | classname  { $1 }
+
 -- parse an interface declaration (ObjC)
 -- 
 -- class_interface :- "@interface" identifier superclass_name? protocol_reference_list? instance_variables? interface_declaration_list? "@end@
 class_interface :: { ObjCIface }
 class_interface
-  : "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
-  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $2 $3 (reverse $4) (reverse $5) (reverse $6) ) }
+  : attrs_opt "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
+  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $3 $4 (reverse $5) (reverse $6) (reverse $7) $1 ) }
 
 -- an optional superclass declaration
 opt_superclass :: { Maybe ObjCClassNm }

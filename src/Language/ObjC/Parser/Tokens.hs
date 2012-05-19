@@ -368,7 +368,8 @@ instance Show CToken where
   showsPrec _ (CTokFLit     _ f) = shows f
   showsPrec _ (CTokSLit     _ s) = shows s
   showsPrec _ (CTokIdent    _ i) = (showString . identToString) i
-  showsPrec _ (CTokTyIdent  _ i) = (showString . identToString) i
+  showsPrec _ (CTokTyIdent  _ i) =
+    (showString . identToString) i . showString " <typedef> "
   showsPrec _ (CTokGnuC GnuCAttrTok _) = showString "__attribute__"
   showsPrec _ (CTokGnuC GnuCExtTok  _) = showString "__extension__"
   showsPrec _ (CTokGnuC GnuCComplexReal _) = showString "__real__"
@@ -391,7 +392,8 @@ instance Show CToken where
   showsPrec _ (CTokObjC ObjCBycopy _)    = showString "bycopy"
   showsPrec _ (CTokObjC ObjCSuper  _)    = showString "super"
   showsPrec _ (CTokObjC ObjCProperty _)  = showString "@property"
-  showsPrec _ (CTokObjC (ObjCClassIdent i) _) = showString $ identToString i
+  showsPrec _ (CTokObjC (ObjCClassIdent i) _) =
+    showString (identToString i) . showString " <classname> "
   showsPrec _ (CTokObjC ObjCPriv _)      = showString "@private"
   showsPrec _ (CTokObjC ObjCProt _)      = showString "@protected"
   showsPrec _ (CTokObjC ObjCPub _)       = showString "@public"

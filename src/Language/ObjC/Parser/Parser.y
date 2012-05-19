@@ -365,13 +365,13 @@ ident_or_class_or_typedef :: { Ident }
 class_interface :: { ObjCIface }
 class_interface
   : attrs_opt "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
-  	{% leaveScope >> (withNodeInfo $1 $ ObjCIface $3 $4 (reverse $5) (reverse $6) (reverse $7) $1 ) }
+  	{% (withNodeInfo $1 $ ObjCIface $3 $4 (reverse $5) (reverse $6) (reverse $7) $1 ) }
 
 -- an optional superclass declaration
 opt_superclass :: { Maybe ObjCClassNm }
 opt_superclass
-  : ':' class_name {% enterScope >> return (Just $2) }
-  |                {% enterScope >> return Nothing }
+  : ':' class_name {% return (Just $2) }
+  |                {% return Nothing }
 
 -- parse a class name, as specified via @class or @interface
 -- 

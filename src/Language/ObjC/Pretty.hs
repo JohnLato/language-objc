@@ -139,10 +139,12 @@ instance Pretty ObjCIface where
       $$ text "@end"
 
 instance Pretty ObjCProtoDec where
-    pretty (ObjCForwardProtoDec ids _) =
-      text "@protocol" <+> hsep (punctuate comma $ map identP ids) <+> semi
-    pretty (ObjCProtoDec p refs decls _) =
-      text "@protocol" <+> identP p <+> pProto refs
+    pretty (ObjCForwardProtoDec ids attrs _) =
+      hsep (map pretty attrs)
+      $$ text "@protocol" <+> hsep (punctuate comma $ map identP ids) <+> semi
+    pretty (ObjCProtoDec p refs decls attrs _) =
+      hsep (map pretty attrs)
+      $$ text "@protocol" <+> identP p <+> pProto refs
       $$ sep (map pretty decls)
       $$ text "@end"
 

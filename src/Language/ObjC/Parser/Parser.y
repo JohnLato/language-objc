@@ -302,12 +302,12 @@ external_declaration
 
 proto_dec :: { ObjCProtoDec }
 proto_dec
-  : "@protocol" plist ';'
-      {% withNodeInfo $1 $ ObjCForwardProtoDec (reverse $2)}
-  | "@protocol" ident opt_proto_ref_list proto_decs "@end"
-      {% withNodeInfo $1 $ ObjCProtoDec $2 (reverse $3) ( reverse $4) }
-  | "@protocol" classname opt_proto_ref_list proto_decs "@end"
-      {% withNodeInfo $1 $ ObjCProtoDec $2 (reverse $3) ( reverse $4) }
+  : attrs_opt "@protocol" plist ';'
+      {% withNodeInfo $1 $ ObjCForwardProtoDec (reverse $3) $1 }
+  | attrs_opt "@protocol" ident opt_proto_ref_list proto_decs "@end"
+      {% withNodeInfo $1 $ ObjCProtoDec $3 (reverse $4) ( reverse $5) $1 }
+  | attrs_opt "@protocol" classname opt_proto_ref_list proto_decs "@end"
+      {% withNodeInfo $1 $ ObjCProtoDec $3 (reverse $4) ( reverse $5) $1 }
 
 proto_decs :: { Reversed [ObjCProtoDeclBlock] }
 proto_decs

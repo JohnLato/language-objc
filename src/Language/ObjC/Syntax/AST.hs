@@ -154,10 +154,11 @@ type ObjCProtoDec = ObjCProtocolDec NodeInfo
 
 -- | Objective-C protocol declaration
 data ObjCProtocolDec a =
-    ObjCForwardProtoDec [Ident] a
+    ObjCForwardProtoDec [Ident] [CAttribute a] a
   | ObjCProtoDec Ident
                  [ObjCProtocolName a]
                  [ObjCProtocolDeclBlock a]
+                 [CAttribute a]
                  a
   deriving (Show, Data, Typeable {-! , CNode, Functor, Annotated !-})
 
@@ -174,11 +175,11 @@ type ObjCIface = ObjCInterface NodeInfo
 -- | Interface declaration
 data ObjCInterface a =
   ObjCIface
-    (ObjCClassDeclarator a)   -- ^ class name
-    (Maybe (ObjCClassName a)) -- ^ superclass
-    [ObjCProtocolName a]      -- ^ protocol reference list
-    [ObjCInstanceVariableBlock a] -- ^ instance variables
-    [ObjCInterfaceDeclaration a]  -- ^ interface declaration list
+    (ObjCClassDeclarator a)   -- class name
+    (Maybe (ObjCClassName a)) -- superclass
+    [ObjCProtocolName a]      --  protocol reference list
+    [ObjCInstanceVariableBlock a] -- instance variables
+    [ObjCInterfaceDeclaration a]  -- interface declaration list
     [CAttribute a]                -- optional attributes
     a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
@@ -1041,27 +1042,29 @@ instance Annotated ObjCClassListDef where
 
  
 instance (CNode t1) => CNode (ObjCProtocolDec t1) where
-        nodeInfo (ObjCForwardProtoDec _ n) = nodeInfo n
-        nodeInfo (ObjCProtoDec _ _ _ n) = nodeInfo n
+        nodeInfo (ObjCForwardProtoDec _ _ n) = nodeInfo n
+        nodeInfo (ObjCProtoDec _ _ _ _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (ObjCProtocolDec t1) where
         posOf x = posOf (nodeInfo x)
 
  
 instance Functor ObjCProtocolDec where
-        fmap _f (ObjCForwardProtoDec a1 a2)
-          = ObjCForwardProtoDec a1 (_f a2)
-        fmap _f (ObjCProtoDec a1 a2 a3 a4)
-          = ObjCProtoDec a1 (fmap (fmap _f) a2) (fmap (fmap _f) a3) (_f a4)
+        fmap _f (ObjCForwardProtoDec a1 a2 a3)
+          = ObjCForwardProtoDec a1 (fmap (fmap _f) a2) (_f a3)
+        fmap _f (ObjCProtoDec a1 a2 a3 a4 a5)
+          = ObjCProtoDec a1 (fmap (fmap _f) a2) (fmap (fmap _f) a3)
+              (fmap (fmap _f) a4)
+              (_f a5)
 
  
 instance Annotated ObjCProtocolDec where
-        annotation (ObjCForwardProtoDec _ n) = n
-        annotation (ObjCProtoDec _ _ _ n) = n
-        amap f (ObjCForwardProtoDec a_1 a_2)
-          = ObjCForwardProtoDec a_1 (f a_2)
-        amap f (ObjCProtoDec a_1 a_2 a_3 a_4)
-          = ObjCProtoDec a_1 a_2 a_3 (f a_4)
+        annotation (ObjCForwardProtoDec _ _ n) = n
+        annotation (ObjCProtoDec _ _ _ _ n) = n
+        amap f (ObjCForwardProtoDec a_1 a_2 a_3)
+          = ObjCForwardProtoDec a_1 a_2 (f a_3)
+        amap f (ObjCProtoDec a_1 a_2 a_3 a_4 a_5)
+          = ObjCProtoDec a_1 a_2 a_3 a_4 (f a_5)
 
  
 instance (CNode t1) => CNode (ObjCProtocolDeclBlock t1) where

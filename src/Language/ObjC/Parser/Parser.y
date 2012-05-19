@@ -313,9 +313,8 @@ proto_decs :: { Reversed [ObjCProtoDeclBlock] }
 proto_decs
   : proto_decs  preq    { $1 `snoc` $2 }
   | proto_decs  popt    { $1 `snoc` $2 }
-  | preq                { singleton $1 }
-  | popt                { singleton $1 }
   | pdef                { singleton $1 }
+  |                     { empty        }
 
 
 preq :: { ObjCProtoDeclBlock }
@@ -332,15 +331,10 @@ pdef :: { ObjCProtoDeclBlock }
 
 plist :: { Reversed [Ident] }
 plist
-  :                             { empty }
-  | '<' plist2 '>'              { $2 }
-
-plist2 :: { Reversed [Ident] }
-plist2
   : identifier                  { singleton $1 }
   | classname                   { singleton $1 }
-  | plist2 ',' identifier       { $1 `snoc` $3 }
-  | plist2 ',' classname        { $1 `snoc` $3 }
+  | plist ',' identifier       { $1 `snoc` $3 }
+  | plist ',' classname        { $1 `snoc` $3 }
 
 -- parse an Objective-C class list (ObjC)
 class_list :: { ObjCClassDef }

@@ -236,7 +236,7 @@ type ObjCMethodDecl = ObjCMethodDeclaration NodeInfo
 data ObjCMethodDeclaration a =
     ObjCMethodDecl
     ObjCMethodType
-    (Maybe (CDeclaration a))   -- type_name (as with CCast)
+    (Maybe (CDeclaration a))
     (ObjCMethodSelector a)
     [CAttribute a]
     a

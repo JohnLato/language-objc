@@ -39,6 +39,7 @@ Library
                    directory  == 1.1.*,
                    array      == 0.4.*,
                    containers == 0.4.*,
+                   newtype    == 0.2.*,
                    pretty     == 1.1.*
     
 
@@ -71,7 +72,9 @@ Library
                       -- syntax
                       Language.ObjC.Syntax
                       Language.ObjC.Syntax.AST
+                      Language.ObjC.Syntax.Builders
                       Language.ObjC.Syntax.Constants
+                      Language.ObjC.Syntax.Generics
                       Language.ObjC.Syntax.Ops
                       Language.ObjC.Syntax.Utils
                       -- parser

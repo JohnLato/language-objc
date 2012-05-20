@@ -183,8 +183,8 @@ instance Pretty ObjCSel where
     pretty (ObjCInSel _)  = text "in"
     pretty (ObjCOutSel _) = text "out"
 
-instance Pretty ObjCKeywordDecl where
-    pretty (ObjCKeywordDecl mSel mT nm _) =
+instance Pretty ObjCKeywordDeclr where
+    pretty (ObjCKeywordDeclr mSel mT nm _) =
       p1 mSel <+> colon <+> p2 mT <+> identP nm
       where p1 = maybe empty pretty
             p2 = maybe empty (parens . pretty)

@@ -52,7 +52,7 @@ module Language.ObjC.Syntax.AST (
   CDeclr,CDerivedDeclr,CArrSize,
   CDeclarator(..), CDerivedDeclarator(..), CArraySize(..),
   -- ** Objective-C Extensions
-  ObjCClassNm, ObjCClassDeclr, ObjCIfaceDecl, ObjCKeywordDecl,
+  ObjCClassNm, ObjCClassDeclr, ObjCIfaceDecl, ObjCKeywordDeclr,
   ObjCClassName(..), ObjCClassDeclarator(..), ObjCInterfaceDeclaration(..),
   ObjCKeywordDeclarator(..),
   -- * Initialization
@@ -253,10 +253,10 @@ data ObjCMethodSelector a =
   | ObjCEllipseMethod [ObjCKeywordDeclarator a] a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
-type ObjCKeywordDecl = ObjCKeywordDeclarator NodeInfo
+type ObjCKeywordDeclr = ObjCKeywordDeclarator NodeInfo
 
 data ObjCKeywordDeclarator a =
-   ObjCKeywordDecl
+   ObjCKeywordDeclr
    (Maybe (ObjCSelector a)) -- selector
    (Maybe (CDeclaration a)) -- type name
    Ident
@@ -1220,16 +1220,16 @@ instance Annotated ObjCMethodSelector where
 
  
 instance (CNode t1) => CNode (ObjCKeywordDeclarator t1) where
-        nodeInfo (ObjCKeywordDecl _ _ _ n) = nodeInfo n
+        nodeInfo (ObjCKeywordDeclr _ _ _ n) = nodeInfo n
  
 instance (CNode t1) => Pos (ObjCKeywordDeclarator t1) where
         posOf x = posOf (nodeInfo x)
 
  
 instance Annotated ObjCKeywordDeclarator where
-        annotation (ObjCKeywordDecl _ _ _ n) = n
-        amap f (ObjCKeywordDecl a_1 a_2 a_3 a_4)
-          = ObjCKeywordDecl a_1 a_2 a_3 (f a_4)
+        annotation (ObjCKeywordDeclr _ _ _ n) = n
+        amap f (ObjCKeywordDeclr a_1 a_2 a_3 a_4)
+          = ObjCKeywordDeclr a_1 a_2 a_3 (f a_4)
 
  
 instance (CNode t1) => CNode (ObjCPropertyDeclaration t1) where

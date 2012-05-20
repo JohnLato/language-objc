@@ -412,21 +412,21 @@ method_declaration
   | '-' '(' type_name ')' method_selector ';'
       {% let (sel,attrs) = $5 in withNodeInfo $1 (ObjCMethodDecl ObjCInstanceMethod (Just $3) sel attrs) }
 
-keyword_declarator_list :: { Reversed [ObjCKeywordDeclr] }
+keyword_declarator_list :: { Reversed [ObjCKeyDeclr] }
 keyword_declarator_list
   : keyword_declarator                           { singleton $1 }
   | keyword_declarator_list keyword_declarator   { $1 `snoc` $2 }
 
-keyword_declarator :: { ObjCKeywordDeclr }
+keyword_declarator :: { ObjCKeyDeclr }
 keyword_declarator
   : ':' ident
-         {% withNodeInfo $1 (ObjCKeywordDeclr Nothing Nothing $2) }
+         {% withNodeInfo $1 (ObjCKeyDeclr Nothing Nothing $2) }
   | ':' '(' type_name ')' ident
-         {% withNodeInfo $1 (ObjCKeywordDeclr Nothing (Just $3) $5) }
+         {% withNodeInfo $1 (ObjCKeyDeclr Nothing (Just $3) $5) }
   | selector ':' ident
-         {% withNodeInfo $1 (ObjCKeywordDeclr (Just $1) Nothing $3) }
+         {% withNodeInfo $1 (ObjCKeyDeclr (Just $1) Nothing $3) }
   | selector ':' '(' type_name ')' ident
-         {% withNodeInfo $1 (ObjCKeywordDeclr (Just $1) (Just $4) $6) }
+         {% withNodeInfo $1 (ObjCKeyDeclr (Just $1) (Just $4) $6) }
 
 selector :: { ObjCSel }
 selector

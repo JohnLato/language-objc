@@ -101,6 +101,8 @@ Library
                       Language.ObjC.Analysis.NameSpaceMap
                       -- semrep -> code [alpha]
                       Language.ObjC.Analysis.Export
+                      -- exporting to other languages
+                      Language.ObjC.Export.C
     Other-Modules:
                       Language.ObjC.Data.RList
                       -- parser implementation

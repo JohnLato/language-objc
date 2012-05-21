@@ -1,4 +1,5 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TupleSections, GeneralizedNewtypeDeriving,
+      DeriveFunctor #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -23,26 +24,29 @@
 module Language.ObjC.Parser.ParserMonad (
   P,
   IType (..),
+  TMap,
   execParser,
   failP,
-  getNewName,        -- :: P Name
-  addTypedef,        -- :: Ident -> P ()
-  shadowSymbol,      -- :: Ident -> P ()
-  isTypeIdent,       -- :: Ident -> P Bool
-  addClass,          -- :: Ident -> P ()
-  isClass,           -- :: Ident -> P Bool
-  isSpecial,         -- :: Ident -> P IType
-  enterScope,        -- :: P ()
-  leaveScope,        -- :: P ()
-  setPos,            -- :: Position -> P ()
-  getPos,            -- :: P Position
-  getInput,          -- :: P String
-  setInput,          -- :: String -> P ()
-  getLastToken,      -- :: P CToken
-  getSavedToken,     -- :: P CToken
-  setLastToken,      -- :: CToken -> P ()
-  handleEofToken,    -- :: P ()
-  getCurrentPosition,-- :: P Position
+  getNewName,           -- :: P Name
+  addTypedef,           -- :: Ident -> P ()
+  shadowSymbol,         -- :: Ident -> P ()
+  isTypeIdent,          -- :: Ident -> P Bool
+  addClass,             -- :: Ident -> P ()
+  isClass,              -- :: Ident -> P Bool
+  isSpecial,            -- :: Ident -> P IType
+  enterScope,           -- :: P ()
+  leaveScope,           -- :: P ()
+  setPos,               -- :: Position -> P ()
+  getPos,               -- :: P Position
+  getInput,             -- :: P String
+  setInput,             -- :: String -> P ()
+  getLastToken,         -- :: P CToken
+  getSavedToken,        -- :: P CToken
+  setLastToken,         -- :: CToken -> P ()
+  handleEofToken,       -- :: P ()
+  getCurrentPosition,   -- :: P Position
+  getCurrentTypeIdents, -- :: P TMap
+  setCurrentTypeIdents, -- :: TMap -> P ()
   ParseError(..),
   ) where
 import Language.ObjC.Data.Error (internalErr, showErrorInfo,ErrorInfo(..),ErrorLevel(..))
@@ -54,6 +58,8 @@ import Language.ObjC.Parser.Tokens (CToken(CTokEof))
 
 import Data.Map  (Map)
 import qualified Data.Map as Map
+
+import Control.Applicative
 
 newtype ParseError = ParseError ([String],Position)
 instance Show ParseError where
@@ -67,6 +73,7 @@ type TMap = Map Ident IType
 data ParseResult a
   = POk !PState a
   | PFailed [String] Position   -- The error message and position
+ deriving (Functor)
 
 data PState = PState {
         curPos     :: !Position,        -- position at current input location
@@ -75,10 +82,15 @@ data PState = PState {
         savedToken ::  CToken,          -- and the token before that
         namesupply :: ![Name],          -- the name unique supply
         tyidents   :: !(TMap), -- the set of typedef'ed identifiers
-        scopes     :: [TMap] -- the tyident sets for outer scopes
+        scopes     :: [TMap]   -- the tyident sets for outer scopes
      }
 
 newtype P a = P { unP :: PState -> ParseResult a }
+  deriving (Functor)
+
+instance Applicative P where
+  pure = returnP
+  f <*> m = f >>= \f' -> m >>= \m' -> pure (f' m')
 
 instance Monad P where
   return = returnP

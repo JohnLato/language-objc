@@ -302,11 +302,19 @@ external_declaration
 
 proto_dec :: { ObjCProtoDec }
 proto_dec
-  : attrs_opt "@protocol" plist ';'
+  : "@protocol" plist ';'
+      {% withNodeInfo $1 $ ObjCForwardProtoDec (reverse $2) [] }
+  | "@protocol" ident opt_proto_ref_list proto_decs "@end"
+      {% withNodeInfo $1 $ ObjCProtoDec $2 (reverse $3) ( reverse $4) [] }
+  | "@protocol" classname opt_proto_ref_list proto_decs "@end"
+      {% withNodeInfo $1 $ ObjCProtoDec $2 (reverse $3) ( reverse $4) [] }
+
+  -- protocol declarations with optional heading attributes
+  | attrs "@protocol" plist ';'
       {% withNodeInfo $1 $ ObjCForwardProtoDec (reverse $3) $1 }
-  | attrs_opt "@protocol" ident opt_proto_ref_list proto_decs "@end"
+  | attrs "@protocol" ident opt_proto_ref_list proto_decs "@end"
       {% withNodeInfo $1 $ ObjCProtoDec $3 (reverse $4) ( reverse $5) $1 }
-  | attrs_opt "@protocol" classname opt_proto_ref_list proto_decs "@end"
+  | attrs "@protocol" classname opt_proto_ref_list proto_decs "@end"
       {% withNodeInfo $1 $ ObjCProtoDec $3 (reverse $4) ( reverse $5) $1 }
 
 proto_decs :: { Reversed [ObjCProtoDeclBlock] }
@@ -351,7 +359,9 @@ class_declarator_list
 -- an Objective-C category defintion
 category_dec :: { ObjCCatDec }
 category_dec
-  : attrs_opt "@interface" ident_or_class_or_typedef '(' ident_or_class_or_typedef ')' opt_proto_ref_list interface_declaration_list "@end"
+  : "@interface" ident_or_class_or_typedef '(' ident_or_class_or_typedef ')' opt_proto_ref_list interface_declaration_list "@end"
+      {% withNodeInfo $1 $ ObjCCatDec $2 $4 (reverse $6) (reverse $7) [] }
+  | attrs "@interface" ident_or_class_or_typedef '(' ident_or_class_or_typedef ')' opt_proto_ref_list interface_declaration_list "@end"
       {% withNodeInfo $1 $ ObjCCatDec $3 $5 (reverse $7) (reverse $8) $1 }
 
 ident_or_class_or_typedef :: { Ident }
@@ -364,7 +374,9 @@ ident_or_class_or_typedef :: { Ident }
 -- class_interface :- "@interface" identifier superclass_name? protocol_reference_list? instance_variables? interface_declaration_list? "@end@
 class_interface :: { ObjCIface }
 class_interface
-  : attrs_opt "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
+  : "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
+  	{% (withNodeInfo $1 $ ObjCIface $2 $3 (reverse $4) (reverse $5) (reverse $6) [] ) }
+  | attrs "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
   	{% (withNodeInfo $1 $ ObjCIface $3 $4 (reverse $5) (reverse $6) (reverse $7) $1 ) }
 
 -- an optional superclass declaration

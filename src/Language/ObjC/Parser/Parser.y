@@ -2627,6 +2627,7 @@ addTrailingAttrs declspecs new_attrs =
 --
 instance Pos a => Pos [a] where
   posOf (x:_) = posOf x
+  posOf []    = nopos
 
 instance Pos a => Pos (Reversed a) where
   posOf (Reversed x) = posOf x

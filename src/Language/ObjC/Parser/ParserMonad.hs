@@ -45,8 +45,6 @@ module Language.ObjC.Parser.ParserMonad (
   setLastToken,         -- :: CToken -> P ()
   handleEofToken,       -- :: P ()
   getCurrentPosition,   -- :: P Position
-  getCurrentTypeIdents, -- :: P TMap
-  setCurrentTypeIdents, -- :: TMap -> P ()
   ParseError(..),
   ) where
 import Language.ObjC.Data.Error (internalErr, showErrorInfo,ErrorInfo(..),ErrorLevel(..))

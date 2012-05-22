@@ -15,7 +15,7 @@ module Language.ObjC.Data.Position (
   --
   -- source text positions
   --
-  Position(),
+  Position(..),
   position,
   PosLength,
   posFile,posRow,posColumn,posOffset,
@@ -31,15 +31,27 @@ import Data.Generics
 
 -- | uniform representation of source file positions
 data Position = Position { posOffset :: {-# UNPACK #-} !Int  -- ^ absolute offset in the preprocessed file
-                         , posFile :: String                 -- ^ source file
-                         , posRow :: {-# UNPACK #-} !Int     -- ^ row (line)  in the original file. Affected by #LINE pragmas.
-                         , posColumn :: {-# UNPACK #-} !Int  -- ^ column in the preprocessed file. Inaccurate w.r.t. to the original
+                         , posFile' :: String                -- ^ source file
+                         , posRow'  :: {-# UNPACK #-} !Int     -- ^ row (line)  in the original file. Affected by #LINE pragmas.
+                         , posColumn' :: {-# UNPACK #-} !Int  -- ^ column in the preprocessed file. Inaccurate w.r.t. to the original
                                                              --   file in the presence of preprocessor macros.
                          }
               | NoPosition
               | BuiltinPosition
               | InternalPosition
                 deriving (Eq, Ord, Typeable, Data)
+
+posFile :: Position -> String
+posFile (Position{posFile' = ps}) = ps
+posFile pos = show pos
+
+posRow :: Position -> Int
+posRow (Position{posRow' = pr}) = pr
+posRow _ = (-1)
+
+posColumn :: Position -> Int
+posColumn (Position{posColumn' = pc}) = pc
+posColumn _ = (-1)
 
 -- | Position and length of a token
 type PosLength = (Position,Int)

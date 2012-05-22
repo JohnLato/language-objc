@@ -21,6 +21,7 @@ module Language.ObjC.Data (
      -- * Source code positions
      Position(..),Pos(..),
      initPos, nopos,builtinPos,internalPos,
+     posFile, posRow, posColumn,
      isSourcePos,isBuiltinPos,isInternalPos,
      -- * Syntax tree nodes
      NodeInfo(..),CNode(..),

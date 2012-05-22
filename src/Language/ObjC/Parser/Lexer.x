@@ -410,10 +410,10 @@ adjustLineDirective pragmaLen str pos =
     offs'           = (posOffset pos) + pragmaLen
     str'            = dropWhite . drop 1 $ str
     (rowStr, str'') = span isDigit str'
-    row'      = read rowStr
+    row'        = read rowStr
     str'''      = dropWhite str''
-    fnameStr      = takeWhile (/= '"') . drop 1 $ str'''
-    fname = posFile pos
+    fnameStr    = takeWhile (/= '"') . drop 1 $ str'''
+    fname       = posFile pos
     fname'      | null str''' || head str''' /= '"' = fname
      -- try and get more sharing of file name strings
      | fnameStr == fname     = fname

@@ -25,7 +25,7 @@ import Data.Generics
 
 -- | Parsed entity attribute
 data NodeInfo = OnlyPos  Position {-# UNPACK #-} !PosLength        -- only pos and last token (for internal stuff only)
-              | NodeInfo Position {-# UNPACK #-} !PosLength !Name  -- pos, last token and unique name
+              | NodeInfo Position {-# UNPACK #-} !PosLength {-# UNPACK #-} !Name  -- pos, last token and unique name
            deriving (Data,Typeable)
 
 instance Show NodeInfo where

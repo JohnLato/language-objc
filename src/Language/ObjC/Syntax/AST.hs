@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, DeriveFunctor #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# OPTIONS_GHC -funbox-strict-fields #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.ObjC.Syntax.AST
@@ -133,8 +135,8 @@ type ObjCCatDec = ObjCCategoryDec NodeInfo
 -- | Objective-C Category definition (declaration)
 data ObjCCategoryDec a =
   ObjCCatDec
-    Ident
-    Ident
+    !Ident
+    !Ident
     [ObjCProtocolName a]      -- protocol reference list
     [ObjCInterfaceDeclaration a]  -- interface declaration list
     [CAttribute a]
@@ -155,7 +157,7 @@ type ObjCProtoDec = ObjCProtocolDec NodeInfo
 -- | Objective-C protocol declaration
 data ObjCProtocolDec a =
     ObjCForwardProtoDec [Ident] [CAttribute a] a
-  | ObjCProtoDec Ident
+  | ObjCProtoDec !Ident
                  [ObjCProtocolName a]
                  [ObjCProtocolDeclBlock a]
                  [CAttribute a]
@@ -187,17 +189,17 @@ data ObjCInterface a =
 type ObjCClassDeclr = ObjCClassDeclarator NodeInfo
 
 data ObjCClassDeclarator a =
-  ObjCClassDeclr Ident a
+  ObjCClassDeclr !Ident a
  deriving (Show, Data, Typeable, Functor {-! ,CNode, Annotated !-})
 
 type ObjCClassNm = ObjCClassName NodeInfo
 
-data ObjCClassName a = ObjCClassNm Ident a
+data ObjCClassName a = ObjCClassNm !Ident a
  deriving (Show, Data, Typeable, Functor {-! ,CNode, Annotated !-})
 
 type ObjCProtoNm = ObjCProtocolName NodeInfo
 
-data ObjCProtocolName a = ObjCProtoNm Ident a
+data ObjCProtocolName a = ObjCProtoNm !Ident a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
 type ObjCInstanceVarBlock = ObjCInstanceVariableBlock NodeInfo
@@ -212,7 +214,7 @@ data ObjCInstanceVariableBlock a =
 type ObjCVisSpec = ObjCVisibilitySpec NodeInfo
 
 data ObjCVisibilitySpec a =
-  ObjCVisSpec ObjCVisType a
+  ObjCVisSpec !ObjCVisType a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
 -- | Available visibility specifications.
@@ -235,7 +237,7 @@ type ObjCMethodDecl = ObjCMethodDeclaration NodeInfo
 
 data ObjCMethodDeclaration a =
     ObjCMethodDecl
-    ObjCMethodType
+    !ObjCMethodType
     (Maybe (CDeclaration a))
     (ObjCMethodSelector a)
     [CAttribute a]
@@ -259,7 +261,7 @@ data ObjCKeywordDeclarator a =
    ObjCKeyDeclr
    (Maybe (ObjCSelector a)) -- selector
    (Maybe (CDeclaration a)) -- type name
-   Ident
+   !Ident
    a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
@@ -275,7 +277,7 @@ data ObjCPropertyDeclaration a =
 type ObjCPropMod = ObjCPropertyModifier NodeInfo
 
 data ObjCPropertyModifier a =
-    ObjCPropMod Ident (Maybe Ident) a
+    ObjCPropMod !Ident (Maybe Ident) a
   deriving (Show, Data, Typeable, Functor {-! ,CNode ,Annotated !-})
 
 
@@ -423,8 +425,8 @@ instance Functor CDerivedDeclarator where
 -- | Size of an array
 type CArrSize = CArraySize NodeInfo
 data CArraySize a
-  = CNoArrSize Bool               -- ^ @CUnknownSize isCompleteType@
-  | CArrSize Bool (CExpression a) -- ^ @CArrSize isStatic expr@
+  = CNoArrSize !Bool               -- ^ @CUnknownSize isCompleteType@
+  | CArrSize !Bool (CExpression a) -- ^ @CArrSize isStatic expr@
     deriving (Show, Data,Typeable {-! , Functor !-})
 
 
@@ -433,7 +435,7 @@ data CArraySize a
 type CStat = CStatement NodeInfo
 data CStatement a
   -- | An (attributed) label followed by a statement
-  = CLabel  Ident (CStatement a) [CAttribute a] a
+  = CLabel  !Ident (CStatement a) [CAttribute a] a
   -- | A statement of the form @case expr : stmt@
   | CCase (CExpression a) (CStatement a) a
   -- | A case range of the form @case lower ... upper : stmt@
@@ -461,7 +463,7 @@ data CStatement a
     (CStatement a)
     a
   -- | goto statement @CGoto label@
-  | CGoto Ident a
+  | CGoto !Ident a
   -- | computed goto @CGotoPtr labelExpr@
   | CGotoPtr (CExpression a) a
   -- | continue statement
@@ -610,11 +612,11 @@ data CTypeSpecifier a
   | CComplexType a
   | CSUType      (CStructureUnion a) a      -- ^ Struct or Union specifier
   | CEnumType    (CEnumeration a)    a      -- ^ Enumeration specifier
-  | CTypeDef     Ident        a      -- ^ Typedef name
+  | CTypeDef     !Ident        a      -- ^ Typedef name
   | CTypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
   | CTypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
-  | ObjCClassProto Ident [ObjCProtocolName a] a      -- ^ class name with protocol list
-  | ObjCTypeProto  Ident [ObjCProtocolName a] a      -- ^ Typedef name with protocol list
+  | ObjCClassProto !Ident [ObjCProtocolName a] a      -- ^ class name with protocol list
+  | ObjCTypeProto  !Ident [ObjCProtocolName a] a      -- ^ Typedef name with protocol list
     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
 
 
@@ -661,7 +663,7 @@ data ObjCProtoQualifier a =
 type CStructUnion = CStructureUnion NodeInfo
 data CStructureUnion a
   = CStruct
-    CStructTag
+    !CStructTag
     (Maybe Ident)
     (Maybe [CDeclaration a])  -- member declarations
     [CAttribute a]            -- __attribute__s
@@ -757,7 +759,7 @@ data CPartDesignator a
   -- | array position designator
   = CArrDesig     (CExpression a) a
   -- | member designator
-  | CMemberDesig  Ident a
+  | CMemberDesig  !Ident a
   -- | array range designator @CRangeDesig from to _@ (GNU C)
   | CRangeDesig (CExpression a) (CExpression a) a
     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
@@ -768,7 +770,7 @@ data CPartDesignator a
 -- Those are of the form @CAttr attribute-name attribute-parameters@,
 -- and serve as generic properties of some syntax tree elements.
 type CAttr = CAttribute NodeInfo
-data CAttribute a = CAttr Ident [CExpression a] a
+data CAttribute a = CAttr !Ident [CExpression a] a
                     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
 
 
@@ -784,7 +786,7 @@ type CExpr = CExpression NodeInfo
 data CExpression a
   = CComma       [CExpression a]         -- comma expression list, n >= 2
                  a
-  | CAssign      CAssignOp               -- assignment operator
+  | CAssign      !CAssignOp              -- assignment operator
                  (CExpression a)         -- l-value
                  (CExpression a)         -- r-value
                  a
@@ -821,17 +823,17 @@ data CExpression a
                  [CExpression a]         -- arguments
                  a
   | CMember      (CExpression a)         -- structure
-                 Ident                   -- member name
-                 Bool                    -- deref structure? (True for `->')
+                 !Ident                  -- member name
+                 !Bool                   -- deref structure? (True for `->')
                  a
-  | CVar         Ident                   -- identifier (incl. enumeration const)
+  | CVar         !Ident                  -- identifier (incl. enumeration const)
                  a
   | CConst       (CConstant a)           -- ^ integer, character, floating point and string constants
   | CCompoundLit (CDeclaration a)
                  (CInitializerList a)    -- type name & initialiser list
                  a                       -- ^ C99 compound literal
   | CStatExpr    (CStatement a) a        -- ^ GNU C compound statement as expr
-  | CLabAddrExpr Ident a                 -- ^ GNU C address of label
+  | CLabAddrExpr !Ident a                -- ^ GNU C address of label
   | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
   -- objective-c additions
   | CBlockExpr   ([CDeclaration a],Bool) (CStatement a) a -- ^ Code block definition, new-style params, compound statement

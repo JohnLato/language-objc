@@ -17,7 +17,7 @@ import Language.ObjC.Analysis.TravMonad
 import Language.ObjC.Data
 
 import Data.Data
-import Data.Generics.Schemes
+import Data.Generics
 import Data.List (intercalate)
 import Data.Maybe
 
@@ -56,11 +56,11 @@ wrapClassMethod
   -> ObjCClassNm
   -> ObjCMethodDecl
   -> Trav () (CDecl, CFunDef)
-wrapClassMethod isP cName cm = do
-   let oType        = mapFirst getTypeName cm
-   sel <- maybe (throwTravError $ userErr "Can't determine ObjCMethodSelector from input")
+wrapClassMethod isP cName cm@(ObjCMethodDecl _ oType _ _ _) = do
+   sel <- maybe (throwTravError $ userErr
+                    "Can't determine ObjCMethodSelector from input")
                  return $ mapFirst getSelector cm
-   fname <- nameFromSel "" sel
+   fname <- nameFromSel sel
    let gFunc ddeclr = genDecCon oType (CDeclr (Just fname) [ddeclr]
                                 Nothing [] nonode)
    (dec,def_con) <- gFunc <$> decBody sel
@@ -72,11 +72,10 @@ wrapInstMethod
   -> ObjCClassNm
   -> ObjCMethodDecl
   -> Trav () (CDecl, CFunDef)
-wrapInstMethod isP cName cm = do
-   let oType    = mapFirst getTypeName cm
+wrapInstMethod isP cName cm@(ObjCMethodDecl _ oType _ _ _) = do
    sel <- maybe (throwTravError $ userErr "Can't determine ObjCMethodSelector from input")
                  return $ mapFirst getSelector cm
-   fname <- nameFromSel "" sel
+   fname <- nameFromSel sel
    idNm  <- genName
    let selfname = mkIdent nopos "thisObj" idNm
        gFunc ddeclr = genDecCon oType (CDeclr (Just fname) [ddeclr]
@@ -89,16 +88,22 @@ wrapInstMethod isP cName cm = do
 
 genDecCon
   :: Maybe CDecl   -- ^ method output type, if specified
-  -> CDeclr        -- ^ function declaratation (CDeclr nm [CFunDef ...)
+  -> CDeclr        -- ^ function declaratation (CDeclr nm [CFunDeclr ...)
   -> (CDecl, CStat -> CFunDef)
-genDecCon oType fundecl = 
-  let thisSpec = maybe [idType] specFun oType
-      specFun (CDecl specs _decls _) = stripProtoQuals specs
-      specFun _ = error "genDecCon: didn't get a type name"
+genDecCon oType fundeclr = 
+  let (thisSpec,declrs) = maybe ([idTypeSpec],[]) specFun oType
+      specFun (CDecl specs declrs' _) = (stripProtoQuals specs,declrs')
 
-  -- is the _decls ever used?  maybe for pointers and things
-  in  (CDecl   thisSpec [(Just fundecl,Nothing,Nothing)] nonode
-      ,\stmt -> CFunDef thisSpec fundecl [] stmt nonode)
+      -- if the output is a pointer or block, grab the abstract
+      -- declarator from the oType declarators
+      cleanDeclrs = catMaybes $ map (\(a,_,_) -> a) declrs
+      extraDeclrs = concatMap (\(CDeclr _ abs _ _ _) -> abs) cleanDeclrs
+      fundeclr' = case fundeclr of
+                    CDeclr nm ders sLit attrs at ->
+                      CDeclr nm (ders ++ extraDeclrs) sLit attrs at
+
+  in  (CDecl   thisSpec [(Just fundeclr',Nothing,Nothing)] nonode
+      ,\stmt -> CFunDef thisSpec fundeclr' [] stmt nonode)
 
 decBody
   :: ObjCMethodSel
@@ -117,10 +122,10 @@ defBody nm sel = do
     CBlockStmt (CReturn (Just $ ObjCMessageExpr fExpr nonode) nonode)] nonode
 
 -- | create the name for the wrapping function of a method_selector
-nameFromSel :: String -> ObjCMethodSel -> Trav () Ident
-nameFromSel pre sel = do
+nameFromSel :: ObjCMethodSel -> Trav () Ident
+nameFromSel sel = do
    nm' <- genName
-   return $ flip (mkIdent nopos) nm' . (pre ++) . intercalate "_"
+   return $ flip (mkIdent nopos) nm' . intercalate "_"
      . catMaybes . map (everything mFirst getName) $ listify p sel
  where
   p :: ObjCSel -> Bool
@@ -156,12 +161,11 @@ explicitSelf isP selfname (ObjCClassNm cn _) ms = case ms of
   _ -> throwTravError $ userErr "explicitSelf: can't deal with ellipses or parameter types yet"
  where
   tyspec = CTypeSpec $ ObjCClassProto cn [] nonode
-  basicT = Just $ CDecl [tyspec] [] nonode
-  ptrT   = Just $ CDecl [tyspec] [(Just (error "ptrT in explicitSelf"),Nothing,Nothing)] nonode
-  mkKd = ObjCKeyDeclr Nothing
-                          (if isP then basicT else ptrT)
-                          selfname
-                          nonode
+  ddeclr = CDeclr Nothing [CPtrDeclr [] nonode] Nothing [] nonode
+  basicT = Just $ CDecl [tyspec]
+             [(Just ddeclr, Nothing, Nothing)] nonode
+  ptrT   = Just $ protoType cn
+  mkKd = ObjCKeyDeclr Nothing (if isP then ptrT else basicT) selfname nonode
 
 msgMethod
   :: Either ObjCClassNm Ident
@@ -180,13 +184,11 @@ msgMethod (Right i) (ObjCMethod decs Nothing _) =
 msgMethod _ _ =
    throwTravError $ userErr "mesgMethod: can't deal with ellipses or parameter types"
 
--- | Generate parameter_declarations (for new-style functions)
+-- | Generate parameter_declarations
 -- from obj-c keyword declarators
 keydecl2param :: ObjCKeyDeclr -> CDecl
-keydecl2param p = case (mapFirst getIdent p, mapFirst getTypeName p) of
-  (Just i, Just t)  -> typeName2Paramdecl i t
-  (Just i, Nothing) -> typeName2Paramdecl i $ CDecl [idType] [] nonode
-  _          -> error "internal error: keydecl2param"
+keydecl2param (ObjCKeyDeclr _sel mT declr _) =
+  typeName2Paramdecl declr $ fromMaybe idType mT
 
 -- | convert keyword_declarators into keyword_arguments
 keydecl2arg :: ObjCKeyDeclr -> ObjCKeyArg
@@ -194,19 +196,14 @@ keydecl2arg (ObjCKeyDeclr sel  _ nm _) =
   ObjCKeyArg (ObjCSelKeyName sel nonode) (CVar nm nonode) nonode
 
 typeName2Paramdecl :: Ident -> CDecl -> CDecl
-typeName2Paramdecl i t = t
-{-
--- | Create a Parameter_declaration from an identifier and a Type_name
-typeName2Paramdecl :: Ident -> Type_name -> Parameter_declaration
-typeName2Paramdecl i (PlainType s) =
-  TypeAndParam (specQuals2Declspec s) $ NoPointer (Name i)
-typeName2Paramdecl i (ExtendedType s ab) =
-  TypeAndParam (specQuals2Declspec s) . abs2decl ab $ Name i
--}
+typeName2Paramdecl i (CDecl tyspec _ a1) =
+  CDecl tyspec [(Just $ CDeclr (Just i) [] Nothing [] nonode
+                ,Nothing
+                ,Nothing)] a1
 
 stripProtoQuals :: Data a => a -> a
 stripProtoQuals = everywhere (gmapMaybe f)
  where
-  f :: CTypeQual -> Maybe CTypeQual
-  f (ObjCProtoQual{}) = Nothing
+  f :: CDeclSpec -> Maybe CDeclSpec
+  f (CTypeQual (ObjCProtoQual _)) = Nothing
   f tq = Just tq

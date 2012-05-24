@@ -82,6 +82,7 @@ Library
                       -- pretty printer
                       Language.ObjC.Pretty
                       -- system
+                      Language.ObjC.System
                       Language.ObjC.System.Preprocess
                       Language.ObjC.System.GCC
                       -- analysis [experimental]

@@ -42,8 +42,9 @@ getName = mkQ Nothing (\(Ident  str  _ _) -> Just str)
 getTypeName :: (Data a) => a -> Maybe (CDeclaration NodeInfo)
 getTypeName = mkQ Nothing f
   where
-   f tn@(CDecl _ [(Just _,Nothing,Nothing)] _) = Just tn
-   f tn@(CDecl _ []                         _) = Just tn
+   f tn@(CDecl _ ((Just _,Nothing,Nothing):_) _) = Just tn
+   f tn@(CDecl _ []                           _) = Just tn
+   f _                                           = Nothing
 
 getIdent :: Typeable a => a -> Maybe Ident
 getIdent = mkQ Nothing (\(i :: Ident) -> Just i)
@@ -54,15 +55,13 @@ getSelector = mkQ Nothing (\(s :: ObjCMethodSel) -> Just s)
 
 -- | A list of all method declarations found in a value
 getMethodDecs :: (Data a) => a -> [ObjCMethodDecl]
-getMethodDecs =
-  everything (++) (mkQ [] (\(s :: ObjCMethodDecl) -> [s]))
+getMethodDecs = everything (++) (mkQ [] (\(s :: ObjCMethodDecl) -> [s]))
 
 -- | Update the name used in a CDeclr.
 -- Be careful, if used as "everywhere updateDeclaratorName", function
 -- pointer parameters could be updated also.
 -- 
--- WARNING: this function only works on @AST NodeInfo@ types due to a ghc
--- bug.
+-- WARNING: this function only works on @AST NodeInfo@ types
 updateDeclaratorName :: (Data a) => (String->String) -> a -> a
 updateDeclaratorName f = mkT updater
  where
@@ -111,7 +110,7 @@ updateIdent f = mkT (\(Ident s x p) -> Ident (f s) x p)
 -- is a generic function so that it can be used within "wrapMethodDecs" and
 -- other generics...
 isProtoDecl :: (Data a) => a -> Bool
-isProtoDecl = mkQ False (\(i :: ObjCProtoDec) -> True)
+isProtoDecl = mkQ False $ (\(_ :: ObjCProtoDec) -> True)
 
 gmapMaybe :: (Data a, Data b) => (a -> Maybe a) -> b -> b
 gmapMaybe f = mkT (mapMaybe f)

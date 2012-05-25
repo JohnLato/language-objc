@@ -74,7 +74,6 @@ Library
                       Language.ObjC.Syntax.AST
                       Language.ObjC.Syntax.Builders
                       Language.ObjC.Syntax.Constants
-                      Language.ObjC.Syntax.Generics
                       Language.ObjC.Syntax.Ops
                       Language.ObjC.Syntax.Utils
                       -- parser
@@ -102,8 +101,6 @@ Library
                       Language.ObjC.Analysis.NameSpaceMap
                       -- semrep -> code [alpha]
                       Language.ObjC.Analysis.Export
-                      -- exporting to other languages
-                      Language.ObjC.Export.C
     Other-Modules:
                       Language.ObjC.Data.RList
                       -- parser implementation

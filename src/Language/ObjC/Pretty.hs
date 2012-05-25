@@ -453,9 +453,9 @@ prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
     ppDeclr _ [] = maybeP identP name
     --'*' __attribute__? qualifiers declarator
     ppDeclr p (CPtrDeclr quals _ : declrs) =
-        parenPrec p 5 $ text "*" <+> hsep (map pretty quals) <+> ppDeclr 5 declrs
+        parenPrec p 5 $ text "*" <> hsep (map pretty quals) <+> ppDeclr 5 declrs
     ppDeclr p (CBlkDeclr quals _ : declrs) =
-        parenPrec p 5 $ text "^" <+> hsep (map pretty quals) <+> ppDeclr 5 declrs
+        parenPrec p 5 $ text "^" <> hsep (map pretty quals) <+> ppDeclr 5 declrs
 
     -- declarator[ __attribute__? qualifiers expr ]
     ppDeclr p (CArrDeclr quals size _ : declrs) =

@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Language.ObjC.Export.C (
   wrapMethodDecs
  ,wrapMethod
@@ -196,10 +198,12 @@ keydecl2arg (ObjCKeyDeclr sel  _ nm _) =
   ObjCKeyArg (ObjCSelKeyName sel nonode) (CVar nm nonode) nonode
 
 typeName2Paramdecl :: Ident -> CDecl -> CDecl
-typeName2Paramdecl i (CDecl tyspec _ a1) =
-  CDecl tyspec [(Just $ CDeclr (Just i) [] Nothing [] nonode
+typeName2Paramdecl i (CDecl tyspec declrs a1) =
+  CDecl tyspec [(Just $ CDeclr (Just i) ddeclrs Nothing [] nonode
                 ,Nothing
                 ,Nothing)] a1
+ where
+  ddeclrs = listify (\(_ :: CDerivedDeclr) -> True) declrs
 
 stripProtoQuals :: Data a => a -> a
 stripProtoQuals = everywhere (gmapMaybe f)

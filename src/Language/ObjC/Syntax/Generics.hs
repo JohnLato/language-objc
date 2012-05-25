@@ -4,12 +4,18 @@
             ,ScopedTypeVariables
             ,RankNTypes #-}
 
+-- | Generic operations for working with AST structures.
+--
+-- Due to limitations of SYB, many of these functions only work properly
+-- on functions with NodeInfo annotations.  It is not always possible to
+-- reflect this in type signatures.
 module Language.ObjC.Syntax.Generics (
   getName
  ,getTypeName
  ,getIdent
  ,getSelector
  ,getMethodDecs
+ ,getAttrs
  ,isProtoDecl
  ,updateDeclaratorName
  ,descendToFuncDec
@@ -56,6 +62,10 @@ getSelector = mkQ Nothing (\(s :: ObjCMethodSel) -> Just s)
 -- | A list of all method declarations found in a value
 getMethodDecs :: (Data a) => a -> [ObjCMethodDecl]
 getMethodDecs = everything (++) (mkQ [] (\(s :: ObjCMethodDecl) -> [s]))
+
+-- | A list of all attributes in an object
+getAttrs :: Data a => a -> [CAttr]
+getAttrs = listify (\(_ :: CAttr) -> True)
 
 -- | Update the name used in a CDeclr.
 -- Be careful, if used as "everywhere updateDeclaratorName", function

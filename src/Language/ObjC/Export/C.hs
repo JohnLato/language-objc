@@ -29,8 +29,8 @@ import Control.Applicative
 f **** g = \(a,d) (b,e) -> (f a b, g d e)
 
 -- | Wrap all method declarations for an interface, object, or protocol
-wrapMethodDecs :: Data a => a -> [Trav () (CDecl, CFunDef)]
-wrapMethodDecs x =
+wrapMethodDecs :: Data a => a -> Bool -> [Trav () (CDecl, CFunDef)]
+wrapMethodDecs x discardDeprecated =
   case everything (mFirst **** (||)) (\a -> (getName a, isProtoDecl a)) x of
     (Just cStr,isP) -> map (withDecl cStr isP) $ getMethodDecs x
     (Nothing,_)     -> []
@@ -38,18 +38,28 @@ wrapMethodDecs x =
   withDecl cStr isP d = do
     idNm <- genName
     let cName = mkIdent nopos cStr idNm
-    wrapMethod isP (ObjCClassNm cName nonode) d
+    wrapMethod isP discardDeprecated (ObjCClassNm cName nonode) d
 
 -- | Wrap a Method declaration
 wrapMethod
   :: Bool            -- ^ is a protocol declaration
+  -> Bool            -- ^ Discard items with a deprecated attribute
   -> ObjCClassNm
   -> ObjCMethodDecl
   -> Trav () (CDecl, CFunDef)
-wrapMethod isP cname dec@(ObjCMethodDecl ObjCClassMethod _ _ _ _) =
-  wrapClassMethod isP cname dec
-wrapMethod isP cname dec@(ObjCMethodDecl ObjCInstanceMethod _ _ _ _) =
-  wrapInstMethod  isP cname dec
+wrapMethod isP discDep cname dec@(ObjCMethodDecl typ _ _ _ _) = 
+  let checkAttr = discDep &&
+                   (not . null $ listify (\((CAttr attr _ _) :: CAttr) ->
+                                         show attr `elem`
+                                          ["\"deprecated\"", "\"unavailable\""])
+                                       dec)
+      wrapFn = case typ of
+                 ObjCInstanceMethod -> wrapInstMethod
+                 ObjCClassMethod    -> wrapClassMethod
+  in  if checkAttr
+        then throwTravError $ userErr
+               (show cname ++ " discarding method (deprecated)")
+        else wrapFn isP cname dec
 
 -- | Wrap a Class Method in a C function,
 -- returning the function declaration and body
@@ -58,12 +68,12 @@ wrapClassMethod
   -> ObjCClassNm
   -> ObjCMethodDecl
   -> Trav () (CDecl, CFunDef)
-wrapClassMethod isP cName cm@(ObjCMethodDecl _ oType _ _ _) = do
+wrapClassMethod isP cName cm@(ObjCMethodDecl _ oType _ attrs _) = do
    sel <- maybe (throwTravError $ userErr
                     "Can't determine ObjCMethodSelector from input")
                  return $ mapFirst getSelector cm
    fname <- nameFromSel sel
-   let gFunc ddeclr = genDecCon oType (CDeclr (Just fname) [ddeclr]
+   let gFunc ddeclr = genDecCon oType attrs (CDeclr (Just fname) [ddeclr]
                                 Nothing [] nonode)
    (dec,def_con) <- gFunc <$> decBody sel
    body <- defBody (Left cName) sel
@@ -74,13 +84,13 @@ wrapInstMethod
   -> ObjCClassNm
   -> ObjCMethodDecl
   -> Trav () (CDecl, CFunDef)
-wrapInstMethod isP cName cm@(ObjCMethodDecl _ oType _ _ _) = do
+wrapInstMethod isP cName cm@(ObjCMethodDecl _ oType _ attrs _) = do
    sel <- maybe (throwTravError $ userErr "Can't determine ObjCMethodSelector from input")
                  return $ mapFirst getSelector cm
    fname <- nameFromSel sel
    idNm  <- genName
    let selfname = mkIdent nopos "thisObj" idNm
-       gFunc ddeclr = genDecCon oType (CDeclr (Just fname) [ddeclr]
+       gFunc ddeclr = genDecCon oType attrs (CDeclr (Just fname) [ddeclr]
                                 Nothing [] nonode)
    (protoSel,msgSel) <- explicitSelf isP selfname cName sel
 
@@ -90,9 +100,10 @@ wrapInstMethod isP cName cm@(ObjCMethodDecl _ oType _ _ _) = do
 
 genDecCon
   :: Maybe CDecl   -- ^ method output type, if specified
+  -> [CAttr]
   -> CDeclr        -- ^ function declaratation (CDeclr nm [CFunDeclr ...)
   -> (CDecl, CStat -> CFunDef)
-genDecCon oType fundeclr = 
+genDecCon oType attrs fundeclr = 
   let (thisSpec,declrs) = maybe ([idTypeSpec],[]) specFun oType
       specFun (CDecl specs declrs' _) = (stripProtoQuals specs,declrs')
 
@@ -103,9 +114,10 @@ genDecCon oType fundeclr =
       fundeclr' = case fundeclr of
                     CDeclr nm ders sLit attrs at ->
                       CDeclr nm (ders ++ extraDeclrs) sLit attrs at
+      attrSpec = thisSpec ++ map (CTypeQual . CAttrQual) attrs
 
-  in  (CDecl   thisSpec [(Just fundeclr',Nothing,Nothing)] nonode
-      ,\stmt -> CFunDef thisSpec fundeclr' [] stmt nonode)
+  in  (CDecl   attrSpec [(Just fundeclr',Nothing,Nothing)] nonode
+      ,\stmt -> CFunDef attrSpec fundeclr' [] stmt nonode)
 
 decBody
   :: ObjCMethodSel

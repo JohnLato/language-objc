@@ -20,7 +20,7 @@ module Data.Derive.Annotated(
 --   Else Fail
 -- data Test1 a = A Int a String | B a (Test a) (Test a) | C a | D (Test1 a)
 -}
-import Control.Monad (liftM)
+import Control.Monad (liftM, mapAndUnzipM)
 import Language.Haskell.Exts hiding (paren)
 import Language.Haskell -- helpers from Derive
 import Data.Derive.Internal.Derivation
@@ -31,7 +31,8 @@ makeAnnotated = derivationCustom "Annotated" (runDeriveM . genAnnotatedInst)
 genAnnotatedInst :: FullDataDecl -> DeriveM [Decl]
 genAnnotatedInst (_,dat) = do
   let ctors = dataDeclCtors dat
-  (annotDecls, amapDecls) <- liftM unzip $ mapM (annotClause "annotation" "amap") ctors
+  (annotDecls, amapDecls) <- mapAndUnzipM (annotClause "annotation" "amap")
+                                          ctors
   return [ InstDecl noLoc [] (qname "Annotated") [TyCon $ qname (dataDeclName dat)] (map InsDecl [ FunBind annotDecls, FunBind amapDecls ]) ]
 
 annotClause :: String -> String -> CtorDecl -> DeriveM (Match, Match)
@@ -44,7 +45,7 @@ annotClause annot amap ctor = do
                                      , funDecl amap [PVar (name f), matchOne ctor "n"] (amapRec ctor "n") )
     ( DErr m1, DErr m2)    -> fail $ "Deriving Annotation: Constructor has neither exactly one variable type argument, nor"++
                                      "exactly one argument of type (T a). " ++ m1 ++ ". " ++ m2
-    ( DOk _, DOk _)        -> fail $ "Internal Error: Constructor has both a variable type argument, and a constructor type argument"
+    ( DOk _, DOk _)        -> fail "Internal Error: Constructor has both a variable type argument, and a constructor type argument"
   where
     f = "f"
     argName i = qname ("a_" ++ show i)
@@ -79,9 +80,9 @@ selectDelegateArg args =
 selectPolyArg :: [(Integer, BangType)] -> DeriveM (Integer, Name)
 selectPolyArg args =
   case filter (isVarName . fromBangType . snd) args of
-        []             -> fail   $ "Select Polymorphic Argument: no type variable arguments in " ++ show args
-        [(ix,ty)]      -> return $ (ix,fromTyVar (fromBangType ty))
-        _xs            -> fail   $ "Select Polymorphic Argument: More than one type variable argument in " ++ show args
+        []             -> fail $ "Select Polymorphic Argument: no type variable arguments in " ++ show args
+        [(ix,ty)]      -> return (ix,fromTyVar (fromBangType ty))
+        _xs            -> fail $ "Select Polymorphic Argument: More than one type variable argument in " ++ show args
   where fromTyVar (TyVar n) = n
 
 -- a little bit more powerful than simpleFun ;)
@@ -107,4 +108,4 @@ instance Monad DeriveM where
   return = DOk
   (>>=) (DErr msg) f = DErr msg
   (>>=) (DOk ok)   f = f ok
-  fail msg = DErr msg
+  fail = DErr

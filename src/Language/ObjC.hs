@@ -6,12 +6,12 @@
 --                   Manuel M. T. Chakravarty
 --                   Duncan Coutts
 --                   Betram Felgenhauer
--- License     :  BSD-style
+-- License     : BSD-style
 -- Maintainer  : benedikt.huber@gmail.com
 -- Stability   : experimental
 -- Portability : ghc
 --
--- Library for analysing and generating C code.
+-- Library for analysing and generating Objective-C code.
 --
 -- See <http://www.sivity.net/projects/language.c>
 -----------------------------------------------------------------------------

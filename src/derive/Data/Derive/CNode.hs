@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell,PatternGuards #-}
+{-# LANGUAGE PatternGuards #-}
 -- | Derives 'CNode' instances for language.c
 module Data.Derive.CNode(makeCNode) where
 
@@ -24,15 +24,15 @@ import Data.Derive.Annotated
 makeCNode :: Derivation
 makeCNode = derivationCustom "CNode" (runDeriveM . genNodeInst)
 
-nodeInfoTypeName :: [Char]
+nodeInfoTypeName :: String
 nodeInfoTypeName = "Language.C.Data.Node.NodeInfo"
 
 genNodeInst :: FullDataDecl -> DeriveM [Decl]
 genNodeInst (_,dat) = do
   nodeInfoDecls <- nodeInfoDefs "nodeInfo" dat
-  return $
-   [ instanceContext ["CNode"] "CNode" dat [ FunBind $ nodeInfoDecls ]
-   , instanceContext ["CNode"] "Pos" dat [ FunBind  $ posOfDef "posOf" ]
+  return
+   [ instanceContext ["CNode"] "CNode" dat [ FunBind nodeInfoDecls ]
+   , instanceContext ["CNode"] "Pos" dat [ FunBind $ posOfDef "posOf" ]
    ]
 
 posOfDef :: String -> [Match]
@@ -59,17 +59,18 @@ matchNodeInfo ctor = ctorArgs ctor >>= tryNodeInfoArg
     tryNodeInfoArg args =
         case filter (isNodeInfo.fromBangType.snd) args  of
             []       -> tryDelegate args
-            [(ix,_)] -> return $ (matchIndex ctor args ix (PVar (name "n")), Var (qname "n"))
-            _        -> fail   $ "More than one NodeInfo type"
+            [(ix,_)] -> return (matchIndex ctor args ix (PVar (name "n")), Var (qname "n"))
+            _        -> fail "More than one NodeInfo type"
         where
-            isNodeInfo (TyCon qname) | (Qual _ (Ident "NodeInfo")) <- qname = True
-                                     | (UnQual (Ident "NodeInfo")) <- qname = True
-                                     | otherwise = False
+            isNodeInfo (TyCon qname)
+              | (Qual _ (Ident "NodeInfo")) <- qname = True
+              | (UnQual (Ident "NodeInfo")) <- qname = True
+              | otherwise = False
             isNodeInfo _ = False
     tryDelegate args =
        case args of
-           []        -> fail   $ "cannot derive NodeInfo for nullary constructor"
-           [_c]      -> return $ (PApp (qname $ ctorDeclName ctor) [PVar (name "d")],
+           []        -> fail "cannot derive NodeInfo for nullary constructor"
+           [_c]      -> return (PApp (qname $ ctorDeclName ctor) [PVar (name "d")],
                                   App (Var (qname "nodeInfo")) (Var (qname "d")))
            _xs       -> delegateToPolymorphic "nodeInfo" ctor
     delegateToPolymorphic :: String -> CtorDecl -> DeriveM (Pat,Exp)
@@ -77,10 +78,10 @@ matchNodeInfo ctor = ctorArgs ctor >>= tryNodeInfoArg
       where
         delegate args =
           case filter (isVarName . fromBangType . snd) args of
-            []        -> fail   $ "delegateToPolymorphic: no type variable arguments"
-            [(ix,_)]  -> return $ (matchIndex ctor args ix (PVar (name "n")),
+            []       -> fail "delegateToPolymorphic: no type variable arguments"
+            [(ix,_)] -> return (matchIndex ctor args ix (PVar (name "n")),
                                  App (Var (qname fun)) (Var (qname "n")))
-            _xs       -> fail   $ "delegateToPolymorphic: More than one type variable argument"
+            _xs      -> fail "delegateToPolymorphic: More than one type variable argument"
 
 -- ported from TH.Helpers
 instanceContext :: [String] -> String -> Decl -> [Decl] -> Decl

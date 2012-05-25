@@ -13,7 +13,7 @@ module Language.ObjC.Syntax.Builders (
 
 where
 
-import Language.ObjC.Syntax
+import Language.ObjC.Syntax.AST
 import Language.ObjC.Data.Ident
 import Language.ObjC.Data.Node
 import Language.ObjC.Data.Position

@@ -17,7 +17,9 @@ module Language.ObjC.Data.Position (
   --
   Position(..),
   position,
-  PosLength,
+  PosLength(..),
+  mkPosLength,
+  unPosLength,
   posFile,posRow,posColumn,posOffset,
   initPos, isSourcePos,
   nopos, isNoPos,
@@ -54,7 +56,15 @@ posColumn (Position{posColumn' = pc}) = pc
 posColumn _ = (-1)
 
 -- | Position and length of a token
-type PosLength = (Position,Int)
+data PosLength = PL !Position
+                    {-# UNPACK #-} !Int
+     deriving (Eq, Ord, Data, Typeable, Show)
+
+mkPosLength :: Position -> Int -> PosLength
+mkPosLength = PL
+
+unPosLength :: PosLength -> (Position, Int)
+unPosLength (PL pos l) = (pos,l)
 
 instance Show Position where
   show (Position _ fname row _) = "(" ++ show fname ++ ": line " ++ show row ++ ")"

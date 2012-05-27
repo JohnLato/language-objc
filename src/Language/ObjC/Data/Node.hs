@@ -56,7 +56,7 @@ lengthOfNode ni = len
     where
     len = case ni of NodeInfo firstPos lastTok _ -> computeLength firstPos lastTok
                      OnlyPos firstPos lastTok -> computeLength firstPos lastTok
-    computeLength pos (lastPos,len')
+    computeLength pos (PL lastPos len')
       | len' < 0   = Nothing
       | otherwise = Just (posOffset lastPos + len' - posOffset pos)
 
@@ -96,7 +96,7 @@ internalNode = undefNode
 
 -- | create a node with neither name nor positional information
 undefNode :: NodeInfo
-undefNode = OnlyPos nopos (nopos,-1)
+undefNode = OnlyPos nopos (PL nopos nO)
 
 -- | return True if the node carries neither name nor positional information
 isUndefNode :: NodeInfo -> Bool
@@ -104,22 +104,25 @@ isUndefNode (OnlyPos p _) | isNoPos p = True
                           | otherwise = False
 isUndefNode _ = False
 
+nO :: Int
+nO = (-1)
+
 -- |
 -- | Given only a source position, create a new node attribute
 mkNodeInfoOnlyPos :: Position -> NodeInfo
-mkNodeInfoOnlyPos pos  = OnlyPos pos (nopos,-1)
+mkNodeInfoOnlyPos pos  = OnlyPos pos (PL nopos nO)
 
 -- | Given a source position and the position and length of the last token, create a new node attribute
-mkNodeInfoPosLen :: Position -> PosLength -> NodeInfo
-mkNodeInfoPosLen = OnlyPos
+mkNodeInfoPosLen :: Position -> (Position,Int) -> NodeInfo
+mkNodeInfoPosLen p pl = OnlyPos p (uncurry PL pl)
 
 -- | Given a source position and a unique name, create a new attribute
 -- identifier
 mkNodeInfo :: Position -> Name -> NodeInfo
-mkNodeInfo pos name  = NodeInfo pos (nopos,-1) name
+mkNodeInfo pos name  = NodeInfo pos (PL nopos nO) name
 
 -- | Given a source position, the position and length of the last token and a unique name, create a new attribute
 -- identifier. Strict in
-mkNodeInfo' :: Position -> PosLength -> Name -> NodeInfo
-mkNodeInfo' pos lasttok name = NodeInfo pos lasttok name
+mkNodeInfo' :: Position -> (Position,Int) -> Name -> NodeInfo
+mkNodeInfo' pos lasttok name = NodeInfo pos (uncurry PL lasttok) name
 

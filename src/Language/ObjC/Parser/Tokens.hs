@@ -20,7 +20,8 @@ module Language.ObjC.Parser.Tokens (
 
 where
 
-import Language.ObjC.Data.Position    (Position, Pos(..), PosLength)
+import Language.ObjC.Data.Position    (Position, Pos(..)
+                                      ,PosLength, unPosLength)
 import Language.ObjC.Data.Ident       (Ident, identToString)
 import Language.ObjC.Syntax.Constants (CChar, CInteger, CFloat, CString)
 
@@ -174,10 +175,10 @@ data ObjCTok = ObjCInterface            -- `@interface'
              | ObjCSuper                -- `super'
 
 instance Pos CToken where
-  posOf = fst . posLenOfTok
+  posOf = fst . unPosLength . posLenOfTok
 
 -- token position and length
-posLenOfTok :: CToken -> (Position,Int)
+posLenOfTok :: CToken -> PosLength
 posLenOfTok (CTokLParen   pos  ) = pos
 posLenOfTok (CTokRParen   pos  ) = pos
 posLenOfTok (CTokLBracket pos  ) = pos

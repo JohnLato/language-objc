@@ -385,9 +385,9 @@ idkwtok cs = \pos -> do
   let ident = mkIdent pos cs name
   idType  <- isSpecial ident
   return $ case idType of
-    Nothing    -> CTokIdent   (pos,len) ident
-    Just TyDef -> CTokTyIdent (pos,len) ident
-    Just CName -> CTokObjC (ObjCClassIdent ident) (pos,len)
+    Nothing    -> CTokIdent   (PL pos len) ident
+    Just TyDef -> CTokTyIdent (PL pos len) ident
+    Just CName -> CTokObjC (ObjCClassIdent ident) (PL pos len)
 
 ignoreAttribute :: P ()
 ignoreAttribute = skipTokens (0::Int)
@@ -401,7 +401,7 @@ ignoreAttribute = skipTokens (0::Int)
             _                        -> skipTokens n
 
 tok :: Int -> (PosLength -> CToken) -> Position -> P CToken
-tok len tc pos = return (tc (pos,len))
+tok len tc pos = return (tc (PL pos len))
 
 adjustLineDirective :: Int -> String -> Position -> Position
 adjustLineDirective pragmaLen str pos =
@@ -430,7 +430,7 @@ unescapeMultiChars _ = error "Unexpected end of multi-char constant"
 {-# INLINE token_ #-}
 -- token that ignores the string
 token_ :: Int -> (PosLength -> CToken) -> Position -> Int -> InputStream -> P CToken
-token_ len tok pos _ _ = return (tok (pos,len))
+token_ len tok pos _ _ = return (tok (PL pos len))
 
 {-# INLINE token_fail #-}
 -- error token
@@ -443,7 +443,7 @@ token_fail errmsg pos _ _ =   failP pos [ "Lexical Error !", errmsg ]
 -- token that uses the string
 token :: (PosLength -> a -> CToken) -> (String -> a)
       -> Position -> Int -> InputStream -> P CToken
-token tok read pos len str = return (tok (pos,len) (read $ takeChars len str))
+token tok read pos len str = return (tok (PL pos len) (read $ takeChars len str))
 
 {-# INLINE token_plus #-}
 -- token that may fail
@@ -451,7 +451,7 @@ token_plus :: (PosLength -> a -> CToken) -> (String -> Either String a)
       -> Position -> Int -> InputStream -> P CToken
 token_plus tok read pos len str =
   case read (takeChars len str) of Left err -> failP pos [ "Lexical error ! ", err ]
-                                   Right ok -> return $! tok (pos,len) ok
+                                   Right ok -> return $! tok (PL pos len) ok
 
 -- -----------------------------------------------------------------------------
 -- The input type

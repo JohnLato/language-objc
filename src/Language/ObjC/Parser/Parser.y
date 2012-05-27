@@ -2509,7 +2509,7 @@ withNodeInfo node mkAttrNode = do
   name <- getNewName
   lastTok <- getSavedToken
   let firstPos = posOf node
-  let attrs = mkNodeInfo' firstPos (posLenOfTok $! lastTok) name
+  let attrs = mkNodeInfo' firstPos (unPosLength . posLenOfTok $! lastTok) name
   attrs `seq` return (mkAttrNode attrs)
 
 {-# INLINE withLength #-}
@@ -2517,7 +2517,7 @@ withLength :: NodeInfo -> (NodeInfo -> a) -> P a
 withLength nodeinfo mkAttrNode = do
   lastTok <- getSavedToken
   let firstPos = posOfNode nodeinfo
-  let attrs = mkNodeInfo' firstPos (posLenOfTok $! lastTok)
+  let attrs = mkNodeInfo' firstPos (unPosLength . posLenOfTok $! lastTok)
               (maybe (error "nameOfNode") id (nameOfNode nodeinfo))
   attrs `seq` return (mkAttrNode attrs)
 

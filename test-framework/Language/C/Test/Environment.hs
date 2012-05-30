@@ -4,7 +4,7 @@
 -- Module      :  Test.Environment
 -- Copyright   :  (c) 2008 Duncan Coutts, Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  portable
 --
 -- This module provides access to the environment variables used for testing, and provides

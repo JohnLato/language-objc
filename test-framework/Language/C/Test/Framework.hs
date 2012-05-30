@@ -3,7 +3,7 @@
 -- Module      :  TestFramework
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  portable
 --
 -- This module provides a small framework for testing IO - based stuff.

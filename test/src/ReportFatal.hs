@@ -3,7 +3,7 @@
 -- Module      :  CReportFatal.hs (executable)
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 --
 -- Report a fatal error in a test (cannot be done within the test itself, e.g. out-of-memory)
 -- Reads the error message from stdin.

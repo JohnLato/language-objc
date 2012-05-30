@@ -5,7 +5,7 @@
 -- Module      :  Language.ObjC.Analysis.Debug
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Stability   :  prototype
 -- Portability :  ghc
 --

@@ -6,7 +6,7 @@
 -- Module      :  TestMonad
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  non-portable (MPTC, GeneralizedNewtypeDeriving)
 --
 -- Monad for testing, providing error continuation, state and IO.

@@ -4,7 +4,7 @@
 -- Module      :  CParse.hs (Executable)
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 --
 -- This module is invoked just like gcc. It preprocesses the C source file given in the arguments
 -- and parses it. If CTEST_NON_PARSE is set, it is expected that parsing failes, otherwise it expects

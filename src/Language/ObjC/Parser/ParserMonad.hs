@@ -6,8 +6,9 @@
 -- Module      :  Language.ObjC.Syntax.ParserMonad
 -- Copyright   :  (c) [1999..2004] Manuel M T Chakravarty
 --                (c) 2005-2007 Duncan Coutts
+--                (c) 2012 John W. Lato
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  portable
 --
 -- Monad for the C lexer and parser

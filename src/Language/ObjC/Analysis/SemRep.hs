@@ -4,7 +4,7 @@
 -- Module      :  Language.ObjC.Analysis.Syntax
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Stability   :  alpha
 -- Portability :  ghc
 --

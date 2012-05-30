@@ -4,8 +4,9 @@
 -- Module      :  Language.ObjC.Syntax.Attributes
 -- Copyright   :  (c) [1995..1999] Manuel M. T. Chakravarty
 --                (c) 2008 Benedikt Huber (stripped radically)
+--                (c) 2012 John W. Lato
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Stability   :  experimental
 -- Portability :  ghc
 --

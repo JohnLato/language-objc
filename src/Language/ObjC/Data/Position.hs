@@ -4,8 +4,9 @@
 -- Module      :  Language.ObjC.Data.Position
 -- Copyright   :  (c) [1995..2000] Manuel M. T. Chakravarty
 --                    [2008..2009] Benedikt Huber
+--                (c) 2012 John W. Lato
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Stability   :  experimental
 -- Portability :  ghc
 --

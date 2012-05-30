@@ -5,7 +5,7 @@
 -- Module      :  ParseTests
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  non-portable
 --
 -- Provides a set of tests for the parser and pretty printer.

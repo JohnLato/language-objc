@@ -4,7 +4,7 @@
 -- Module      :  Language.ObjC.Data.Error
 -- Copyright   :  (c) 2008 Benedikt Huber, Manuel M. T. Chakravarty
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Stability   :  experimental
 -- Portability :  ghc
 --

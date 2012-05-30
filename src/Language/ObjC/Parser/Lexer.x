@@ -3,8 +3,9 @@
 -- Copyright   : (c) [1999..2004] Manuel M T Chakravarty
 --               (c) 2005 Duncan Coutts
 --               (c) 2008 Benedikt Huber
+--               (c) 2012 John W. Lato
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  portable
 --
 --  Lexer for C files, after being processed by the C preprocessor

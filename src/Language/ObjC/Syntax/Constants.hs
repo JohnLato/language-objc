@@ -3,8 +3,9 @@
 -- |
 -- Module      :  Language.ObjC.Syntax.Constants
 -- Copyright   :  (c) 2007..2008 Duncan Coutts, Benedikt Huber
+--                (c) 2012 John W. Lato
 -- License     :  BSD-style
--- Maintainer  : benedikt.huber@gmail.com
+-- Maintainer  : jwlato@gmail.com
 -- Stability   : experimental
 -- Portability : ghc
 --

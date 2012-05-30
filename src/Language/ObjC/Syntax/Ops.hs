@@ -4,7 +4,7 @@
 -- Module      :  Language.ObjC.Syntax.Ops
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  : benedikt.huber@gmail.com
+-- Maintainer  : jwlato@gmail.com
 -- Stability   : experimental
 -- Portability : ghc
 --

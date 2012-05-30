@@ -3,9 +3,10 @@
 -- Copyright   :  (c) 2005-2007 Duncan Coutts
 --                (c) 2008 Benedikt Huber
 --                (c) [1999..2004] Manuel M T Chakravarty
+--                (c) 2012 John W. Lato
 --                Portions copyright 1989, 1990 James A. Roskind
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  portable
 --
 --  Parser for C translation units, which have already been run through the C

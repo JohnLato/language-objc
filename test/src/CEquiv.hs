@@ -4,7 +4,7 @@
 -- Module      :  CEquiv.hs (Executable)
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 --
 -- This module is invoked just like gcc. It preprocesses the two C source files given in the arguments
 -- and parses them. Then it compares the ASTs. If CTEST_NON_EQUIV is set, the comparison is expected to fail,

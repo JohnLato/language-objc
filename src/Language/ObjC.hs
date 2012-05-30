@@ -1,13 +1,14 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.ObjC
--- Copyright   :  (c) 2008 Benedikt Huber
+-- Copyright   :  2012 John W. Lato
+--                (c) 2008 Benedikt Huber
 --                [1995..2007]
 --                   Manuel M. T. Chakravarty
 --                   Duncan Coutts
 --                   Betram Felgenhauer
 -- License     : BSD-style
--- Maintainer  : benedikt.huber@gmail.com
+-- Maintainer  : jwlato@gmail.com
 -- Stability   : experimental
 -- Portability : ghc
 --

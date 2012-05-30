@@ -4,7 +4,7 @@
 -- Module      :  RenderTests.hs (executable)
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 --
 -- This module renders test results into HTML files, much like pugs smoke tests.
 -- We use stylesheets to color cells in the result table. 

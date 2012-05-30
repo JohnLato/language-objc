@@ -4,8 +4,9 @@
 -- Module      :  Language.ObjC.Parser.Tokens
 -- Copyright   :  [1999..2004] Manuel M T Chakravarty
 --                2005 Duncan Coutts
+--                2012 John W. Lato
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  portable
 --
 --  C Tokens for the C lexer.

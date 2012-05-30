@@ -4,7 +4,7 @@
 -- Module      :  CTest.hs (executable)
 -- Copyright   :  (c) 2008 Duncan Coutts, Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  non-portable (Data.Generics)
 --
 -- This is a very simple module, usable for quick tests.

@@ -4,7 +4,7 @@
 -- Module      :  Measures
 -- Copyright   :  (c) Benedikt Huber 2008
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  non-portable (GeneralizedNewtypeDeriving)
 --
 -- Simple unit names and scaling for rendering performance measurements.

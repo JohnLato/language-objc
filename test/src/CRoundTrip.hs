@@ -4,7 +4,7 @@
 -- Module      :  CRoundtrip.hs (executable)
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 --
 -- This module is invoked just like gcc. It preprocesses the C source file in the given argument list,
 -- parses it, pretty prints it again, and compares the two ASTs.

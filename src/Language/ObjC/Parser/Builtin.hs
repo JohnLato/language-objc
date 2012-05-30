@@ -2,7 +2,7 @@
 -- Module      :  Language.ObjC.Parser.Builtin
 -- Copyright   :  (c) 2001 Manuel M. T. Chakravarty
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Portability :  portable
 --
 -- This module provides information about builtin entities.

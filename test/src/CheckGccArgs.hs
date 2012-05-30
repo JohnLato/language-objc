@@ -4,7 +4,7 @@
 -- Module      :  CCheckGccArgs
 -- Copyright   :  (c) 2008 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 --
 -- Check if the given gcc args are fine to perform a parse test.
 -- Essentially a 'one-liner', used by cc-wrapper.

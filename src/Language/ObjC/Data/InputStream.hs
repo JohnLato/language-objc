@@ -5,7 +5,7 @@
 -- Module      :  Language.ObjC.Data.InputStream
 -- Copyright   :  (c) 2008,2011 Benedikt Huber
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Stability   :  experimental
 -- Portability :  ghc
 --

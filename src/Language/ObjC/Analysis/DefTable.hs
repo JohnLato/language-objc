@@ -6,7 +6,7 @@
 --                  based on code from c2hs
 --                (c) [1999..2001] Manuel M. T. Chakravarty
 -- License     :  BSD-style
--- Maintainer  :  benedikt.huber@gmail.com
+-- Maintainer  :  jwlato@gmail.com
 -- Stability   :  alpha
 -- Portability :  ghc
 --

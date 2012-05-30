@@ -3,8 +3,9 @@
 -- |
 -- Module      :  Language.ObjC.Parser
 -- Copyright   :  (c) 2008 Benedikt Huber
+--                (c) 2012 John W. Lato
 -- License     :  BSD-style
--- Maintainer  : benedikt.huber@gmail.com
+-- Maintainer  : jwlato@gmail.com
 -- Stability   : experimental
 -- Portability : ghc
 --

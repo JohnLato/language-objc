@@ -280,9 +280,9 @@ translation_unit
 --
 ext_decl_list :: { Reversed [CExtDecl] }
 ext_decl_list
-  : {- empty -}					        { empty }
-  | ext_decl_list ';'			        { $1 }
-  | ext_decl_list external_declaration	{ $1 `snoc` $2 }
+  : {- empty -}                         { empty }
+  | ext_decl_list ';'                   { $1 }
+  | ext_decl_list external_declaration  { $1 `snoc` $2 }
 
 
 -- parse external C declaration (C99 6.9)
@@ -2683,7 +2683,8 @@ happyError = parseError
 
 -- * public interface
 
--- | @parseC input initialPos@ parses the given preprocessed C-source input and returns the AST or a list of parse errors.
+-- | @parseC input initialPos@ parses the given preprocessed Objective-C
+-- source input and returns the AST or a list of parse errors.
 parseC :: InputStream -> Position -> Either ParseError CTranslUnit
 parseC input initialPosition =
   fmap fst $ execParser translUnitP input initialPosition builtinTypeNames (namesStartingFrom 0)

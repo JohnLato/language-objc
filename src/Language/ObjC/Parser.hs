@@ -22,7 +22,7 @@ module Language.ObjC.Parser (
     ParseError(..)
 )
 where
-import Language.ObjC.Parser.Parser (parseC,translUnitP, extDeclP, statementP, expressionP)
+import Language.ObjC.Parser.Parser
 import Language.ObjC.Parser.ParserMonad (execParser, ParseError(..),P)
 import Language.ObjC.Parser.Builtin (builtinTypeNames)
 

@@ -33,7 +33,7 @@ module Language.ObjC.Data.Position (
 import Data.Generics
 
 -- | uniform representation of source file positions
-data Position = Position { posOffset :: {-# UNPACK #-} !Int  -- ^ absolute offset in the preprocessed file
+data Position = Position { posOffset' :: {-# UNPACK #-} !Int  -- ^ absolute offset in the preprocessed file
                          , posFile' :: String                -- ^ source file
                          , posRow'  :: {-# UNPACK #-} !Int     -- ^ row (line)  in the original file. Affected by #LINE pragmas.
                          , posColumn' :: {-# UNPACK #-} !Int  -- ^ column in the preprocessed file. Inaccurate w.r.t. to the original
@@ -55,6 +55,10 @@ posRow _ = (-1)
 posColumn :: Position -> Int
 posColumn (Position{posColumn' = pc}) = pc
 posColumn _ = (-1)
+
+posOffset :: Position -> Int
+posOffset (Position{posOffset' = po}) = po
+posOffset _ = (-1)
 
 -- | Position and length of a token
 data PosLength = PL !Position

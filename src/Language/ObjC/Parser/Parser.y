@@ -2515,18 +2515,18 @@ withNodeInfo :: Pos node => node -> (NodeInfo -> a) -> P a
 withNodeInfo node mkAttrNode = do
   name <- getNewName
   lastTok <- getSavedToken
-  let firstPos = posOf node
-  let attrs = mkNodeInfo' firstPos (unPosLength . posLenOfTok $! lastTok) name
-  attrs `seq` return (mkAttrNode attrs)
+  let !firstPos = posOf node
+      !attrs = mkNodeInfo' firstPos (unPosLength . posLenOfTok $! lastTok) name
+  return $! mkAttrNode attrs
 
 {-# INLINE withLength #-}
 withLength :: NodeInfo -> (NodeInfo -> a) -> P a
 withLength nodeinfo mkAttrNode = do
   lastTok <- getSavedToken
-  let firstPos = posOfNode nodeinfo
-  let attrs = mkNodeInfo' firstPos (unPosLength . posLenOfTok $! lastTok)
-              (maybe (error "nameOfNode") id (nameOfNode nodeinfo))
-  attrs `seq` return (mkAttrNode attrs)
+  let !firstPos = posOfNode nodeinfo
+  let !attrs = mkNodeInfo' firstPos (unPosLength . posLenOfTok $! lastTok)
+               (maybe (error "nameOfNode") id (nameOfNode nodeinfo))
+  return $! mkAttrNode attrs
 
 data CDeclrR = CDeclrR (Maybe Ident) (Reversed [CDerivedDeclr]) (Maybe CStrLit) [CAttr] NodeInfo
 reverseDeclr :: CDeclrR -> CDeclr

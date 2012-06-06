@@ -48,6 +48,7 @@
 --  * Add support for bytestrings
 
 {
+{-# LANGUAGE BangPatterns #-}
 
 module Language.ObjC.Parser.Lexer (lexC, parseError) where
 
@@ -380,7 +381,7 @@ idkwtok ('o' : 'n' : 'e' : 'w' : 'a' : 'y' : [] )     = tok 6  (CTokObjC ObjCOne
 idkwtok ('b' : 'y' : 'c' : 'o' : 'p' : 'y' : [] )     = tok 6  (CTokObjC ObjCBycopy)
 idkwtok ('s' : 'u' : 'p' : 'e' : 'r' : [] )           = tok 5  (CTokObjC ObjCSuper)
 
-idkwtok cs = \pos -> do
+idkwtok cs = \ (!pos) -> do
   name <- getNewName
   let len = case length cs of l -> l
   let ident = mkIdent pos cs name
@@ -402,7 +403,7 @@ ignoreAttribute = skipTokens (0::Int)
             _                        -> skipTokens n
 
 tok :: Int -> (PosLength -> CToken) -> Position -> LP s CToken
-tok len tc pos = return (tc (PL pos len))
+tok len tc !pos = return (tc (PL pos len))
 
 adjustLineDirective :: Int -> String -> Position -> Position
 adjustLineDirective pragmaLen str pos =
@@ -431,7 +432,7 @@ unescapeMultiChars _ = error "Unexpected end of multi-char constant"
 {-# INLINE token_ #-}
 -- token that ignores the string
 token_ :: Int -> (PosLength -> CToken) -> Position -> Int -> InputStream -> LP s CToken
-token_ len tok pos _ _ = return (tok (PL pos len))
+token_ len tok !pos _ _ = return (tok (PL pos len))
 
 {-# INLINE token_fail #-}
 -- error token
@@ -444,13 +445,13 @@ token_fail errmsg pos _ _ =   failP pos [ "Lexical Error !", errmsg ]
 -- token that uses the string
 token :: (PosLength -> a -> CToken) -> (String -> a)
       -> Position -> Int -> InputStream -> LP s CToken
-token tok read pos len str = return (tok (PL pos len) (read $ takeChars len str))
+token tok read !pos len str = return (tok (PL pos len) (read $ takeChars len str))
 
 {-# INLINE token_plus #-}
 -- token that may fail
 token_plus :: (PosLength -> a -> CToken) -> (String -> Either String a)
       -> Position -> Int -> InputStream -> LP s CToken
-token_plus tok read pos len str =
+token_plus tok read !pos len str =
   case read (takeChars len str) of Left err -> failP pos [ "Lexical error ! ", err ]
                                    Right ok -> return $! tok (PL pos len) ok
 
@@ -468,13 +469,13 @@ alexGetByte :: AlexInput -> Maybe (Word8, AlexInput)
 alexGetByte (p,is) | inputStreamEmpty is = Nothing
                    | otherwise  = let (b,s) = takeByte is in
                                   -- this is safe for latin-1, but ugly
-                                  let p' = alexMove p (chr (fromIntegral b)) in p' `seq`
+                                  let !p' = alexMove p (chr (fromIntegral b)) in p' `seq`
                                   Just (b, (p', s))
 
 alexGetChar :: AlexInput -> Maybe (Char,AlexInput)
 alexGetChar (p,is) | inputStreamEmpty is = Nothing
                    | otherwise  = let (c,s) = takeChar is in
-                                  let p' = alexMove p c in p' `seq`
+                                  let !p'   = alexMove p c in p' `seq`
                                   Just (c, (p', s))
 
 alexMove :: Position -> Char -> Position
@@ -515,7 +516,7 @@ lexToken = lexToken' True
 
 lexToken' :: Bool -> P CToken
 lexToken' modifyCache = do
-  pos <- getPos
+  !pos <- getPos
   inp <- getInput
   case alexScan (pos, inp) 0 of
     AlexEOF -> do

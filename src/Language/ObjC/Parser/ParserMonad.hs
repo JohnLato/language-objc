@@ -111,27 +111,27 @@ newtype LP s a = LP { unLP :: s -> PState -> (ParseResult a, s) }
 
 instance Monad (LP s) where
   {-# INLINE return #-}
-  return a = LP $ \s pSt -> (POk pSt a, s)
+  return a = LP $ \s !pSt -> (POk pSt a, s)
   {-# INLINE (>>=) #-}
-  (LP m) >>= f = LP $ \s pSt ->
+  (LP m) >>= f = LP $ \s !pSt ->
                    let (r1, s1) = m s2 pSt
                        (r2, s2) = case r1 of
-                                    POk pSt' a -> unLP (f a) s pSt'
-                                    PFailed err pos -> (PFailed err pos, s)
+                                     POk pSt' a -> unLP (f a) s pSt'
+                                     PFailed err pos -> (PFailed err pos, s)
                    in (r2, s1)
   {-# INLINE fail #-}
   fail m = LP $ \s pSt -> (PFailed [m] (curPos pSt), s)
 
 instance PMonad (LP s) where
-  get      = LP $ \s pst -> (POk pst pst, s)
-  put st   = LP $ \s _   -> (POk st (), s)
-  modify f = LP $ \s pst -> (POk (f pst) (), s)
+  get      = LP $ \s !pst -> (POk pst pst, s)
+  put st   = LP $ \s _    -> (POk st (), s)
+  modify f = LP $ \s !pst -> (POk (f pst) (), s)
 
 getL :: LP s s
-getL = LP $ \s pst -> (POk pst s, s)
+getL = LP $ \s !pst -> (POk pst s, s)
 
 modifyL :: (s -> s) -> LP s ()
-modifyL f = LP $ \s pst -> (POk pst (),f s)
+modifyL f = LP $ \s !pst -> (POk pst (),f s)
 
 putL :: s -> LP s ()
 putL = modifyL . const
@@ -191,7 +191,7 @@ execLazyParser (LP parser) input pos builtins names =
           curPos = pos,
           curInput = input,
           prevToken = internalErr "CLexer.execParser: Touched undefined token!",
-          savedToken = internalErr "CLexer.execParser: Touched undefined token (safed token)!",
+          savedToken = internalErr "CLexer.execParser: Touched undefined token (saved token)!",
           namesupply = names,
           tyidents = Map.fromList $ map (,TyDef) builtins,
           scopes   = []
@@ -211,7 +211,7 @@ getNewName :: (PMonad p) => p Name
 getNewName = withState' $ \s@PState{namesupply=(n:ns)} -> (s{namesupply=ns}, n)
 
 setPos :: (PMonad p) => Position -> p ()
-setPos pos = modify $ \s -> s{curPos=pos}
+setPos pos = modify $ \ !s -> s{curPos=pos}
 
 getPos :: (PMonad p) => p Position
 getPos = (\st -> curPos st) <$> get

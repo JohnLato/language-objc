@@ -401,7 +401,7 @@ ignoreAttribute = skipTokens (0::Int)
             CTokLParen _             -> skipTokens (n+1)
             _                        -> skipTokens n
 
-tok :: Int -> (PosLength -> CToken) -> Position -> P CToken
+tok :: Int -> (PosLength -> CToken) -> Position -> LP s CToken
 tok len tc pos = return (tc (PL pos len))
 
 adjustLineDirective :: Int -> String -> Position -> Position
@@ -430,26 +430,26 @@ unescapeMultiChars _ = error "Unexpected end of multi-char constant"
 
 {-# INLINE token_ #-}
 -- token that ignores the string
-token_ :: Int -> (PosLength -> CToken) -> Position -> Int -> InputStream -> P CToken
+token_ :: Int -> (PosLength -> CToken) -> Position -> Int -> InputStream -> LP s CToken
 token_ len tok pos _ _ = return (tok (PL pos len))
 
 {-# INLINE token_fail #-}
 -- error token
 token_fail :: String -> Position ->
-              Int -> InputStream -> P CToken
+              Int -> InputStream -> LP s CToken
 token_fail errmsg pos _ _ =   failP pos [ "Lexical Error !", errmsg ]
 
 
 {-# INLINE token #-}
 -- token that uses the string
 token :: (PosLength -> a -> CToken) -> (String -> a)
-      -> Position -> Int -> InputStream -> P CToken
+      -> Position -> Int -> InputStream -> LP s CToken
 token tok read pos len str = return (tok (PL pos len) (read $ takeChars len str))
 
 {-# INLINE token_plus #-}
 -- token that may fail
 token_plus :: (PosLength -> a -> CToken) -> (String -> Either String a)
-      -> Position -> Int -> InputStream -> P CToken
+      -> Position -> Int -> InputStream -> LP s CToken
 token_plus tok read pos len str =
   case read (takeChars len str) of Left err -> failP pos [ "Lexical error ! ", err ]
                                    Right ok -> return $! tok (PL pos len) ok
@@ -483,7 +483,7 @@ alexMove pos '\n' = retPos pos
 alexMove pos '\r' = incOffset pos 1
 alexMove pos _    = incPos pos 1
 
-lexicalError :: P a
+lexicalError :: LP s a
 lexicalError = do
   pos <- getPos
   (c,cs) <- liftM takeChar getInput
@@ -491,7 +491,7 @@ lexicalError = do
         ["Lexical error !",
          "The character " ++ show c ++ " does not fit here."]
 
-parseError :: P a
+parseError :: LP s a
 parseError = do
   tok <- getLastToken
   failP (posOf tok)

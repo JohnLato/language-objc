@@ -1,5 +1,8 @@
-{-# LANGUAGE TupleSections, GeneralizedNewtypeDeriving,
-      DeriveFunctor #-}
+{-# LANGUAGE TupleSections
+            ,BangPatterns
+            ,NoMonomorphismRestriction
+            ,GeneralizedNewtypeDeriving
+            ,DeriveFunctor #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -23,37 +26,42 @@
 --  keep a list of sets of identifiers so we can save the outer scope when we
 --  enter an inner scope.
 module Language.ObjC.Parser.ParserMonad (
+  LP,
   P,
   IType (..),
   TMap,
   execParser,
+  execLazyParser,
   failP,
-  getNewName,           -- :: P Name
+  getNewName,           -- :: (PMonad p) => p Name
   addTypedef,           -- :: Ident -> P ()
   shadowSymbol,         -- :: Ident -> P ()
   isTypeIdent,          -- :: Ident -> P Bool
   addClass,             -- :: Ident -> P ()
   isClass,              -- :: Ident -> P Bool
   isSpecial,            -- :: Ident -> P IType
-  enterScope,           -- :: P ()
-  leaveScope,           -- :: P ()
+  enterScope,           -- :: (PMonad p) => p ()
+  leaveScope,           -- :: (PMonad p) => p ()
   setPos,               -- :: Position -> P ()
-  getPos,               -- :: P Position
-  getInput,             -- :: P String
+  getPos,               -- :: (PMonad p) => p Position
+  getInput,             -- :: (PMonad p) => p String
   setInput,             -- :: String -> P ()
-  getLastToken,         -- :: P CToken
-  getSavedToken,        -- :: P CToken
+  getLastToken,         -- :: (PMonad p) => p CToken
+  getSavedToken,        -- :: (PMonad p) => p CToken
   setLastToken,         -- :: CToken -> P ()
-  handleEofToken,       -- :: P ()
-  getCurrentPosition,   -- :: P Position
+  handleEofToken,       -- :: (PMonad p) => p ()
+  getCurrentPosition,   -- :: (PMonad p) => p Position
   ParseError(..),
+  parsedLazily,         -- :: s -> LP [s] s
   ) where
+
 import Language.ObjC.Data.Error (internalErr, showErrorInfo,ErrorInfo(..),ErrorLevel(..))
 import Language.ObjC.Data.Position  (Position(..))
 import Language.ObjC.Data.InputStream
 import Language.ObjC.Data.Name    (Name)
 import Language.ObjC.Data.Ident    (Ident)
 import Language.ObjC.Parser.Tokens (CToken(CTokEof))
+import Language.ObjC.Syntax.AST    (CExtDecl)
 
 import Data.Map  (Map)
 import qualified Data.Map as Map
@@ -75,37 +83,76 @@ data ParseResult a
  deriving (Functor)
 
 data PState = PState {
-        curPos     :: !Position,        -- position at current input location
-        curInput   :: !InputStream,      -- the current input
-        prevToken  ::  CToken,          -- the previous token
-        savedToken ::  CToken,          -- and the token before that
-        namesupply :: ![Name],          -- the name unique supply
-        tyidents   :: !(TMap), -- the set of typedef'ed identifiers
-        scopes     :: [TMap]   -- the tyident sets for outer scopes
-     }
+  curPos     :: !Position,        -- position at current input location
+  curInput   :: !InputStream,     -- the current input
+  prevToken  ::  CToken,          -- the previous token
+  savedToken ::  CToken,          -- and the token before that
+  namesupply :: ![Name],          -- the name unique supply
+  tyidents   :: !(TMap),          -- the set of typedef'ed identifiers
+  scopes     :: [TMap]            -- the tyident sets for outer scopes
+ }
 
-newtype P a = P { unP :: PState -> ParseResult a }
+-- | a minimal state-like representation, so we don't need to depend on mtl
+class (Functor p, Monad p) => PMonad p where
+  get :: p PState
+  put :: PState -> p ()
+  modify :: (PState -> PState) -> p ()
+  modify f = get >>= put . f
+
+failP :: Position -> [String] -> LP s a
+failP pos m = LP $ \s pSt -> (PFailed m pos, s)
+
+-- | Default parser type, so CExtDecls can be parsed lazily
+type P a = LP [CExtDecl] a
+
+-- | A Lazy Parser Monad.  Highly experimental
+newtype LP s a = LP { unLP :: s -> PState -> (ParseResult a, s) }
   deriving (Functor)
 
-instance Applicative P where
-  pure = returnP
+instance Monad (LP s) where
+  {-# INLINE return #-}
+  return a = LP $ \s pSt -> (POk pSt a, s)
+  {-# INLINE (>>=) #-}
+  (LP m) >>= f = LP $ \s pSt ->
+                   let (r1, s1) = m s2 pSt
+                       (r2, s2) = case r1 of
+                                    POk pSt' a -> unLP (f a) s pSt'
+                                    PFailed err pos -> (PFailed err pos, s)
+                   in (r2, s1)
+  {-# INLINE fail #-}
+  fail m = LP $ \s pSt -> (PFailed [m] (curPos pSt), s)
+
+instance PMonad (LP s) where
+  get      = LP $ \s pst -> (POk pst pst, s)
+  put st   = LP $ \s _   -> (POk st (), s)
+  modify f = LP $ \s pst -> (POk (f pst) (), s)
+
+getL :: LP s s
+getL = LP $ \s pst -> (POk pst s, s)
+
+modifyL :: (s -> s) -> LP s ()
+modifyL f = LP $ \s pst -> (POk pst (),f s)
+
+putL :: s -> LP s ()
+putL = modifyL . const
+
+instance Applicative (LP s) where
+  {-# INLINE pure #-}
+  pure = return
+  {-# INLINE (<*>) #-}
   f <*> m = f >>= \f' -> m >>= \m' -> pure (f' m')
-
-instance Monad P where
-  return = returnP
-  (>>=) = thenP
-  fail m = getPos >>= \pos -> failP pos [m]
-
 
 -- | execute the given parser on the supplied input stream.
 --   returns 'ParseError' if the parser failed, and a pair of
 --   result and remaining name supply otherwise
+-- 
+--   Lazy parsing results are ignored.
 --
 -- Synopsis: @execParser parser inputStream initialPos predefinedTypedefs uniqNameSupply@
-execParser :: P a -> InputStream -> Position -> [Ident] -> [Name]
+execParser :: LP [s] a -> InputStream -> Position -> [Ident] -> [Name]
            -> Either ParseError (a,[Name])
-execParser (P parser) input pos builtins names =
-  case parser initialState of
+execParser (LP parser) input pos builtins names =
+  case fst $ parser [] initialState of
     PFailed message errpos -> Left (ParseError (message,errpos))
     POk st result -> Right (result, namesupply st)
   where initialState = PState {
@@ -118,90 +165,123 @@ execParser (P parser) input pos builtins names =
           scopes   = []
         }
 
-{-# INLINE returnP #-}
-returnP :: a -> P a
-returnP a = P $ \s -> POk s a
+-- | execute the given parser on the supplied input stream.
+-- 
+--   returns a lazy list of results, and either the parse result
+--   or a ParseError if there was an error.
+-- 
+--   The list should be consumed as far as possible before checking the result is
+--   evaluated for maximum laziness.
+--
+-- Synopsis: @execParser parser inputStream initialPos predefinedTypedefs uniqNameSupply@
+execLazyParser
+  :: LP [s] a
+  -> InputStream
+  -> Position
+  -> [Ident]
+  -> [Name]
+  -> ([s], Either ParseError a)
+execLazyParser (LP parser) input pos builtins names =
+  let (res, lzparse) = parser [] initialState
+      procRes        = case res of
+                         PFailed message errpos -> Left (ParseError (message,errpos))
+                         POk _ result -> Right result
+  in  (lzparse, procRes)
+  where initialState = PState {
+          curPos = pos,
+          curInput = input,
+          prevToken = internalErr "CLexer.execParser: Touched undefined token!",
+          savedToken = internalErr "CLexer.execParser: Touched undefined token (safed token)!",
+          namesupply = names,
+          tyidents = Map.fromList $ map (,TyDef) builtins,
+          scopes   = []
+        }
 
-{-# INLINE thenP #-}
-thenP :: P a -> (a -> P b) -> P b
-(P m) `thenP` k = P $ \s ->
-        case m s of
-                POk s' a        -> (unP (k a)) s'
-                PFailed err pos -> PFailed err pos
+withState :: PMonad p => (PState -> (PState, a)) -> p a
+withState f = get >>= \p -> case f p of
+                  (pst', a) -> put pst' >> return a
+{-# INLINE withState #-}
 
-failP :: Position -> [String] -> P a
-failP pos msg = P $ \_ -> PFailed msg pos
+withState' :: PMonad p => (PState -> (PState, a)) -> p a
+withState' f = get >>= \p -> case f p of
+                  (pst', !a) -> put pst' >> return a
+{-# INLINE withState' #-}
 
-getNewName :: P Name
-getNewName = P $ \s@PState{namesupply=(n:ns)} -> n `seq` POk s{namesupply=ns} n
+getNewName :: (PMonad p) => p Name
+getNewName = withState' $ \s@PState{namesupply=(n:ns)} -> (s{namesupply=ns}, n)
 
-setPos :: Position -> P ()
-setPos pos = P $ \s -> POk s{curPos=pos} ()
+setPos :: (PMonad p) => Position -> p ()
+setPos pos = modify $ \s -> s{curPos=pos}
 
-getPos :: P Position
-getPos = P $ \s@PState{curPos=pos} -> POk s pos
+getPos :: (PMonad p) => p Position
+getPos = (\st -> curPos st) <$> get
 
-addTypedef :: Ident -> P ()
-addTypedef ident = (P $ \s@PState{tyidents=tyids} ->
-                             POk s{tyidents = Map.insert ident TyDef tyids} ())
+addTypedef :: (PMonad p) => Ident -> p ()
+addTypedef ident = modify $ \s@PState{tyidents=tyids} ->
+                             s{tyidents = Map.insert ident TyDef tyids}
 
-shadowSymbol :: Ident -> P ()
-shadowSymbol ident = (P $ \s@PState{tyidents=tyids} ->
+shadowSymbol :: (PMonad p) => Ident -> p ()
+shadowSymbol ident = modify $ \s@PState{tyidents=tyids} ->
                              -- optimisation: mostly the ident will not be in
                              -- the tyident set so do a member lookup to avoid
-                             --  churn induced by calling delete
-                             POk s{tyidents = if ident `Map.member` tyids
-                                                then ident `Map.delete` tyids
-                                                else tyids } ())
+                             -- churn induced by calling delete
+                             -- (JL: I dont follow this reasoning, if it's not present the map
+                             --  shouldn't change, hence no churn...)
+                             s{tyidents = if ident `Map.member` tyids
+                                            then ident `Map.delete` tyids
+                                            else tyids }
 
-isTypeIdent :: Ident -> P Bool
-isTypeIdent ident = P $ \s@PState{tyidents=tyids} ->
-                             POk s $! maybe False (== TyDef)
-                             $ Map.lookup ident tyids
+-- withState' :: PMonad p => (PState -> (PState, a)) -> p a
+isTypeIdent :: (PMonad p) => Ident -> p Bool
+isTypeIdent ident =  (\s -> maybe False (== TyDef)
+                       . Map.lookup ident $ tyidents s)
+                     <$> get
 
-addClass :: Ident -> P ()
-addClass ident = (P $ \s@PState{tyidents=tyids} ->
-                             POk s{tyidents = Map.insert ident CName tyids} ())
+addClass :: (PMonad p) => Ident -> p ()
+addClass ident = modify $ \s@PState{tyidents=tyids} ->
+                             s{tyidents = Map.insert ident CName tyids}
 
-isClass :: Ident -> P Bool
-isClass ident = P $ \s@PState{tyidents=tyids} ->
-                             POk s $! maybe False (== CName)
-                             $ Map.lookup ident tyids
+isClass :: (PMonad p) => Ident -> p Bool
+isClass ident = (\s -> maybe False (== CName)
+                       . Map.lookup ident $ tyidents s)
+                <$> get
 
-isSpecial :: Ident -> P (Maybe IType)
-isSpecial ident = P $ \s@PState{tyidents=tyids} ->
-                             POk s $! Map.lookup ident tyids
+isSpecial :: (PMonad p) => Ident -> p (Maybe IType)
+isSpecial ident = (\s -> Map.lookup ident $ tyidents s) <$> get
 
-enterScope :: P ()
-enterScope = P $ \s@PState{tyidents=tyids,scopes=ss} ->
-                     POk s{scopes=tyids:ss} ()
+enterScope :: (PMonad p) => p ()
+enterScope = modify $ \s@PState{tyidents=tyids,scopes=ss} -> s{scopes=tyids:ss}
 
-leaveScope :: P ()
-leaveScope = P $ \s@PState{scopes=ss} ->
+leaveScope :: (PMonad p) => p ()
+leaveScope = modify $ \s@PState{scopes=ss} ->
                      case ss of
                        []          -> error "leaveScope: already in global scope"
-                       (tyids:ss') -> POk s{tyidents=tyids, scopes=ss'} ()
+                       (tyids:ss') -> s{tyidents=tyids, scopes=ss'}
 
-getInput :: P InputStream
-getInput = P $ \s@PState{curInput=i} -> POk s i
+getInput :: (PMonad p) => p InputStream
+getInput = curInput <$> get
 
-setInput :: InputStream -> P ()
-setInput i = P $ \s -> POk s{curInput=i} ()
+setInput :: (PMonad p) => InputStream -> p ()
+setInput i = modify (\s -> s{curInput=i})
 
-getLastToken :: P CToken
-getLastToken = P $ \s@PState{prevToken=tok} -> POk s tok
+getLastToken :: (PMonad p) => p CToken
+getLastToken = prevToken <$> get
 
-getSavedToken :: P CToken
-getSavedToken = P $ \s@PState{savedToken=tok} -> POk s tok
+getSavedToken :: (PMonad p) => p CToken
+getSavedToken = savedToken <$> get
 
 -- | @setLastToken modifyCache tok@
-setLastToken :: CToken -> P ()
-setLastToken CTokEof = P $ \s -> POk s{savedToken=(prevToken s)} ()
-setLastToken tok      = P $ \s -> POk s{prevToken=tok,savedToken=(prevToken s)} ()
+setLastToken :: (PMonad p) => CToken -> p ()
+setLastToken CTokEof = modify $ \s -> s{savedToken=(prevToken s)}
+setLastToken tok     = modify $ \s -> s{prevToken=tok,savedToken=(prevToken s)}
 
 -- | handle an End-Of-File token (changes savedToken)
-handleEofToken :: P ()
-handleEofToken = P $ \s -> POk s{savedToken=(prevToken s)} ()
+handleEofToken :: (PMonad p) => p ()
+handleEofToken = modify $ \s -> s{savedToken=(prevToken s)}
 
-getCurrentPosition :: P Position
-getCurrentPosition = P $ \s@PState{curPos=pos} -> POk s pos
+getCurrentPosition :: (PMonad p) => p Position
+getCurrentPosition = curPos <$> get
+
+-- | Insert a parsed value into the lazy parsing stream
+parsedLazily :: s -> LP [s] s
+parsedLazily s = s <$ modifyL (s:)

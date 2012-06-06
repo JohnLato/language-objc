@@ -13,9 +13,9 @@
 -----------------------------------------------------------------------------
 module Language.ObjC.Parser (
     -- * Simple API
-    parseC,
+    parseC, parseLazyC,
     -- * Parser Monad
-    P,execParser,execParser_,builtinTypeNames,
+    P,execParser,execLazyParser, execParser_,builtinTypeNames,
     -- * Exposed Parsers
     translUnitP, extDeclP, statementP, expressionP,
     -- * Parser Monad
@@ -23,7 +23,7 @@ module Language.ObjC.Parser (
 )
 where
 import Language.ObjC.Parser.Parser
-import Language.ObjC.Parser.ParserMonad (execParser, ParseError(..),P)
+import Language.ObjC.Parser.ParserMonad (execParser, execLazyParser, ParseError(..),P)
 import Language.ObjC.Parser.Builtin (builtinTypeNames)
 
 import Language.ObjC.Data

@@ -32,7 +32,7 @@
 {
 module Language.ObjC.Parser.Parser (
   -- * Parse a C translation unit
-  parseC,
+  parseC, parseLazyC,
   -- * Exposed Parsers
   translUnitP, extDeclP, statementP, expressionP
 ) where
@@ -109,9 +109,7 @@ import Control.Monad (mplus)
 import Language.ObjC.Parser.Builtin   (builtinTypeNames)
 import Language.ObjC.Parser.Lexer     (lexC, parseError)
 import Language.ObjC.Parser.Tokens    (CToken(..), GnuCTok(..), ObjCTok (..), posLenOfTok)
-import Language.ObjC.Parser.ParserMonad (P, failP, execParser, getNewName,
-   addTypedef, shadowSymbol, getCurrentPosition, addClass,
-   enterScope, leaveScope, getLastToken, getSavedToken, ParseError(..))
+import Language.ObjC.Parser.ParserMonad
 
 import Language.ObjC.Data.RList
 import Language.ObjC.Data.InputStream
@@ -124,6 +122,7 @@ import Language.ObjC.Syntax
 }
 -- in order to document the parsers, we have to alias them
 %name translation_unit translation_unit
+%name lazy_translation_unit lazy_translation_unit
 %name external_declaration external_declaration
 %name statement statement
 %name expression expression
@@ -262,7 +261,7 @@ classname       { CTokObjC (ObjCClassIdent $$)  _ } -- `class' identifier
 %%
 
 
--- parse a complete C translation unit
+-- parse a complete Objective-C translation unit
 -- we have to take special care of empty translation units
 translation_unit :: { CTranslUnit }
 translation_unit
@@ -270,6 +269,13 @@ translation_unit
                        case decls of
                            []     -> do{ n <- getNewName; p <- getCurrentPosition; return $ CTranslUnit decls (mkNodeInfo' p (p,0) n) }
                            (d:ds) -> withNodeInfo d $ CTranslUnit decls }
+
+-- parse a complete Objective-C translation unit lazily
+lazy_translation_unit :: { () }
+lazy_translation_unit
+  : {- empty -}                                 { () }
+  | lazy_translation_unit ';'                   { () }
+  | lazy_translation_unit external_declaration  {% parsedLazily $2 >> return () }
 
 
 -- parse a list of external declarations, making up a C translation unit (C99 6.9)
@@ -2689,15 +2695,25 @@ parseC :: InputStream -> Position -> Either ParseError CTranslUnit
 parseC input initialPosition =
   fmap fst $ execParser translUnitP input initialPosition builtinTypeNames (namesStartingFrom 0)
 
+parseLazyC :: InputStream -> Position -> ([CExtDecl], Either ParseError ())
+parseLazyC input initialPosition =
+  execLazyParser translUnitLP input initialPosition builtinTypeNames (namesStartingFrom 0)
+
 -- | @translUnitP@ provides a parser for a complete C translation unit, i.e. a list of external declarations.
 translUnitP :: P CTranslUnit
 translUnitP = translation_unit
+
+translUnitLP :: P ()
+translUnitLP = lazy_translation_unit
+
 -- | @extDeclP@ provides a parser for an external (file-scope) declaration
 extDeclP :: P CExtDecl
 extDeclP = external_declaration
+
 -- | @statementP@ provides a parser for C statements
 statementP :: P CStat
 statementP = statement
+
 -- | @expressionP@ provides a parser for C expressions
 expressionP :: P CExpr
 expressionP = expression

@@ -21,8 +21,8 @@ Extra-Source-Files: AUTHORS AUTHORS.c2hs ChangeLog README
                     src/Language/ObjC/Parser/Parser.y
 
 Source-Repository head
-  type:     darcs
-  location: http://www.tiresiaspress.us/haskell/language-objc
+  type:     git
+  location: http://github.com/JohnLato/language-objc.git
 
 Flag useByteStrings
     Description: Use ByteString as InputStream datatype

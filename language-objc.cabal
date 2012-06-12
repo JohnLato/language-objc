@@ -38,7 +38,7 @@ Library
                    process    == 1.1.*,
                    directory  == 1.1.*,
                    array      == 0.4.*,
-                   containers == 0.4.*,
+                   containers >= 0.4     && < 0.6,
                    newtype    == 0.2.*,
                    pretty     == 1.1.*
 

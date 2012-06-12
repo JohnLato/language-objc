@@ -98,10 +98,12 @@ prettyUsingInclude (CTranslUnit edecls _) =
 instance Pretty CExtDecl where
     pretty (CDeclExt decl) = pretty decl <> semi
     pretty (CFDefExt fund) = pretty fund
-    pretty (ObjCClassExt cls) = pretty cls
-    pretty (ObjCIfaceExt cls) = pretty cls
-    pretty (ObjCCatExt   ct) = pretty ct
-    pretty (ObjCProtoExt pr) = pretty pr
+    pretty (ObjCClassExt   cls) = pretty cls
+    pretty (ObjCIfaceExt   cls) = pretty cls
+    pretty (ObjCImplExt    cls) = pretty cls
+    pretty (ObjCCatExt     ct)  = pretty ct
+    pretty (ObjCCatImplExt ct)  = pretty ct
+    pretty (ObjCProtoExt   pr)  = pretty pr
     pretty (CAsmExt  asmStmt _) = text "asm" <> parens (pretty asmStmt) <> semi
 
 -- TODO: Check that old-style and new-style aren't mixed
@@ -130,6 +132,12 @@ instance Pretty (ObjCCatDec) where
       $$ sep (map pretty decls)
       $$ text "@end"
 
+instance Pretty (ObjCCatImpl) where
+    pretty (ObjCCatImpl i1 i2 defs _) =
+      text "@implementation" <+> identP i1 <+> parens (identP i2)
+      $$ sep (map pretty defs)
+      $$ text "@end"
+
 instance Pretty ObjCIface where
     pretty (ObjCIface cn sp protos vars decls attrs _) =
       attrlistP attrs
@@ -139,6 +147,19 @@ instance Pretty ObjCIface where
       <+> pVars vars
       $$ sep (map pretty decls)
       $$ text "@end"
+
+instance Pretty ObjCImpl where
+    pretty (ObjCImpl cn sp vars defs _) =
+      text "@implementation" <+> pretty cn
+      <+> maybe empty ((text ":" <+>) . pretty) sp
+      <+> pVars vars
+      $$ sep (map pretty defs)
+      $$ text "@end"
+
+instance Pretty ObjCImplDef where
+    pretty (ObjCImplDec dec) = pretty dec
+    pretty (ObjCImplMethod def) = pretty def
+    pretty (ObjCImplFun def) = pretty def
 
 instance Pretty ObjCProtoDec where
     pretty (ObjCForwardProtoDec ids attrs _) =
@@ -165,6 +186,13 @@ instance Pretty ObjCIfaceDecl where
 instance Pretty ObjCMethodDecl where
     pretty (ObjCMethodDecl typ typName sel attrs _) =
       hsep [pretty typ,pName typName,pretty sel,attrlistP attrs]
+      where pName = maybe empty (parens . pretty)
+
+instance Pretty ObjCMethodDef where
+    pretty (ObjCMethodDef typ typName sel decls stmt _) =
+      hsep [pretty typ, pName typName, pretty sel]
+      $+$ (ii . vcat . map (<> semi) . map pretty) decls
+      $+$ pretty stmt
       where pName = maybe empty (parens . pretty)
 
 instance Pretty ObjCMethodType where

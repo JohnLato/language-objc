@@ -362,6 +362,7 @@ idkwtok ('v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : []) = tok 8 CTokVolatil
 idkwtok ('_' : '_' : 'v' : 'o' : 'l' : 'a' : 't' : 'i' : 'l' : 'e' : '_' : '_' : []) = tok 12 CTokVolatile
 idkwtok ('w' : 'h' : 'i' : 'l' : 'e' : []) = tok 5 CTokWhile
 idkwtok ('@' : 'i' : 'n' : 't' : 'e' : 'r' : 'f' : 'a' : 'c' : 'e' : [] ) = tok 10 (CTokObjC ObjCInterface)
+idkwtok ('@' : 'i' : 'm' : 'p' : 'l' : 'e' : 'm' : 'e' : 'n' : 't' : 'a' : 't' : 'i' : 'o' : 'n' : [] ) = tok 15 (CTokObjC ObjCImplementation)
 idkwtok ('@' : 'e' : 'n' : 'd' : [] )       = tok 4  (CTokObjC ObjCEnd)
 idkwtok ('@' : 'r' : 'e' : 'q' : 'u' : 'i' : 'r' : 'e' : 'd' : [] )  = tok 9  (CTokObjC ObjCRequired)
 idkwtok ('@' : 'o' : 'p' : 't' : 'i' : 'o' : 'n' : 'a' : 'l' : [] )  = tok 9  (CTokObjC ObjCOptional)

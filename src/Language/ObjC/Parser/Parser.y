@@ -132,7 +132,18 @@ import Language.ObjC.Syntax
 %monad { P } { >>= } { return }
 %lexer { lexC } { CTokEof }
 
-%expect 1
+-- expected conflicts:
+--  inherited from language-objc, this is ok
+--  1.  if '(' expression ')' statement . else  -- probably ok
+-- 
+--    the next two should be fixed if possible, they're related to
+--    objective-C method definitions, and require more brainpower.
+--  2.  struct_or_union attrs_opt identifier . '{'
+--  3.  enum attrs_opt identifier . '{'
+--
+--  this one is from Obj-C, and is ok.
+--  4.  "@implementation" class_name '(' ident . ')'
+%expect 4
 
 %token
 
@@ -239,6 +250,7 @@ tyident		{ CTokTyIdent _ $$ }		-- `typedef-name' identifier
 "__builtin_types_compatible_p"	{ CTokGnuC GnuCTyCompat _ }
 "@class"        { CTokObjC ObjCClass        	_ }
 "@interface"    { CTokObjC ObjCInterface	_ }
+"@implementation" { CTokObjC ObjCImplementation	_ }
 "@property"     { CTokObjC ObjCProperty 	_ }
 "@end"          { CTokObjC ObjCEnd          	_ }
 "@required"     { CTokObjC ObjCRequired         _ }
@@ -302,7 +314,9 @@ external_declaration
   | declaration			              { CDeclExt $1 }
   | class_list			              { ObjCClassExt $1 }
   | class_interface                           { ObjCIfaceExt $1 }
+  | class_implementation                      { ObjCImplExt $1 }
   | category_dec                              { ObjCCatExt $1 }
+  | category_impl                             { ObjCCatImplExt $1 }
   | proto_dec                                 { ObjCProtoExt $1 }
   | "__extension__" external_declaration  { $2 }
   | asm '(' string_literal ')' ';'		  {% withNodeInfo $1 $ CAsmExt $3 }
@@ -376,9 +390,24 @@ ident_or_class_or_typedef :: { Ident }
   | tyident    { $1 }
   | classname  { $1 }
 
+class_implementation :: { ObjCImpl }
+class_implementation
+  : "@implementation" class_name ':' class_name instance_variables impl_def_list "@end"
+  	{% (withNodeInfo $1 $ ObjCImpl $2 (Just $4) (reverse $5) (reverse $6)) }
+  | "@implementation" class_name '{' instance_var_block_list '}' impl_def_list "@end"
+  	{% (withNodeInfo $1 $ ObjCImpl $2 Nothing (reverse $4) (reverse $6)) }
+  | "@implementation" class_name nonE_impl_def_list "@end"
+  	{% (withNodeInfo $1 $ ObjCImpl $2 Nothing [] (reverse $3)) }
+  | "@implementation" class_name "@end"
+  	{% (withNodeInfo $1 $ ObjCImpl $2 Nothing [] []) }
+
+category_impl :: { ObjCCatImpl }
+category_impl
+  : "@implementation" classname '(' ident ')' impl_def_list "@end"
+  	{% (withNodeInfo $1 $ ObjCCatImpl $2 $4 (reverse $6) ) }
+
 -- parse an interface declaration (ObjC)
 -- 
--- class_interface :- "@interface" identifier superclass_name? protocol_reference_list? instance_variables? interface_declaration_list? "@end@
 class_interface :: { ObjCIface }
 class_interface
   : "@interface" class_declarator opt_superclass opt_proto_ref_list instance_variables interface_declaration_list "@end"
@@ -403,6 +432,34 @@ nonempty_interface_declaration_list :: { Reversed [ObjCIfaceDecl] }
 nonempty_interface_declaration_list
   : nonempty_interface_declaration_list interface_declaration { ($1 `snoc` $2) }
   | interface_declaration                                     { singleton $1 }
+
+nonE_impl_def_list :: { Reversed [ObjCImplDef] }
+  : nonE_impl_def_list impl_def { ($1 `snoc` $2) }
+  | impl_def                    { singleton $1 }
+
+impl_def_list :: { Reversed [ObjCImplDef] }
+  : impl_def_list impl_def { ($1 `snoc` $2) }
+  |                        { empty }
+
+impl_def :: { ObjCImplDef }
+impl_def
+  : method_definition         { ObjCImplMethod $1 }
+  | function_definition       { ObjCImplFun $1 }
+  | declaration               { ObjCImplDec $1 }
+
+-- TODO: currently no support for the optional declaration_list.  These
+-- conflict with the parameter_type parsing of method_selector, and the
+-- ambiguity is yet to be resolved.
+method_definition :: { ObjCMethodDef }
+method_definition
+  : '+' method_selector compound_statement
+      {% let (sel,attrs) = $2 in withNodeInfo $1 (ObjCMethodDef ObjCClassMethod Nothing sel [] $3) }
+  | '-' method_selector compound_statement
+      {% let (sel,attrs) = $2 in withNodeInfo $1 (ObjCMethodDef ObjCInstanceMethod Nothing sel [] $3) }
+  | '+' '(' type_name ')' method_selector compound_statement
+      {% let (sel,attrs) = $5 in  withNodeInfo $1 (ObjCMethodDef ObjCClassMethod (Just $3) sel [] $6) }
+  | '-' '(' type_name ')' method_selector compound_statement
+      {% let (sel,attrs) = $5 in withNodeInfo $1 (ObjCMethodDef ObjCInstanceMethod (Just $3) sel [] $6) }
 
 interface_declaration_list :: { Reversed [ObjCIfaceDecl] }
 interface_declaration_list

@@ -155,6 +155,7 @@ data GnuCTok = GnuCAttrTok              -- `__attribute__'
 
 -- | tokens used for Objective-C
 data ObjCTok = ObjCInterface            -- `@interface'
+             | ObjCImplementation       -- `@implementation'
              | ObjCEnd                  -- `@end'
              | ObjCRequired             -- `@required'
              | ObjCOptional             -- `@optional'
@@ -380,6 +381,7 @@ instance Show CToken where
   showsPrec _ (CTokGnuC GnuCOffsetof _) = showString "__builtin_offsetof"
   showsPrec _ (CTokGnuC GnuCTyCompat _) = showString "__builtin_types_compatible_p"
   showsPrec _ (CTokObjC ObjCInterface _) = showString "@interface"
+  showsPrec _ (CTokObjC ObjCImplementation _) = showString "@implementation"
   showsPrec _ (CTokObjC ObjCEnd _)       = showString "@end"
   showsPrec _ (CTokObjC ObjCRequired _)  = showString "@required"
   showsPrec _ (CTokObjC ObjCOptional _)  = showString "@optional"

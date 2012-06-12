@@ -214,7 +214,7 @@ instance Pretty ObjCSel where
 
 instance Pretty ObjCKeyDeclr where
     pretty (ObjCKeyDeclr mSel mT nm _) =
-      p1 mSel <+> colon <+> p2 mT <+> identP nm
+      p1 mSel <> colon <> p2 mT <+> identP nm
       where p1 = maybe empty pretty
             p2 = maybe empty (parens . pretty)
 

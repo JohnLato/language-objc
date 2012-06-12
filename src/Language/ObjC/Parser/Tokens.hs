@@ -175,6 +175,7 @@ data ObjCTok = ObjCInterface            -- `@interface'
              | ObjCOneway               -- `oneway'
              | ObjCBycopy               -- `bycopy'
              | ObjCSuper                -- `super'
+             | ObjCNSSLit CString       -- NSString constant
 
 instance Pos CToken where
   posOf = fst . unPosLength . posLenOfTok
@@ -402,4 +403,5 @@ instance Show CToken where
   showsPrec _ (CTokObjC ObjCProt _)      = showString "@protected"
   showsPrec _ (CTokObjC ObjCPub _)       = showString "@public"
   showsPrec _ (CTokObjC ObjCPackage _)   = showString "@package"
+  showsPrec _ (CTokObjC (ObjCNSSLit s) _) = shows s
   showsPrec _ CTokEof = error "show CToken : CTokEof"

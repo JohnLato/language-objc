@@ -269,6 +269,7 @@ classname       { CTokObjC (ObjCClassIdent $$)  _ } -- `class' identifier
 "oneway"        { CTokObjC ObjCOneway           _ }
 "bycopy"        { CTokObjC ObjCBycopy           _ }
 "super"         { CTokObjC ObjCSuper            _ }
+nsstr		{ CTokObjC (ObjCNSSLit _)       _ }  -- NSString constant (no escapes)
 
 %%
 
@@ -2123,10 +2124,10 @@ array_designator
 --    Code block definitions
 primary_expression :: { CExpr }
 primary_expression
-  : ident		       {% withNodeInfo $1 $ CVar $1 }
-  | constant	  	 { CConst $1 }
-  | string_literal { CConst (liftStrLit $1) }
-  | '(' expression ')'	{ $2 }
+  : ident                       {% withNodeInfo $1 $ CVar $1 }
+  | constant                    { CConst $1 }
+  | string_literal              { CConst (liftStrLit $1) }
+  | '(' expression ')'          { $2 }
 
   -- GNU extensions
   | '(' compound_statement ')'
@@ -2152,6 +2153,7 @@ primary_expression
         {% withNodeInfo $1 $ ObjCProtoExpr $3 }
   | "@encode" '(' type_name ')'
         {% withNodeInfo $1 $ ObjCEncodeExpr $3 }
+  | nsstring_literal           { ObjCConst $1 }
 
 message_expression :: { ObjCMsgExpr }
 message_expression
@@ -2505,6 +2507,12 @@ string_literal_list :: { Reversed [CString] }
 string_literal_list
   : cstr			{ case $1 of CTokSLit _ s -> singleton s }
   | string_literal_list cstr	{ case $2 of CTokSLit _ s -> $1 `snoc` s }
+
+-- no support for lists of string literals, is that even valid Obj-C?
+nsstring_literal :: { ObjCConst }
+nsstring_literal
+  : nsstr
+  	{% withNodeInfo $1 $ case $1 of CTokObjC (ObjCNSSLit s) _ -> ObjCStrConst s }
 
 
 identifier :: { Ident }

@@ -606,6 +606,10 @@ instance Pretty CExpr where
     prettyPrec _p (ObjCProtoExpr i _) = text "@protocol" <+> parens (identP i)
     prettyPrec _p (ObjCEncodeExpr decls _) =
       text "@encode" <+> parens (pretty decls)
+    prettyPrec _p (ObjCConst cnst) = pretty cnst
+
+instance Pretty ObjCConst where
+    pretty (ObjCStrConst str _) = text "@" <> text (show str)
 
 instance Pretty ObjCSelName where
     pretty (ObjCSelPlain sn _) = pretty sn

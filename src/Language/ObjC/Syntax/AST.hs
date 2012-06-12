@@ -78,7 +78,10 @@ module Language.ObjC.Syntax.AST (
   ObjCSelectorName(..), ObjCSelectorKeyName(..),
   -- * Constants
   CConst, CStrLit, cstringOfLit, liftStrLit,
-  CConstant(..), CStringLiteral(..)
+  CConstant(..), CStringLiteral(..),
+  -- ** Objective-C Extensions
+  ObjCConst,
+  ObjCConstant(..)
 ) where
 import Language.ObjC.Syntax.Constants
 import Language.ObjC.Syntax.Ops
@@ -891,6 +894,7 @@ data CExpression a
   | ObjCSelectorExpr (ObjCSelectorName a) a      -- ^ selector name
   | ObjCProtoExpr Ident a                        -- ^ @protocol expression
   | ObjCEncodeExpr (CDeclaration a) a            -- ^ @encode expression
+  | ObjCConst    (ObjCConstant a)                -- ^ NSString constant
     deriving (Data,Typeable,Show, Functor {-! ,CNode , Annotated !-})
 
 type ObjCSelName = ObjCSelectorName NodeInfo
@@ -943,6 +947,12 @@ data CBuiltinThing a
   | CBuiltinTypesCompatible (CDeclaration a) (CDeclaration a) a  -- ^ @(type,type)@
     deriving (Show, Data,Typeable {-! ,CNode ,Functor ,Annotated !-})
 
+-- | Objective-C constant (NSString)
+type ObjCConst = ObjCConstant NodeInfo
+
+data ObjCConstant a
+  = ObjCStrConst CString a
+    deriving (Show, Data, Typeable, Functor {-! ,CNode, Annotated !-})
 
 -- | C constant (K&R A2.5 & A7.2)
 type CConst = CConstant NodeInfo
@@ -1880,6 +1890,7 @@ instance (CNode t1) => CNode (CExpression t1) where
         nodeInfo (ObjCSelectorExpr _ n) = nodeInfo n
         nodeInfo (ObjCProtoExpr _ n) = nodeInfo n
         nodeInfo (ObjCEncodeExpr _ n) = nodeInfo n
+        nodeInfo (ObjCConst d) = nodeInfo d
  
 instance (CNode t1) => Pos (CExpression t1) where
         posOf x = posOf (nodeInfo x)
@@ -1912,6 +1923,7 @@ instance Annotated CExpression where
         annotation (ObjCSelectorExpr _ n) = n
         annotation (ObjCProtoExpr _ n) = n
         annotation (ObjCEncodeExpr _ n) = n
+        annotation (ObjCConst n) = annotation n
         amap f (CComma a_1 a_2) = CComma a_1 (f a_2)
         amap f (CAssign a_1 a_2 a_3 a_4) = CAssign a_1 a_2 a_3 (f a_4)
         amap f (CCond a_1 a_2 a_3 a_4) = CCond a_1 a_2 a_3 (f a_4)
@@ -1938,6 +1950,7 @@ instance Annotated CExpression where
         amap f (ObjCSelectorExpr a_1 a_2) = ObjCSelectorExpr a_1 (f a_2)
         amap f (ObjCProtoExpr a_1 a_2) = ObjCProtoExpr a_1 (f a_2)
         amap f (ObjCEncodeExpr a_1 a_2) = ObjCEncodeExpr a_1 (f a_2)
+        amap f (ObjCConst n) = ObjCConst (amap f n)
 
  
 instance (CNode t1) => CNode (ObjCSelectorName t1) where
@@ -2057,6 +2070,18 @@ instance Annotated CBuiltinThing where
           = CBuiltinOffsetOf a_1 a_2 (f a_3)
         amap f (CBuiltinTypesCompatible a_1 a_2 a_3)
           = CBuiltinTypesCompatible a_1 a_2 (f a_3)
+
+ 
+instance (CNode t1) => CNode (ObjCConstant t1) where
+        nodeInfo (ObjCStrConst _ n) = nodeInfo n
+ 
+instance (CNode t1) => Pos (ObjCConstant t1) where
+        posOf x = posOf (nodeInfo x)
+
+ 
+instance Annotated ObjCConstant where
+        annotation (ObjCStrConst _ n) = n
+        amap f (ObjCStrConst a_1 a_2) = ObjCStrConst a_1 (f a_2)
 
  
 instance (CNode t1) => CNode (CConstant t1) where

@@ -202,6 +202,9 @@ L\'($inchar|@charesc){2,}\' { token CTokCLit (flip cChars True . unescapeMultiCh
 \"($instr|@charesc)*\"      { token CTokSLit (cString . unescapeString . init . tail) }
 L\"($instr|@charesc)*\"     { token CTokSLit (cString_w . unescapeString . init . tail . tail) }
 
+-- objective-C NSString literal
+\@\"($instr|@charesc)*\"    { token (flip CTokObjC) (ObjCNSSLit . cString . unescapeString . init . tail . tail) }
+
 L?\'@ucn\'                        { token_fail "Universal character names are unsupported" }
 L?\'\\[^0-7'\"\?\\abfnrtvuUx]\'     { token_fail "Invalid escape sequence" }
 L?\"($inchar|@charesc)*@ucn($inchar|@charesc|@ucn)*\" { token_fail "Universal character names in string literals are unsupported"}

@@ -1,5 +1,5 @@
 Name:           language-objc
-Version:        0.4.2.0
+Version:        0.4.2.1
 Cabal-Version:  >= 1.6
 Build-Type:     Simple
 License:        BSD3
@@ -34,7 +34,7 @@ Library
     Extensions: CPP, DeriveDataTypeable, PatternGuards, BangPatterns, ExistentialQuantification, GeneralizedNewtypeDeriving, ScopedTypeVariables
 
     Build-Depends: base       >= 3 && < 5,
-                   filepath   == 1.3.*,
+                   filepath   >= 1.1 && < 1.4,
                    process    == 1.1.*,
                    directory  == 1.1.*,
                    array      == 0.4.*,

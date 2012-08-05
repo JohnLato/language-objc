@@ -1,5 +1,5 @@
 Name:           language-objc
-Version:        0.4.2.1
+Version:        0.4.2.2
 Cabal-Version:  >= 1.6
 Build-Type:     Simple
 License:        BSD3
@@ -10,7 +10,7 @@ Maintainer:     jwlato@gmail.com
 Stability:      experimental
 Homepage:       http://www.tiresiaspress.us/haskell/language-objc
 
-Synopsis:       Analysis and generation of Objcective C code
+Synopsis:       Analysis and generation of Objective C code
 Description:    Language-ObjC is a haskell library for the analysis and
                 generation of Objective C code.
                 It features a complete, well tested parser and pretty printer.

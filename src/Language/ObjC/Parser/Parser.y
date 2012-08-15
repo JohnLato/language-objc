@@ -2145,6 +2145,8 @@ primary_expression
   -- objective-C support
   | '^' '(' parameter_type_list ')' compound_statement
         {% withNodeInfo $1 $ CBlockExpr $3 $5 }
+  | '^' compound_statement
+        {% withNodeInfo $1 $ CBlockExpr ([],False) $2 }
   |  message_expression
         {% withNodeInfo $1 $ ObjCMessageExpr $1 }
   | "@selector" '(' selector_name ')'

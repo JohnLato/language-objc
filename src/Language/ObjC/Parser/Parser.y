@@ -348,11 +348,11 @@ proto_decs
 
 
 preq :: { ObjCProtoDeclBlock }
-  : "@required" nonempty_interface_declaration_list
+  : "@required" interface_declaration_list
        {% withNodeInfo $1 $ ObjCReqProtoBlock (reverse $2) }
 
 popt :: { ObjCProtoDeclBlock }
-  : "@optional" nonempty_interface_declaration_list
+  : "@optional" interface_declaration_list
        {% withNodeInfo $1 $ ObjCOptProtoBlock (reverse $2) }
 
 pdef :: { ObjCProtoDeclBlock }

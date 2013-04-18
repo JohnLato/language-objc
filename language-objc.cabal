@@ -45,7 +45,7 @@ Library
     If flag(separateSYB)
       Build-Depends:
             base >=4 && <5,
-            syb  == 0.3.*
+            syb  >= 0.3 && < 0.5
     Else
       Build-Depends:
             base <4

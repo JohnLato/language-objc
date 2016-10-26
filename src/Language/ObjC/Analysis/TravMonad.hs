@@ -411,6 +411,13 @@ withExtDeclHandler action handler =
     do modify $ \st -> st { doHandleExtDecl = handler }
        action
 
+instance Applicative (Trav s) where
+    pure = return
+    (<*>) mf ma = do
+      f <- mf
+      a <- ma
+      return $ f a
+
 instance Monad (Trav s) where
     return x  = Trav (\s -> Right (x,s))
     m >>= k   = Trav (\s -> case unTrav m s of

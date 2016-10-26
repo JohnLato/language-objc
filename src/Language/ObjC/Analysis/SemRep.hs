@@ -650,75 +650,75 @@ instance CNode FunDef where
 instance Pos FunDef where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode ParamDecl where
         nodeInfo (ParamDecl _ n) = n
         nodeInfo (AbstractParamDecl _ n) = n
- 
+
 instance Pos ParamDecl where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode MemberDecl where
         nodeInfo (MemberDecl _ _ n) = n
         nodeInfo (AnonBitField _ _ n) = n
- 
+
 instance Pos MemberDecl where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode TypeDef where
         nodeInfo (TypeDef _ _ _ n) = n
- 
+
 instance Pos TypeDef where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode TypeDefRef where
         nodeInfo (TypeDefRef _ _ n) = n
- 
+
 instance Pos TypeDefRef where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode CompTypeRef where
         nodeInfo (CompTypeRef _ _ n) = n
- 
+
 instance Pos CompTypeRef where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode EnumTypeRef where
         nodeInfo (EnumTypeRef _ n) = n
- 
+
 instance Pos EnumTypeRef where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode CompType where
         nodeInfo (CompType _ _ _ _ n) = n
- 
+
 instance Pos CompType where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode EnumType where
         nodeInfo (EnumType _ _ _ n) = n
- 
+
 instance Pos EnumType where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode Enumerator where
         nodeInfo (Enumerator _ _ _ n) = n
- 
+
 instance Pos Enumerator where
         posOf x = posOf (nodeInfo x)
 
- 
+
 instance CNode Attr where
         nodeInfo (Attr _ _ n) = n
- 
+
 instance Pos Attr where
         posOf x = posOf (nodeInfo x)
 -- GENERATED STOP

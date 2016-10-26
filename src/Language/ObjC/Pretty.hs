@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances  #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, FlexibleContexts  #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Language.ObjC.Pretty
